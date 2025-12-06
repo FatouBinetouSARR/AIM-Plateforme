@@ -1,0 +1,88 @@
+{
+    "admin": {
+        "id": "26bc0e7e-f499-46ca-9723-6edfe26dd697",
+        "username": "admin",
+        "email": "admin@aim.com",
+        "password_hash": "3eb3fe66b31e3b4d10fa70b5cad49c7112294af6ae4e476a1c405155d45aa121",
+        "full_name": "Administrateur AIM",
+        "company": "AIM Analytics",
+        "role": "admin",
+        "created_at": "2025-12-03T22:31:05.222371",
+        "last_login": "2025-12-05T00:59:08.437307",
+        "is_active": true
+    },
+    "marketing": {
+        "id": "c5048869-3618-4e67-a33a-e5eb2f645e1e",
+        "username": "marketing",
+        "email": "marketing@aim.com",
+        "password_hash": "4ffb20effe58863b09415de3fa69d4bb2c49db4495820ca30c639317729f8a0a",
+        "full_name": "Équipe Marketing",
+        "company": "Entreprise Test",
+        "role": "user",
+        "created_at": "2025-12-03T22:31:05.222418",
+        "last_login": null,
+        "is_active": false
+    },
+    "fatima": {
+        "id": "2bcd74b2-b024-4b4e-a828-b061f57dbd18",
+        "username": "fatima",
+        "email": "sarrfatoumata10@gmail.com",
+        "password_hash": "d0eb01497c77ea30e4b6ab5037dff1b195d67a40a3050419d68ce8d15bd624f9",
+        "full_name": "fatima sarr",
+        "company": "",
+        "role": "user",
+        "created_at": "2025-12-03T22:33:35.243844",
+        "last_login": "2025-12-06T00:15:26.143681",
+        "is_active": true
+    },
+    "fatima sarr": {
+        "id": "34f3e9f7-5d8d-4342-a0b8-eac2ec637d75",
+        "username": "fatima sarr",
+        "email": "sarrfatima1008@gmail.com",
+        "password_hash": "d0eb01497c77ea30e4b6ab5037dff1b195d67a40a3050419d68ce8d15bd624f9",
+        "full_name": "fatima sarr",
+        "company": "",
+        "role": "marketing",
+        "created_at": "2025-12-05T00:44:26.623168",
+        "last_login": "2025-12-05T18:47:51.568922",
+        "is_active": true
+    },
+    "Binta": {
+        "id": "bad5c92d-86cb-4a68-acee-3c13affa972f",
+        "username": "Binta",
+        "email": "binta123@gmail.com",
+        "password_hash": "d0eb01497c77ea30e4b6ab5037dff1b195d67a40a3050419d68ce8d15bd624f9",
+        "full_name": "Binta",
+        "company": "",
+        "role": "data_analyst",
+        "created_at": "2025-12-05T01:15:27.193645",
+        "last_login": "2025-12-06T00:15:01.158036",
+        "is_active": true
+    },
+    "faa": {
+        "id": "da6b2c9a-52ae-4684-8fa5-0e45ccdbf9a3",
+        "username": "faa",
+        "email": "faa@aim.com",
+        "password_hash": "d0eb01497c77ea30e4b6ab5037dff1b195d67a40a3050419d68ce8d15bd624f9",
+        "full_name": "faa",
+        "company": "",
+        "role": "admin",
+        "created_at": "2025-12-05T02:15:55.964817",
+        "last_login": "2025-12-06T00:12:19.913556",
+        "is_active": true
+    },
+    "test": {
+        "id": "665af2f5-9501-4d39-87aa-74754d583787",
+        "username": "test",
+        "email": "test@aim.com",
+        "password_hash": "cbc70b6b8c6beda67a0345d5f72c68ed3f941de1acd859a3fbbf3b07904b6767",
+        "full_name": "fatima",
+        "company": "",
+        "role": "marketing",
+        "created_by": "admin",
+        "created_at": "2025-12-05T22:30:40.672138",
+        "last_login": null,
+        "is_active": true,
+        "password_changed": false
+    }
+}

@@ -1,0 +1,23 @@
+{
+    "modules": {
+        "fake_review_detection": {
+            "threshold": 0.7,
+            "active": true,
+            "auto_delete": false
+        },
+        "sentiment_analysis": {
+            "model": "VADER (recommandé)",
+            "auto_analyze": true
+        },
+        "recommendations": {
+            "frequency": "Hebdomadaire",
+            "auto_generate": true,
+            "alert_threshold": 0.3
+        }
+    },
+    "system": {
+        "max_file_size": 100,
+        "auto_backup": true,
+        "backup_frequency": "Mensuelle"
+    }
+}

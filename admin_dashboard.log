@@ -1,0 +1,144 @@
+2025-12-06 00:08:30,231 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:08:49,039 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:08:57,678 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:08:58,029 - dashboard_data_analyst - ERROR - Erreur détection faux avis: Duplicate column names found: ['Avis', 'Avis', 'sentiment']
+2025-12-06 00:09:17,989 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:09:43,982 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:09:57,502 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:01,803 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:02,195 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:05,860 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:07,939 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:08,274 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:11,930 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:12,263 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:30,548 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:30,838 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:32,978 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:33,388 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:35,920 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:36,302 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:37,357 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:37,980 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:47,236 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:47,578 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:53,892 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:10:56,619 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:11:06,992 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: No module named 'openpyxl'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1090, in show_analyst_dashboard
+    render_person_identification_advanced()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1637, in render_person_identification_advanced
+    display_report_generation(data, name_col)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1932, in display_report_generation
+    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+         ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\io\excel\_openpyxl.py", line 57, in __init__
+    from openpyxl.workbook import Workbook
+ModuleNotFoundError: No module named 'openpyxl'
+2025-12-06 00:12:09,083 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-06 00:12:09,104 - dashboard_data_analyst - INFO - Déconnexion: Binta
+2025-12-06 00:12:30,419 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:12:30.419177", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:12:39,256 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:12:38.847805", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:12:41,540 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:12:41.540589", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:12:50,707 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:12:50.707552", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:12:57,848 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:12:57.848337", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:13:05,136 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:13:05.136928", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:13:10,432 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:13:10.432206", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:13:15,871 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:13:15.871688", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:13:23,391 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:13:23.391327", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:13:29,152 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:13:29.152248", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:13:35,682 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:13:35.682399", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:13:41,457 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:13:41.457524", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:13:48,175 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:13:48.175035", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:13:48,189 - dashboard_admin - ERROR - Erreur dans le dashboard: Can only use .str accessor with string values!
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_admin.py", line 963, in show_admin_dashboard
+    render_identification_page()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_admin.py", line 785, in render_identification_page
+    results = data[data[name_col].str.contains(search_term, case=False, na=False)]
+                   ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\generic.py", line 6318, in __getattr__
+    return object.__getattribute__(self, name)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\accessor.py", line 224, in __get__
+    accessor_obj = self._accessor(obj)
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\strings\accessor.py", line 194, in __init__
+    self._inferred_dtype = self._validate(data)
+                           ~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\strings\accessor.py", line 248, in _validate
+    raise AttributeError("Can only use .str accessor with string values!")
+AttributeError: Can only use .str accessor with string values!. Did you mean: 'std'?
+2025-12-06 00:13:48,370 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:13:48.370517", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:13:48,564 - dashboard_admin - ERROR - Erreur dans le dashboard: Can only use .str accessor with string values!
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_admin.py", line 963, in show_admin_dashboard
+    render_identification_page()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_admin.py", line 785, in render_identification_page
+    results = data[data[name_col].str.contains(search_term, case=False, na=False)]
+                   ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\generic.py", line 6318, in __getattr__
+    return object.__getattribute__(self, name)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\accessor.py", line 224, in __get__
+    accessor_obj = self._accessor(obj)
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\strings\accessor.py", line 194, in __init__
+    self._inferred_dtype = self._validate(data)
+                           ~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandas\core\strings\accessor.py", line 248, in _validate
+    raise AttributeError("Can only use .str accessor with string values!")
+AttributeError: Can only use .str accessor with string values!. Did you mean: 'std'?
+2025-12-06 00:13:58,639 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:13:58.639649", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:14:00,643 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:14:00.643268", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:14:05,272 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:14:05.272823", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:14:15,030 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:14:15.030518", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:14:18,820 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:14:18.820827", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:14:38,120 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:14:38.120341", "admin": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"]}}
+2025-12-06 00:14:38,128 - dashboard_admin - INFO - Admin Action: {"timestamp": "2025-12-06T00:14:38.128219", "admin": "faa", "action": "LOGOUT", "target": "faa", "details": {}}
+2025-12-06 00:15:09,283 - dashboard_data_analyst - INFO - Déconnexion: Binta
+2025-12-06 00:15:49,874 - dashboard_manager_marketing - INFO - Données marketing importées: youtubeSpamCollection.csv
+2025-12-06 00:15:53,281 - dashboard_manager_marketing - INFO - Données marketing importées: youtubeSpamCollection.csv
+2025-12-06 00:15:53,409 - dashboard_manager_marketing - ERROR - Erreur dans le dashboard marketing: There are multiple `plotly_chart` elements with the same auto-generated ID. When this element is created, it is assigned an internal ID based on the element type and provided parameters. Multiple elements with the same type and parameters will cause this error.
+
+To fix this error, please pass a unique `key` argument to the `plotly_chart` element.
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_manager_marketing.py", line 1831, in show_marketing_dashboard
+    render_insights_page()
+    ~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_manager_marketing.py", line 1042, in render_insights_page
+    display_aim_insights(data, text_col, client_col)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_manager_marketing.py", line 1104, in display_aim_insights
+    st.plotly_chart(fig, use_container_width=True)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\streamlit\runtime\metrics_util.py", line 444, in wrapped_func
+    result = non_optional_func(*args, **kwargs)
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\streamlit\elements\plotly_chart.py", line 509, in plotly_chart
+    plotly_chart_proto.id = compute_and_register_element_id(
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        "plotly_chart",
+        ^^^^^^^^^^^^^^^
+    ...<7 lines>...
+        use_container_width=use_container_width,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\streamlit\elements\lib\utils.py", line 239, in compute_and_register_element_id
+    _register_element_id(ctx, element_type, element_id)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ADMIN PC\AppData\Local\Programs\Python\Python313\Lib\site-packages\streamlit\elements\lib\utils.py", line 145, in _register_element_id
+    raise StreamlitDuplicateElementId(element_type)
+streamlit.errors.StreamlitDuplicateElementId: There are multiple `plotly_chart` elements with the same auto-generated ID. When this element is created, it is assigned an internal ID based on the element type and provided parameters. Multiple elements with the same type and parameters will cause this error.
+
+To fix this error, please pass a unique `key` argument to the `plotly_chart` element.
+2025-12-06 00:16:05,034 - dashboard_manager_marketing - INFO - Données marketing importées: youtubeSpamCollection.csv
+2025-12-06 00:16:11,845 - dashboard_manager_marketing - INFO - Données marketing importées: youtubeSpamCollection.csv
+2025-12-06 00:16:17,177 - dashboard_manager_marketing - INFO - Données marketing importées: youtubeSpamCollection.csv
+2025-12-06 00:16:23,403 - dashboard_manager_marketing - INFO - Données marketing importées: youtubeSpamCollection.csv
+2025-12-06 00:16:27,471 - dashboard_manager_marketing - INFO - Données marketing importées: youtubeSpamCollection.csv
+2025-12-06 00:16:35,927 - dashboard_manager_marketing - INFO - Données marketing importées: youtubeSpamCollection.csv
+2025-12-06 00:16:35,939 - dashboard_manager_marketing - INFO - Déconnexion marketing: fatima sarr
