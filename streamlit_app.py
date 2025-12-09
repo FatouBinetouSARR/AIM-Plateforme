@@ -1,9 +1,10 @@
 # ================================
-# AIM ANALYTICS PLATFORM 
+# AIM ANALYTICS PLATFORM - Streamlit Cloud + Supabase
 # ================================
 import streamlit as st
 import os
 import psycopg2
+from psycopg2 import pool
 import bcrypt
 import pandas as pd
 import numpy as np
@@ -12,7 +13,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.figure_factory as ff
 from psycopg2.extras import RealDictCursor
-from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import time
 import io
@@ -29,15 +29,8 @@ except ImportError:
     TEXTBLOB_AVAILABLE = False
     st.warning("TextBlob n'est pas installé. L'analyse de sentiment sera limitée.")
 
-try:
-    from fpdf import FPDF
-    FPDF_AVAILABLE = True
-except ImportError:
-    FPDF_AVAILABLE = False
-    st.warning("FPDF n'est pas installé. L'export PDF sera désactivé.")
-
 # ==================================
-# CONFIGURATION
+# CONFIGURATION STREAMLIT CLOUD + SUPABASE
 # ==================================
 st.set_page_config(
     page_title="AIM Analytics Platform",
@@ -46,16 +39,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-load_dotenv()
-
-DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "database": os.getenv("DB_NAME", "aim_db"),
-    "user": os.getenv("DB_USER", "postgres"),
-    "password": os.getenv("DB_PASSWORD", ""),
-    "port": os.getenv("DB_PORT", "5432"),
-}
-
+# Configuration Supabase PostgreSQL
+# Les variables d'environnement sont configurées dans Streamlit Cloud Secrets
 class Config:
     COLORS = {
         'primary': '#6554C0',
@@ -76,117 +61,180 @@ class Config:
     
     MAX_FILE_SIZE_MB = 100
     MAX_LOGIN_ATTEMPTS = 5
+    
+    # Paramètres de pool de connexions pour Supabase
+    DB_POOL_MIN = 1
+    DB_POOL_MAX = 5
 
 # ==================================
-# GESTION DE LA BASE DE DONNÉES
+# GESTION DE LA BASE DE DONNÉES SUPABASE
 # ==================================
-class DatabaseManager:
+class SupabaseDatabaseManager:
     def __init__(self):
+        self.connection_pool = None
         try:
-            self.conn = psycopg2.connect(**DB_CONFIG)
+            # Récupération des paramètres depuis Streamlit Secrets
+            db_params = self._get_db_params()
+            self.connection_pool = psycopg2.pool.SimpleConnectionPool(
+                Config.DB_POOL_MIN,
+                Config.DB_POOL_MAX,
+                **db_params
+            )
             self._create_tables()
             self._init_default_users()
+            st.success("✅ Connecté à Supabase PostgreSQL")
         except Exception as e:
-            st.warning(f"⚠️ Impossible de se connecter à la DB: {e}")
-            self.conn = None
-
+            st.warning(f"⚠️ Impossible de se connecter à Supabase: {e}")
+            self.connection_pool = None
+    
+    def _get_db_params(self):
+        """Récupère les paramètres de connexion depuis les secrets Streamlit"""
+        # Pour Streamlit Cloud avec Supabase
+        if 'SUPABASE_DB_URL' in st.secrets:
+            # Utilisation directe de l'URL de connexion
+            return {
+                'dsn': st.secrets['SUPABASE_DB_URL']
+            }
+        else:
+            # Fallback aux paramètres individuels
+            return {
+                'host': st.secrets.get('DB_HOST', 'localhost'),
+                'database': st.secrets.get('DB_NAME', 'postgres'),
+                'user': st.secrets.get('DB_USER', 'postgres'),
+                'password': st.secrets.get('DB_PASSWORD', ''),
+                'port': st.secrets.get('DB_PORT', '5432')
+            }
+    
+    def get_connection(self):
+        """Obtient une connexion depuis le pool"""
+        if self.connection_pool:
+            return self.connection_pool.getconn()
+        return None
+    
+    def return_connection(self, conn):
+        """Retourne une connexion au pool"""
+        if self.connection_pool and conn:
+            self.connection_pool.putconn(conn)
+    
     def _create_tables(self):
-        if not self.conn:
+        conn = self.get_connection()
+        if not conn:
             return
-        cursor = self.conn.cursor()
-        
-        # Table utilisateurs
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                full_name VARCHAR(100),
-                email VARCHAR(100),
-                password_hash TEXT NOT NULL,
-                role VARCHAR(20) NOT NULL,
-                department VARCHAR(50),
-                is_active BOOLEAN DEFAULT true,
-                created_at TIMESTAMP DEFAULT NOW(),
-                last_login TIMESTAMP,
-                preferences JSONB DEFAULT '{}'
-            )
-        """)
-        
-        # Table sessions utilisateurs
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS user_sessions (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                session_token TEXT,
-                login_time TIMESTAMP DEFAULT NOW(),
-                logout_time TIMESTAMP,
-                ip_address VARCHAR(50),
-                user_agent TEXT
-            )
-        """)
-        
-        # Table uploads de données
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS data_uploads (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                file_name VARCHAR(255),
-                file_size INTEGER,
-                upload_time TIMESTAMP DEFAULT NOW(),
-                data_type VARCHAR(50),
-                record_count INTEGER,
-                columns_count INTEGER,
-                status VARCHAR(20) DEFAULT 'uploaded'
-            )
-        """)
-        
-        # Table logs d'activité
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS activity_logs (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id),
-                activity_type VARCHAR(50),
-                description TEXT,
-                ip_address VARCHAR(50),
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        
-        self.conn.commit()
-        cursor.close()
-
-    def _init_default_users(self):
-        if not self.conn:
-            return
-        cursor = self.conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM users")
-        count = cursor.fetchone()[0]
-        if count == 0:
-            self._create_user("admin", "admin123", "Super Admin", "admin", "admin@aim.com", "Administration")
-            self._create_user("analyst", "analyst123", "Data Analyst", "data_analyst", "analyst@aim.com", "Analytics")
-            self._create_user("marketing", "marketing123", "Marketing Manager", "marketing", "marketing@aim.com", "Marketing")
-            self._create_user("support", "support123", "Support Agent", "support", "support@aim.com", "Support")
-        cursor.close()
-
-    def _create_user(self, username, password, fullname, role, email, department=None):
-        if not self.conn:
-            return
-        hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            INSERT INTO users (username, full_name, email, password_hash, role, department)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (username, fullname, email, hashed, role, department))
-        self.conn.commit()
-        cursor.close()
-
-    def create_new_user(self, username, password, full_name, email, role, department=None):
-        """Crée un nouvel utilisateur dans la base de données"""
-        if not self.conn:
-            return False, "Base de données non connectée"
+        cursor = conn.cursor()
         
         try:
-            cursor = self.conn.cursor()
+            # Table utilisateurs
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    full_name VARCHAR(100),
+                    email VARCHAR(100),
+                    password_hash TEXT NOT NULL,
+                    role VARCHAR(20) NOT NULL,
+                    department VARCHAR(50),
+                    is_active BOOLEAN DEFAULT true,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    last_login TIMESTAMP,
+                    preferences JSONB DEFAULT '{}'
+                )
+            """)
+            
+            # Table sessions utilisateurs
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_sessions (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    session_token TEXT,
+                    login_time TIMESTAMP DEFAULT NOW(),
+                    logout_time TIMESTAMP,
+                    ip_address VARCHAR(50),
+                    user_agent TEXT
+                )
+            """)
+            
+            # Table uploads de données
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS data_uploads (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    file_name VARCHAR(255),
+                    file_size INTEGER,
+                    upload_time TIMESTAMP DEFAULT NOW(),
+                    data_type VARCHAR(50),
+                    record_count INTEGER,
+                    columns_count INTEGER,
+                    status VARCHAR(20) DEFAULT 'uploaded'
+                )
+            """)
+            
+            # Table logs d'activité
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS activity_logs (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    activity_type VARCHAR(50),
+                    description TEXT,
+                    ip_address VARCHAR(50),
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            
+            conn.commit()
+            st.info("✅ Tables créées avec succès")
+        except Exception as e:
+            conn.rollback()
+            st.error(f"❌ Erreur création tables: {e}")
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def _init_default_users(self):
+        conn = self.get_connection()
+        if not conn:
+            return
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("SELECT COUNT(*) FROM users")
+            count = cursor.fetchone()[0]
+            if count == 0:
+                self._create_user("admin", "admin123", "Super Admin", "admin", "admin@aim.com", "Administration")
+                self._create_user("analyst", "analyst123", "Data Analyst", "data_analyst", "analyst@aim.com", "Analytics")
+                self._create_user("marketing", "marketing123", "Marketing Manager", "marketing", "marketing@aim.com", "Marketing")
+                self._create_user("support", "support123", "Support Agent", "support", "support@aim.com", "Support")
+                conn.commit()
+                st.info("👥 Utilisateurs par défaut créés")
+        except Exception as e:
+            st.error(f"Erreur initialisation users: {e}")
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def _create_user(self, username, password, fullname, role, email, department=None):
+        conn = self.get_connection()
+        if not conn:
+            return
+        cursor = conn.cursor()
+        try:
+            hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+            cursor.execute("""
+                INSERT INTO users (username, full_name, email, password_hash, role, department)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (username, fullname, email, hashed, role, department))
+            conn.commit()
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def create_new_user(self, username, password, full_name, email, role, department=None):
+        """Crée un nouvel utilisateur"""
+        conn = self.get_connection()
+        if not conn:
+            return False, "Base de données non connectée"
+        
+        cursor = conn.cursor()
+        try:
             cursor.execute("SELECT COUNT(*) FROM users WHERE username = %s OR email = %s", 
                           (username, email))
             count = cursor.fetchone()[0]
@@ -209,8 +257,7 @@ class DatabaseManager:
             """, (username, full_name, email, hashed, role, department))
             
             user_id = cursor.fetchone()[0]
-            self.conn.commit()
-            cursor.close()
+            conn.commit()
             
             self.log_activity(user_id, "user_creation", 
                             f"Création d'un nouvel utilisateur: {username} ({role})")
@@ -218,59 +265,83 @@ class DatabaseManager:
             return True, f"Utilisateur {username} créé avec succès!"
             
         except Exception as e:
+            conn.rollback()
             return False, f"Erreur lors de la création: {str(e)}"
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
     def get_all_users(self):
         """Récupère tous les utilisateurs"""
-        if not self.conn:
+        conn = self.get_connection()
+        if not conn:
             return []
-        cursor = self.conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
-            SELECT id, username, full_name, email, role, department, is_active, 
-                   created_at, last_login
-            FROM users
-            ORDER BY created_at DESC
-        """)
-        users = cursor.fetchall()
-        cursor.close()
-        return users
+        
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            cursor.execute("""
+                SELECT id, username, full_name, email, role, department, is_active, 
+                       created_at, last_login
+                FROM users
+                ORDER BY created_at DESC
+            """)
+            users = cursor.fetchall()
+            return users
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
     def update_user_status(self, user_id, is_active):
         """Active ou désactive un utilisateur"""
-        if not self.conn:
+        conn = self.get_connection()
+        if not conn:
             return False
+        
+        cursor = conn.cursor()
         try:
-            cursor = self.conn.cursor()
             cursor.execute("UPDATE users SET is_active = %s WHERE id = %s", 
                          (is_active, user_id))
-            self.conn.commit()
-            cursor.close()
+            conn.commit()
             return True
         except Exception as e:
+            conn.rollback()
             return False
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
     def authenticate(self, username, password):
-        if not self.conn:
+        conn = self.get_connection()
+        if not conn:
             return None
-        cursor = self.conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT * FROM users WHERE username=%s AND is_active=true", (username,))
-        user = cursor.fetchone()
-        cursor.close()
-        if not user:
-            return None
-        if not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
-            return None
-        cursor = self.conn.cursor()
-        cursor.execute("UPDATE users SET last_login=NOW() WHERE id=%s", (user["id"],))
-        self.conn.commit()
-        cursor.close()
-        return user
+        
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            cursor.execute("SELECT * FROM users WHERE username=%s AND is_active=true", (username,))
+            user = cursor.fetchone()
+            
+            if not user:
+                return None
+            
+            if not bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+                return None
+            
+            # Mise à jour dernière connexion
+            cursor.execute("UPDATE users SET last_login=NOW() WHERE id=%s", (user["id"],))
+            conn.commit()
+            
+            return user
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
     def update_user_profile(self, user_id, **kwargs):
-        if not self.conn:
+        conn = self.get_connection()
+        if not conn:
             return False
+        
+        cursor = conn.cursor()
         try:
-            cursor = self.conn.cursor()
             updates = []
             params = []
             
@@ -292,73 +363,90 @@ class DatabaseManager:
                 params.append(user_id)
                 query = f"UPDATE users SET {', '.join(updates)} WHERE id = %s"
                 cursor.execute(query, tuple(params))
-                self.conn.commit()
+                conn.commit()
             
-            cursor.close()
             return True
         except Exception as e:
+            conn.rollback()
             st.error(f"Error updating user profile: {e}")
             return False
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
     def log_activity(self, user_id, activity_type, description, ip_address="127.0.0.1"):
-        if not self.conn:
+        conn = self.get_connection()
+        if not conn:
             return
+        
+        cursor = conn.cursor()
         try:
-            cursor = self.conn.cursor()
             cursor.execute("""
                 INSERT INTO activity_logs (user_id, activity_type, description, ip_address)
                 VALUES (%s, %s, %s, %s)
             """, (user_id, activity_type, description, ip_address))
-            self.conn.commit()
-            cursor.close()
+            conn.commit()
         except Exception as e:
+            conn.rollback()
             print(f"Error logging activity: {e}")
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
     def get_activity_logs(self, limit=100):
-        if not self.conn:
+        conn = self.get_connection()
+        if not conn:
             return []
-        cursor = self.conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
-            SELECT al.*, u.username, u.full_name 
-            FROM activity_logs al
-            LEFT JOIN users u ON al.user_id = u.id
-            ORDER BY al.created_at DESC
-            LIMIT %s
-        """, (limit,))
-        logs = cursor.fetchall()
-        cursor.close()
-        return logs
+        
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            cursor.execute("""
+                SELECT al.*, u.username, u.full_name 
+                FROM activity_logs al
+                LEFT JOIN users u ON al.user_id = u.id
+                ORDER BY al.created_at DESC
+                LIMIT %s
+            """, (limit,))
+            logs = cursor.fetchall()
+            return logs
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
     def get_system_stats(self):
-        if not self.conn:
+        conn = self.get_connection()
+        if not conn:
             return {}
-        cursor = self.conn.cursor()
         
-        stats = {}
-        
-        cursor.execute("SELECT COUNT(*) FROM users")
-        stats['total_users'] = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM users WHERE is_active = true")
-        stats['active_users'] = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM users WHERE last_login >= CURRENT_DATE")
-        stats['today_logins'] = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM data_uploads")
-        stats['total_uploads'] = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM activity_logs")
-        stats['total_activities'] = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT role, COUNT(*) FROM users GROUP BY role")
-        stats['users_by_role'] = dict(cursor.fetchall())
-        
-        cursor.close()
-        return stats
+        cursor = conn.cursor()
+        try:
+            stats = {}
+            
+            cursor.execute("SELECT COUNT(*) FROM users")
+            stats['total_users'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM users WHERE is_active = true")
+            stats['active_users'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM users WHERE DATE(last_login) = CURRENT_DATE")
+            stats['today_logins'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM data_uploads")
+            stats['total_uploads'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM activity_logs WHERE DATE(created_at) = CURRENT_DATE")
+            stats['today_activities'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT role, COUNT(*) FROM users GROUP BY role")
+            stats['users_by_role'] = dict(cursor.fetchall())
+            
+            return stats
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
 # ==================================
-# ANALYSEUR AIM AVANCÉ
+# ANALYSEUR AIM AVANCÉ (inchangé)
 # ==================================
 class AIMAnalyzerAdvanced:
     @staticmethod
@@ -490,7 +578,7 @@ class AIMAnalyzerAdvanced:
         }
 
 # ==================================
-# ANALYSEUR DE DONNÉES AVANCÉ
+# ANALYSEUR DE DONNÉES AVANCÉ (inchangé)
 # ==================================
 class AdvancedDataAnalyzer:
     @staticmethod
@@ -744,7 +832,7 @@ class AdvancedDataAnalyzer:
         return figs
 
 # ==================================
-# STYLE CSS AVANCÉ
+# STYLE CSS AVANCÉ (inchangé)
 # ==================================
 def advanced_page_bg_css() -> str:
     return """
@@ -968,7 +1056,7 @@ def advanced_page_bg_css() -> str:
     """
 
 # ==================================
-# DASHBOARD ADMINISTRATEUR AMÉLIORÉ
+# DASHBOARD ADMINISTRATEUR (adapté)
 # ==================================
 def dashboard_admin_enhanced(user, db):
     st.markdown(advanced_page_bg_css(), unsafe_allow_html=True)
@@ -1036,22 +1124,22 @@ def render_system_overview_enhanced(user, db):
     
     with col2:
         st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-        st.markdown('<div class="kpi-label">Activités aujourd\'hui</div>', unsafe_allow_html=True)
+        st.markdown('<div class="kpi-label">Connexions aujourd\'hui</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="kpi-value">{stats.get("today_logins", 0)}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-trend kpi-trend-up">+12% vs hier</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-trend kpi-trend-up">Dernières 24h</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col3:
         st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
         st.markdown('<div class="kpi-label">Uploads total</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="kpi-value">{stats.get("total_uploads", 0)}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-trend kpi-trend-up">+5 cette semaine</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-trend kpi-trend-up">Fichiers stockés</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
     with col4:
         st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-        st.markdown('<div class="kpi-label">Logs d\'activité</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-value">{stats.get("total_activities", 0):,}</div>', unsafe_allow_html=True)
+        st.markdown('<div class="kpi-label">Activités aujourd\'hui</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-value">{stats.get("today_activities", 0)}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="kpi-trend kpi-trend-up">En temps réel</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -1078,6 +1166,7 @@ def render_system_overview_enhanced(user, db):
     
     with col2:
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        # Simulation d'activité pour démo
         activity_data = pd.DataFrame({
             'date': pd.date_range(end=pd.Timestamp.now(), periods=30, freq='D'),
             'activités': np.random.randint(50, 200, 30)
@@ -1093,8 +1182,11 @@ def render_system_overview_enhanced(user, db):
     
     st.markdown('</div>', unsafe_allow_html=True)
 
+# ==================================
+# FONCTIONS SUPPORT (simplifiées pour Streamlit Cloud)
+# ==================================
 def render_user_management_enhanced(user, db):
-    """Gestion avancée des utilisateurs avec formulaire d'ajout"""
+    """Gestion avancée des utilisateurs"""
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
     st.markdown('<h2 class="section-title">👥 Gestion des utilisateurs</h2>', unsafe_allow_html=True)
     
@@ -1166,13 +1258,14 @@ def render_user_management_enhanced(user, db):
             st.metric("Rôles différents", role_count)
         
         with col3:
-            today = pd.Timestamp.now().date()
             if 'last_login' in users_df.columns:
-                recent_logins = sum(pd.to_datetime(users_df['last_login']).dt.date == today)
+                today = pd.Timestamp.now().date()
+                recent_logins = sum(pd.to_datetime(users_df['last_login']).dt.date == today) 
                 st.metric("Connectés aujourd'hui", recent_logins)
         
         st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
         
+        # Filtres
         col1, col2 = st.columns(2)
         with col1:
             role_filter = st.multiselect(
@@ -1273,18 +1366,23 @@ def render_activity_logs_enhanced(user, db):
                 )
         
         with col2:
-            date_filter = st.date_input(
-                "Filtrer par date:",
-                value=pd.Timestamp.now().date(),
-                key="activity_date_filter"
-            )
+            if 'username' in logs_df.columns:
+                user_filter = st.multiselect(
+                    "Filtrer par utilisateur:",
+                    logs_df['username'].unique(),
+                    key="activity_user_filter"
+                )
         
         with col3:
-            user_filter = st.multiselect(
-                "Filtrer par utilisateur:",
-                logs_df['username'].unique() if 'username' in logs_df.columns else [],
-                key="activity_user_filter"
-            )
+            if 'created_at' in logs_df.columns:
+                # Extraire la date pour le filtre
+                logs_df['date'] = pd.to_datetime(logs_df['created_at']).dt.date
+                unique_dates = sorted(logs_df['date'].unique(), reverse=True)[:10]
+                date_filter = st.multiselect(
+                    "Filtrer par date:",
+                    unique_dates,
+                    key="activity_date_filter"
+                )
         
         filtered_logs = logs_df.copy()
         
@@ -1333,7 +1431,7 @@ def render_activity_logs_enhanced(user, db):
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==================================
-# DASHBOARD ANALYSTE AVANCÉ
+# DASHBOARD ANALYSTE (adapté pour Streamlit Cloud)
 # ==================================
 def dashboard_analyst_advanced(user, db):
     st.markdown(advanced_page_bg_css(), unsafe_allow_html=True)
@@ -1378,8 +1476,8 @@ def dashboard_analyst_advanced(user, db):
         
         uploaded_file = st.file_uploader(
             "Choisir un fichier",
-            type=['csv', 'xlsx', 'xls', 'json', 'parquet'],
-            help="Formats supportés: CSV, Excel, JSON, Parquet",
+            type=['csv', 'xlsx', 'xls', 'json'],
+            help="Formats supportés: CSV, Excel, JSON",
             key="analyst_data_uploader"
         )
         
@@ -1392,12 +1490,11 @@ def dashboard_analyst_advanced(user, db):
                         df = pd.read_excel(uploaded_file)
                     elif uploaded_file.name.endswith('.json'):
                         df = pd.read_json(uploaded_file)
-                    elif uploaded_file.name.endswith('.parquet'):
-                        df = pd.read_parquet(uploaded_file)
                     else:
                         st.error("Format de fichier non supporté")
                         return
                     
+                    # Nettoyer les noms de colonnes
                     df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
                     
                     st.session_state.uploaded_df = df
@@ -1458,6 +1555,9 @@ def dashboard_analyst_advanced(user, db):
     elif analyst_page == "📤 Export":
         render_export_page_advanced(user, db)
 
+# ==================================
+# FONCTIONS DE RENDER (adaptées)
+# ==================================
 def render_analyst_dashboard_advanced(user, db):
     """Dashboard analyste avec KPIs dynamiques"""
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
@@ -1467,7 +1567,7 @@ def render_analyst_dashboard_advanced(user, db):
         <div class="warning-card">
             <h3>📁 Aucune donnée chargée</h3>
             <p>Veuillez importer un fichier de données depuis la sidebar pour commencer l'analyse.</p>
-            <p><strong>Formats supportés:</strong> CSV, Excel, JSON, Parquet</p>
+            <p><strong>Formats supportés:</strong> CSV, Excel, JSON</p>
         </div>
         """, unsafe_allow_html=True)
         return
@@ -1511,6 +1611,7 @@ def render_analyst_dashboard_advanced(user, db):
         st.markdown(f'<div class="kpi-trend kpi-trend-up">{"Statistiques OK" if num_cols > 0 else "Limité"}</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
+    # Suite des KPIs...
     if any(key in kpis for key in ['avg_rating', 'date_range_days', 'category_diversity', 'top_category_count']):
         col1, col2, col3, col4 = st.columns(4)
         
@@ -1520,7 +1621,8 @@ def render_analyst_dashboard_advanced(user, db):
                 st.markdown('<div class="kpi-label">Note Moyenne</div>', unsafe_allow_html=True)
                 st.markdown(f'<div class="kpi-value">{kpis["avg_rating"]:.1f}/5</div>', unsafe_allow_html=True)
                 trend = "kpi-trend-up" if kpis["avg_rating"] >= 3.5 else "kpi-trend-down"
-                st.markdown(f'<div class="kpi-trend {trend}">{"Satisfaisant" if kpis["avg_rating"] >= 3.5 else "À améliorer"}</div>', unsafe_allow_html=True)
+                rating_text = "Satisfaisant" if kpis["avg_rating"] >= 3.5 else "À améliorer" if kpis["avg_rating"] >= 3.0 else "Préoccupante"
+                st.markdown(f'<div class="kpi-trend {trend}">{rating_text}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
@@ -1662,7 +1764,6 @@ def render_advanced_analysis_page(user, db):
         
         with col2:
             min_text_length = st.slider("Longueur min. texte", 10, 200, 20)
-            sentiment_threshold = st.slider("Seuil de confiance", 0.0, 1.0, 0.5)
     
     if st.button("🚀 Lancer l'analyse complète", type="primary", use_container_width=True):
         with st.spinner("🧠 Analyse AIM en cours..."):
@@ -1719,7 +1820,7 @@ def render_advanced_analysis_page(user, db):
             
             st.success(f"✅ Analyse terminée sur {len(results_df)} échantillons!")
     
-    # Vérifier si les résultats existent et ne sont pas vides
+    # Affichage des résultats
     if hasattr(st.session_state, 'advanced_aim_results') and st.session_state.advanced_aim_results is not None:
         results_df = st.session_state.advanced_aim_results
         
@@ -2005,8 +2106,131 @@ def render_fraud_detection_page(user, db):
     
     st.markdown('</div>', unsafe_allow_html=True)
 
+def render_export_page_advanced(user, db):
+    """Page d'export avancée avec tableau de résultats"""
+    st.markdown('<div class="main-container">', unsafe_allow_html=True)
+    st.markdown('<h2 class="section-title">📤 Exportation des analyses</h2>', unsafe_allow_html=True)
+    
+    if st.session_state.uploaded_df is None:
+        st.warning("Aucune donnée à exporter")
+        return
+    
+    df = st.session_state.uploaded_df
+    
+    st.markdown("### 📋 Aperçu des résultats")
+    
+    if hasattr(st.session_state, 'advanced_aim_results') and st.session_state.advanced_aim_results is not None:
+        results_df = st.session_state.advanced_aim_results
+        st.markdown("#### 📊 Résultats de l'analyse AIM")
+        st.dataframe(results_df.head(20), use_container_width=True, height=400)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if 'sentiment_label' in results_df.columns:
+                positive_count = (results_df['sentiment_label'] == 'positif').sum()
+                st.metric("Avis positifs", positive_count)
+        
+        with col2:
+            if 'is_suspicious' in results_df.columns:
+                suspicious_count = results_df['is_suspicious'].sum()
+                st.metric("Avis suspects", suspicious_count)
+        
+        with col3:
+            st.metric("Total analysé", len(results_df))
+    
+    st.markdown("### ⚙️ Configuration de l'export")
+    
+    export_format = st.selectbox(
+        "Format d'export:",
+        ["CSV", "Excel", "JSON"],
+        key="export_format_advanced"
+    )
+    
+    with st.expander("🔧 Options avancées"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            filename = st.text_input("Nom du fichier", "aim_export", key="export_filename")
+            include_timestamp = st.checkbox("Ajouter horodatage", True, key="export_timestamp")
+        
+        with col2:
+            include_metadata = st.checkbox("Inclure métadonnées", True, key="export_metadata")
+    
+    if st.button("📥 Générer l'export", type="primary", use_container_width=True, key="generate_export"):
+        with st.spinner("Génération de l'export en cours..."):
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S') if include_timestamp else ""
+            
+            if export_format == "CSV":
+                if hasattr(st.session_state, 'advanced_aim_results') and st.session_state.advanced_aim_results is not None:
+                    export_df = st.session_state.advanced_aim_results
+                else:
+                    export_df = df
+                
+                csv_data = export_df.to_csv(index=False).encode('utf-8')
+                
+                st.download_button(
+                    label="📥 Télécharger CSV",
+                    data=csv_data,
+                    file_name=f"{filename}{'_' + timestamp if timestamp else ''}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="download_csv"
+                )
+            
+            elif export_format == "Excel":
+                if hasattr(st.session_state, 'advanced_aim_results') and st.session_state.advanced_aim_results is not None:
+                    export_df = st.session_state.advanced_aim_results
+                else:
+                    export_df = df
+                
+                output = io.BytesIO()
+                
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    export_df.to_excel(writer, index=False, sheet_name='Donnees')
+                    
+                    if include_metadata:
+                        metadata_df = pd.DataFrame({
+                            'Métrique': ['Date export', 'Nb lignes', 'Nb colonnes', 'Utilisateur'],
+                            'Valeur': [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
+                                      len(export_df), 
+                                      len(export_df.columns),
+                                      user['username']]
+                        })
+                        metadata_df.to_excel(writer, index=False, sheet_name='Metadonnees')
+                
+                output.seek(0)
+                
+                st.download_button(
+                    label="📥 Télécharger Excel",
+                    data=output,
+                    file_name=f"{filename}{'_' + timestamp if timestamp else ''}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="download_excel"
+                )
+            
+            elif export_format == "JSON":
+                if hasattr(st.session_state, 'advanced_aim_results') and st.session_state.advanced_aim_results is not None:
+                    export_df = st.session_state.advanced_aim_results
+                else:
+                    export_df = df
+                
+                json_data = export_df.to_json(orient='records', indent=2)
+                
+                st.download_button(
+                    label="📥 Télécharger JSON",
+                    data=json_data.encode('utf-8'),
+                    file_name=f"{filename}{'_' + timestamp if timestamp else ''}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                    key="download_json"
+                )
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # ==================================
-# DASHBOARD MARKETING AVANCÉ
+# DASHBOARD MARKETING (adapté)
 # ==================================
 def dashboard_marketing_advanced(user, db):
     st.markdown(advanced_page_bg_css(), unsafe_allow_html=True)
@@ -2044,7 +2268,7 @@ def dashboard_marketing_advanced(user, db):
         
         uploaded_file = st.file_uploader(
             "Charger des données",
-            type=['csv', 'xlsx', 'xls', 'json', 'parquet'],
+            type=['csv', 'xlsx', 'xls', 'json'],
             key="marketing_data_uploader",
             help="Données clients, ventes, campagnes..."
         )
@@ -2058,8 +2282,6 @@ def dashboard_marketing_advanced(user, db):
                         df = pd.read_excel(uploaded_file)
                     elif uploaded_file.name.endswith('.json'):
                         df = pd.read_json(uploaded_file)
-                    elif uploaded_file.name.endswith('.parquet'):
-                        df = pd.read_parquet(uploaded_file)
                     else:
                         st.error("Format de fichier non supporté")
                         return
@@ -2429,12 +2651,9 @@ def render_performance_analysis_advanced(user, db):
         st.warning("Veuillez d'abord importer des données")
         return
     
-    df = st.session_state.uploaded_df
-    column_info = st.session_state.marketing_column_info or {}
-    
+    # Simulation des performances des modèles (adapté pour Streamlit Cloud)
     st.markdown("### 📊 Performance des modèles AIM")
     
-    # Simulation des performances des modèles
     model_performance = pd.DataFrame({
         'Modèle': ['Sentiment Analysis', 'Fraud Detection', 'Customer Segmentation', 'Recommendation Engine', 'Churn Prediction'],
         'Précision': [0.92, 0.87, 0.89, 0.85, 0.78],
@@ -2634,132 +2853,8 @@ def render_marketing_reports(user, db):
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-def render_export_page_advanced(user, db):
-    """Page d'export avancée avec tableau de résultats"""
-    st.markdown('<div class="main-container">', unsafe_allow_html=True)
-    st.markdown('<h2 class="section-title">📤 Exportation des analyses</h2>', unsafe_allow_html=True)
-    
-    if st.session_state.uploaded_df is None:
-        st.warning("Aucune donnée à exporter")
-        return
-    
-    df = st.session_state.uploaded_df
-    
-    st.markdown("### 📋 Aperçu des résultats")
-    
-    if hasattr(st.session_state, 'advanced_aim_results') and st.session_state.advanced_aim_results is not None:
-        results_df = st.session_state.advanced_aim_results
-        st.markdown("#### 📊 Résultats de l'analyse AIM")
-        st.dataframe(results_df.head(20), use_container_width=True, height=400)
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if 'sentiment_label' in results_df.columns:
-                positive_count = (results_df['sentiment_label'] == 'positif').sum()
-                st.metric("Avis positifs", positive_count)
-        
-        with col2:
-            if 'is_suspicious' in results_df.columns:
-                suspicious_count = results_df['is_suspicious'].sum()
-                st.metric("Avis suspects", suspicious_count)
-        
-        with col3:
-            st.metric("Total analysé", len(results_df))
-    
-    st.markdown("### ⚙️ Configuration de l'export")
-    
-    export_format = st.selectbox(
-        "Format d'export:",
-        ["CSV", "Excel", "JSON"],
-        key="export_format_advanced"
-    )
-    
-    with st.expander("🔧 Options avancées"):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            filename = st.text_input("Nom du fichier", "aim_export", key="export_filename")
-            include_timestamp = st.checkbox("Ajouter horodatage", True, key="export_timestamp")
-        
-        with col2:
-            compress = st.checkbox("Compresser le fichier", False, key="export_compress")
-            include_metadata = st.checkbox("Inclure métadonnées", True, key="export_metadata")
-    
-    if st.button("📥 Générer l'export", type="primary", use_container_width=True, key="generate_export"):
-        with st.spinner("Génération de l'export en cours..."):
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S') if include_timestamp else ""
-            
-            if export_format == "CSV":
-                if hasattr(st.session_state, 'advanced_aim_results') and st.session_state.advanced_aim_results is not None:
-                    export_df = st.session_state.advanced_aim_results
-                else:
-                    export_df = df
-                
-                csv_data = export_df.to_csv(index=False).encode('utf-8')
-                
-                st.download_button(
-                    label="📥 Télécharger CSV",
-                    data=csv_data,
-                    file_name=f"{filename}{'_' + timestamp if timestamp else ''}.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                    key="download_csv"
-                )
-            
-            elif export_format == "Excel":
-                if hasattr(st.session_state, 'advanced_aim_results') and st.session_state.advanced_aim_results is not None:
-                    export_df = st.session_state.advanced_aim_results
-                else:
-                    export_df = df
-                
-                output = io.BytesIO()
-                
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    export_df.to_excel(writer, index=False, sheet_name='Donnees')
-                    
-                    if include_metadata:
-                        metadata_df = pd.DataFrame({
-                            'Métrique': ['Date export', 'Nb lignes', 'Nb colonnes', 'Utilisateur'],
-                            'Valeur': [datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
-                                      len(export_df), 
-                                      len(export_df.columns),
-                                      user['username']]
-                        })
-                        metadata_df.to_excel(writer, index=False, sheet_name='Metadonnees')
-                
-                output.seek(0)
-                
-                st.download_button(
-                    label="📥 Télécharger Excel",
-                    data=output,
-                    file_name=f"{filename}{'_' + timestamp if timestamp else ''}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                    key="download_excel"
-                )
-            
-            elif export_format == "JSON":
-                if hasattr(st.session_state, 'advanced_aim_results') and st.session_state.advanced_aim_results is not None:
-                    export_df = st.session_state.advanced_aim_results
-                else:
-                    export_df = df
-                
-                json_data = export_df.to_json(orient='records', indent=2)
-                
-                st.download_button(
-                    label="📥 Télécharger JSON",
-                    data=json_data.encode('utf-8'),
-                    file_name=f"{filename}{'_' + timestamp if timestamp else ''}.json",
-                    mime="application/json",
-                    use_container_width=True,
-                    key="download_json"
-                )
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-
 # ==================================
-# DASHBOARD SUPPORT
+# DASHBOARD SUPPORT (simplifié pour Streamlit Cloud)
 # ==================================
 def dashboard_support(user, db):
     st.markdown(advanced_page_bg_css(), unsafe_allow_html=True)
@@ -2873,7 +2968,7 @@ def render_support_dashboard(user, db):
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==================================
-# FONCTIONS UTILITAIRES
+# FONCTIONS UTILITAIRES (adaptées)
 # ==================================
 def render_user_profile_enhanced(user, db):
     """Profil utilisateur amélioré"""
@@ -2940,12 +3035,10 @@ def render_user_profile_enhanced(user, db):
                     elif not current_password:
                         st.error("❌ Veuillez entrer votre mot de passe actuel")
                     else:
-                        if db.conn:
-                            auth_result = db.authenticate(user['username'], current_password)
-                            if auth_result:
-                                updates['password'] = new_password
-                            else:
-                                st.error("❌ Mot de passe actuel incorrect")
+                        if db.authenticate(user['username'], current_password):
+                            updates['password'] = new_password
+                        else:
+                            st.error("❌ Mot de passe actuel incorrect")
                 
                 if updates:
                     success = db.update_user_profile(user['id'], **updates)
@@ -3020,10 +3113,11 @@ def login_page_enhanced(db):
                 return
                 
             user = None
-            if db.conn:
+            if db.connection_pool:
                 user = db.authenticate(username, password)
             
             if not user:
+                # Fallback aux utilisateurs par défaut pour le développement
                 default_users = {
                     "admin": ("admin123", "admin", "Super Admin"),
                     "analyst": ("analyst123", "data_analyst", "Data Analyst"),
@@ -3049,7 +3143,7 @@ def login_page_enhanced(db):
                 st.session_state["user"] = user
                 st.session_state.login_attempts = 0
                 
-                if db.conn:
+                if db.connection_pool:
                     db.log_activity(
                         user_id=user['id'],
                         activity_type="login",
@@ -3082,7 +3176,8 @@ def login_page_enhanced(db):
 # APPLICATION PRINCIPALE
 # ==================================
 def main():
-    db = DatabaseManager()
+    # Initialisation de la base de données Supabase
+    db = SupabaseDatabaseManager()
     
     if "user" not in st.session_state:
         login_page_enhanced(db)
@@ -3090,6 +3185,7 @@ def main():
     
     user = st.session_state["user"]
     
+    # Navigation selon le rôle
     if user["role"] == "admin":
         dashboard_admin_enhanced(user, db)
     elif user["role"] == "data_analyst":
