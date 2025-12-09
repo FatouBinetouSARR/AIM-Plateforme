@@ -1,20 +1,23 @@
-*.csv 
-*.pkl 
-*.h5 
-*.npy 
-*.npz 
-# Environnements Python 
-venv/ 
-env/ 
-__pycache__/ 
-*.pyc 
-# Syst�me 
-.DS_Store 
-Thumbs.db 
-# IDE 
-.vscode/ 
-.idea/ 
-*.swp 
-*.swo 
-# Streamlit 
-.streamlit/ 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environnements virtuels
+.venv/
+venv/
+
+# Données & modèles
+*.csv
+*.xlsx
+*.db
+*.pkl
+*.joblib
+
+# Logs & config sensibles
+*.log
+.env
+
+# IDE
+.vscode/
+.idea/
