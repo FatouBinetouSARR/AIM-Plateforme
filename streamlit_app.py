@@ -101,7 +101,7 @@ class SupabaseDatabaseManager:
                 'host': st.secrets.get('DB_HOST', 'localhost'),
                 'database': st.secrets.get('DB_NAME', 'postgres'),
                 'user': st.secrets.get('DB_USER', 'postgres'),
-                'password': st.secrets.get('DB_PASSWORD', ''),
+                'password': st.secrets.get('DB_PASSWORD', 'Tymzyloveuh_10'),
                 'port': st.secrets.get('DB_PORT', '5432')
             }
     
