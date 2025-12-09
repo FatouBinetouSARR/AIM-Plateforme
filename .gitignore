@@ -1,23 +1,6 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
-
-# Environnements virtuels
-.venv/
-venv/
-
-# Données & modèles
+# Données & modèles lourds
 *.csv
 *.xlsx
 *.db
 *.pkl
 *.joblib
-
-# Logs & config sensibles
-*.log
-.env
-
-# IDE
-.vscode/
-.idea/
