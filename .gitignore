@@ -1,0 +1,20 @@
+*.csv 
+*.pkl 
+*.h5 
+*.npy 
+*.npz 
+# Environnements Python 
+venv/ 
+env/ 
+__pycache__/ 
+*.pyc 
+# Systäme 
+.DS_Store 
+Thumbs.db 
+# IDE 
+.vscode/ 
+.idea/ 
+*.swp 
+*.swo 
+# Streamlit 
+.streamlit/ 
