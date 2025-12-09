@@ -1,0 +1,16 @@
+{
+    "fake_review_detection": true,
+    "default_threshold": 0.6,
+    "enable_sentiment_analysis": true,
+    "enable_engagement_score": true,
+    "modules": {
+        "youtube": true,
+        "twitter": true,
+        "reviews": true
+    },
+    "system_settings": {
+        "auto_update": true,
+        "backup_frequency": "daily",
+        "log_level": "info"
+    }
+}
