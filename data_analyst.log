@@ -1,0 +1,931 @@
+2025-12-07 04:31:47,283 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T04:31:47.283776", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"], "size_mb": 3.2629308700561523}, "context": {"page": "fake_reviews", "user_agent": "unknown"}}
+2025-12-07 04:31:50,654 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T04:31:50.654035", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"], "size_mb": 3.2629308700561523}, "context": {"page": "fake_reviews", "user_agent": "unknown"}}
+2025-12-07 04:31:58,114 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T04:31:58.113957", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"], "size_mb": 3.2629308700561523}, "context": {"page": "fake_reviews", "user_agent": "unknown"}}
+2025-12-07 04:32:20,999 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T04:32:20.999545", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"], "size_mb": 3.2629308700561523}, "context": {"page": "fake_reviews", "user_agent": "unknown"}}
+2025-12-07 04:32:28,288 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T04:32:28.287998", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "Tweets.csv", "details": {"rows": 14640, "columns": ["tweet_id", "airline_sentiment", "airline_sentiment_confidence", "negativereason", "negativereason_confidence", "airline", "airline_sentiment_gold", "name", "negativereason_gold", "retweet_count", "text", "tweet_coord", "tweet_created", "tweet_location", "user_timezone"], "size_mb": 3.2629308700561523}, "context": {"page": "users", "user_agent": "unknown"}}
+2025-12-07 13:01:41,353 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:01:41.353034", "session_id": "Unknown", "user": "faa", "action": "LOGOUT", "target": "system", "details": {}, "context": {"page": "dashboard", "user_agent": "unknown"}}
+2025-12-07 13:01:52,809 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:01:58,328 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:03,427 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:08,525 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:13,628 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:18,770 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:23,877 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:28,988 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:34,119 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:39,224 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:44,341 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:49,457 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:54,612 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:02:59,718 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:04,815 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:09,954 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:15,086 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:20,223 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:25,329 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:30,426 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:35,560 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:40,686 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:45,784 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:50,901 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:03:56,027 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:01,140 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:06,238 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:11,346 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:16,461 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:21,582 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:26,702 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:31,824 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:36,938 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:42,038 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:47,166 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:52,266 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:04:57,361 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:02,471 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:07,563 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:12,663 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:17,745 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:22,821 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:27,921 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:33,009 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:38,095 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:43,197 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:48,289 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:53,402 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:05:58,533 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:03,620 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:08,718 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:13,810 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:18,898 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:24,010 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:29,095 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:34,178 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:39,291 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:44,399 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:49,486 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:54,593 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:06:59,678 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:07:04,782 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:07:09,884 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:07:14,964 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:07:20,059 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:07:25,163 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:07:30,243 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:07:35,336 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:07:51,802 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:07:56,907 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:01,990 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:07,068 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:12,175 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:17,280 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:22,384 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:27,490 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:32,589 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:37,686 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:42,787 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:47,877 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:52,959 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:08:58,049 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:09:03,151 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1091, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 832, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:09:43,398 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:09:43.398392", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "fake_reviews", "user_agent": "unknown"}}
+2025-12-07 13:09:47,157 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:09:47.157004", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "fake_reviews", "user_agent": "unknown"}}
+2025-12-07 13:09:56,615 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:09:56.615225", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "users", "user_agent": "unknown"}}
+2025-12-07 13:10:18,138 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:10:18.138006", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "identification", "user_agent": "unknown"}}
+2025-12-07 13:12:31,309 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:12:31.309710", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "identification", "user_agent": "unknown"}}
+2025-12-07 13:12:38,498 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:12:38.498614", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "identification", "user_agent": "unknown"}}
+2025-12-07 13:12:43,160 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:12:43.160801", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "identification", "user_agent": "unknown"}}
+2025-12-07 13:12:49,134 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:12:49.134489", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "identification", "user_agent": "unknown"}}
+2025-12-07 13:12:52,498 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:12:52.498422", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "identification", "user_agent": "unknown"}}
+2025-12-07 13:12:54,261 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:12:54.261174", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "identification", "user_agent": "unknown"}}
+2025-12-07 13:14:44,268 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:14:44.268135", "session_id": "Unknown", "user": "faa", "action": "DATA_IMPORT", "target": "youtubeSpamCollection.csv", "details": {"rows": 1956, "columns": ["COMMENT_ID", "AUTHOR", "DATE", "CONTENT", "CLASS"], "size_mb": 0.32763195037841797}, "context": {"page": "identification", "user_agent": "unknown"}}
+2025-12-07 13:14:44,308 - DashboardAdmin - INFO - {"timestamp": "2025-12-07T13:14:44.307933", "session_id": "Unknown", "user": "faa", "action": "LOGOUT", "target": "system", "details": {}, "context": {"page": "identification", "user_agent": "unknown"}}
+2025-12-07 13:38:18,850 - marketing_dashboard - INFO - Déconnexion marketing: fatima sarr
+2025-12-07 13:52:09,462 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:52:14,580 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:52:19,656 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:52:24,760 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:52:29,868 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:52:34,985 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:52:40,100 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:52:45,194 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:52:50,310 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:52:55,438 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:53:00,533 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:53:05,620 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:53:10,724 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:53:15,837 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:53:20,950 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:53:38,385 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:53:43,498 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:53:48,612 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:53:53,719 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:53:58,834 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:54:03,994 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:54:09,086 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:54:14,174 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:54:19,271 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:54:24,369 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:54:29,458 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:54:34,556 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 13:54:39,638 - dashboard_data_analyst - ERROR - Erreur dans le dashboard: 'avatar_color'
+Traceback (most recent call last):
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 1973, in show_analyst_dashboard_dynamic
+    selected_section = render_sidebar_interactive()
+  File "C:\Users\ADMIN PC\Documents\Mémoire master\modèle\dashboard_data_analyst.py", line 856, in render_sidebar_interactive
+    background: {user_info['avatar_color']};
+                 ~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'avatar_color'
+2025-12-07 14:03:17,021 - dashboard_data_analyst - INFO - Déconnexion: Binta
+2025-12-07 14:51:05,363 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 14:51:17,362 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 14:51:19,676 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 14:51:26,925 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 14:51:27,327 - dashboard_data_analyst - ERROR - Erreur détection faux avis: Duplicate column names found: ['Avis', 'Avis', 'sentiment']
+2025-12-07 15:00:58,419 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 15:01:01,899 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 15:01:21,877 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 15:01:29,870 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 15:01:33,065 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 15:01:37,454 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 15:01:43,573 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 15:01:43,735 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 15:01:51,955 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 15:01:52,139 - dashboard_data_analyst - INFO - Fichier importé: youtubeSpamCollection.csv (1956 lignes)
+2025-12-07 15:59:08,577 - dashboard_data_analyst - INFO - Fichier importé: users.json (12 lignes)
+2025-12-07 15:59:19,284 - dashboard_data_analyst - INFO - Fichier importé: users.json (12 lignes)
+2025-12-07 15:59:21,829 - dashboard_data_analyst - INFO - Fichier importé: users.json (12 lignes)
+2025-12-07 15:59:35,157 - dashboard_data_analyst - INFO - Fichier importé: users.json (12 lignes)
+2025-12-07 15:59:35,638 - dashboard_data_analyst - ERROR - Erreur détection faux avis: object of type 'bool' has no len()
+2025-12-07 15:59:51,180 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-07 16:00:05,691 - dashboard_data_analyst - INFO - Fichier importé: Tweets.csv (14640 lignes)
+2025-12-07 16:00:06,744 - dashboard_data_analyst - ERROR - Erreur détection faux avis: "['sentiment'] not in index"
