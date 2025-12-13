@@ -1997,7 +1997,11 @@ def render_user_management_enhanced(user, db):
                                 cursor.execute("DELETE FROM user_sessions WHERE user_id = %s", (user_id,))
                                 cursor.execute("DELETE FROM activity_logs WHERE user_id = %s", (user_id,))
                                 cursor.execute("DELETE FROM data_uploads WHERE user_id = %s", (user_id,))
-                                cursor.execute("DELETE FROM dashboard_metrics WHERE user_id = %s", (user_id,))
+                                
+                                # CORRECTION : dashboard_metrics n'a pas de colonne user_id
+                                # On peut soit ignorer cette table, soit la nettoyer différemment
+                                # Pour l'instant, on laisse cette table intacte
+                                
                                 cursor.execute("DELETE FROM marketing_data WHERE user_id = %s", (user_id,))
                                 cursor.execute("DELETE FROM support_tickets WHERE created_by = %s", (user_id,))
                                 
@@ -2068,6 +2072,7 @@ def render_user_management_enhanced(user, db):
                 )
     else:
         st.info("Aucun utilisateur trouvé dans la base de données")
+
 def render_password_reset_page(user, db):
     """Page de réinitialisation des mots de passe"""
     st.subheader("Réinitialisation des mots de passe")
