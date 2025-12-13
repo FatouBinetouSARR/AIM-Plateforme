@@ -99,7 +99,6 @@ class DatabaseManager:
                     cursor.execute("SELECT 1")
                     cursor.close()
                     self._create_tables()
-                    # Supprimé: self._init_default_users() - Pas d'utilisateurs par défaut
                 finally:
                     self.return_connection(conn)
                 
@@ -124,7 +123,7 @@ class DatabaseManager:
                 pass
     
     def _get_db_params(self):
-        """Récupère les paramètres de connexion silencieusement"""
+        """Récupère les paramètres de connexion"""
         try:
             if 'RENDER_DB_URL' in st.secrets:
                 url = st.secrets['RENDER_DB_URL']
@@ -173,65 +172,65 @@ class DatabaseManager:
         
         return url
     def create_password_reset(self, username_or_email):
-    """Crée un code de réinitialisation"""
-    if not self.connection_pool:
-        return None
-    
-    conn = self.get_connection()
-    if not conn:
-        return None
-    
-    cursor = conn.cursor()
-    try:
-        # Chercher l'utilisateur par username ou email
-        cursor.execute("""
-            SELECT id, username, email 
-            FROM users 
-            WHERE (username = %s OR email = %s) AND is_active = true
-        """, (username_or_email, username_or_email))
-        
-        user = cursor.fetchone()
-        if not user:
+        """Crée un code de réinitialisation"""
+        if not self.connection_pool:
             return None
         
-        user_id, username, email = user
+        conn = self.get_connection()
+        if not conn:
+            return None
         
-        # Générer un code à 6 chiffres
-        reset_code = str(np.random.randint(100000, 999999))
-        
-        # Expiration dans 15 minutes
-        expires_at = datetime.now() + timedelta(minutes=15)
-        
-        # Désactiver les anciens codes
-        cursor.execute("""
-            UPDATE password_resets 
-            SET is_used = true 
-            WHERE user_id = %s AND is_used = false
-        """, (user_id,))
-        
-        # Insérer le nouveau code
-        cursor.execute("""
-            INSERT INTO password_resets (user_id, reset_code, expires_at)
-            VALUES (%s, %s, %s)
-        """, (user_id, reset_code, expires_at))
-        
-        conn.commit()
-        
-        return {
-            'user_id': user_id,
-            'username': username,
-            'email': email,
-            'reset_code': reset_code,
-            'expires_at': expires_at
-        }
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"Erreur création reset: {e}")
-        return None
-    finally:
-        cursor.close()
-        self.return_connection(conn)
+        cursor = conn.cursor()
+        try:
+            # Chercher l'utilisateur par username ou email
+            cursor.execute("""
+                SELECT id, username, email 
+                FROM users 
+                WHERE (username = %s OR email = %s) AND is_active = true
+            """, (username_or_email, username_or_email))
+            
+            user = cursor.fetchone()
+            if not user:
+                return None
+            
+            user_id, username, email = user
+            
+            # Générer un code à 6 chiffres
+            reset_code = str(np.random.randint(100000, 999999))
+            
+            # Expiration dans 15 minutes
+            expires_at = datetime.now() + timedelta(minutes=15)
+            
+            # Désactiver les anciens codes
+            cursor.execute("""
+                UPDATE password_resets 
+                SET is_used = true 
+                WHERE user_id = %s AND is_used = false
+            """, (user_id,))
+            
+            # Insérer le nouveau code
+            cursor.execute("""
+                INSERT INTO password_resets (user_id, reset_code, expires_at)
+                VALUES (%s, %s, %s)
+            """, (user_id, reset_code, expires_at))
+            
+            conn.commit()
+            
+            return {
+                'user_id': user_id,
+                'username': username,
+                'email': email,
+                'reset_code': reset_code,
+                'expires_at': expires_at
+            }
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"Erreur création reset: {e}")
+            return None
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
 def validate_reset_code(self, username, reset_code):
     """Valide un code de réinitialisation"""
