@@ -172,7 +172,178 @@ class DatabaseManager:
                 url = f"{credentials}@{host_db}"
         
         return url
+    def create_password_reset(self, username_or_email):
+    """Crée un code de réinitialisation"""
+    if not self.connection_pool:
+        return None
     
+    conn = self.get_connection()
+    if not conn:
+        return None
+    
+    cursor = conn.cursor()
+    try:
+        # Chercher l'utilisateur par username ou email
+        cursor.execute("""
+            SELECT id, username, email 
+            FROM users 
+            WHERE (username = %s OR email = %s) AND is_active = true
+        """, (username_or_email, username_or_email))
+        
+        user = cursor.fetchone()
+        if not user:
+            return None
+        
+        user_id, username, email = user
+        
+        # Générer un code à 6 chiffres
+        reset_code = str(np.random.randint(100000, 999999))
+        
+        # Expiration dans 15 minutes
+        expires_at = datetime.now() + timedelta(minutes=15)
+        
+        # Désactiver les anciens codes
+        cursor.execute("""
+            UPDATE password_resets 
+            SET is_used = true 
+            WHERE user_id = %s AND is_used = false
+        """, (user_id,))
+        
+        # Insérer le nouveau code
+        cursor.execute("""
+            INSERT INTO password_resets (user_id, reset_code, expires_at)
+            VALUES (%s, %s, %s)
+        """, (user_id, reset_code, expires_at))
+        
+        conn.commit()
+        
+        return {
+            'user_id': user_id,
+            'username': username,
+            'email': email,
+            'reset_code': reset_code,
+            'expires_at': expires_at
+        }
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Erreur création reset: {e}")
+        return None
+    finally:
+        cursor.close()
+        self.return_connection(conn)
+
+def validate_reset_code(self, username, reset_code):
+    """Valide un code de réinitialisation"""
+    if not self.connection_pool:
+        return False
+    
+    conn = self.get_connection()
+    if not conn:
+        return False
+    
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT pr.id, pr.user_id, pr.expires_at
+            FROM password_resets pr
+            JOIN users u ON pr.user_id = u.id
+            WHERE u.username = %s 
+            AND pr.reset_code = %s 
+            AND pr.is_used = false
+            AND pr.expires_at > NOW()
+        """, (username, reset_code))
+        
+        result = cursor.fetchone()
+        return bool(result)
+        
+    except Exception as e:
+        print(f"Erreur validation code: {e}")
+        return False
+    finally:
+        cursor.close()
+        self.return_connection(conn)
+
+def use_reset_code(self, username, reset_code):
+    """Marque un code comme utilisé"""
+    if not self.connection_pool:
+        return False
+    
+    conn = self.get_connection()
+    if not conn:
+        return False
+    
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE password_resets pr
+            SET is_used = true
+            FROM users u
+            WHERE pr.user_id = u.id 
+            AND u.username = %s 
+            AND pr.reset_code = %s
+            AND pr.is_used = false
+        """, (username, reset_code))
+        
+        conn.commit()
+        return cursor.rowcount > 0
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Erreur usage code: {e}")
+        return False
+    finally:
+        cursor.close()
+        self.return_connection(conn)
+
+def reset_password_with_code(self, username, reset_code, new_password):
+    """Réinitialise le mot de passe avec un code valide"""
+    if not self.connection_pool:
+        return False, "Base de données non disponible"
+    
+    # Valider le code d'abord
+    if not self.validate_reset_code(username, reset_code):
+        return False, "Code invalide ou expiré"
+    
+    conn = self.get_connection()
+    if not conn:
+        return False, "Erreur de connexion"
+    
+    cursor = conn.cursor()
+    try:
+        # Trouver l'ID utilisateur
+        cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+        user = cursor.fetchone()
+        if not user:
+            return False, "Utilisateur non trouvé"
+        
+        user_id = user[0]
+        
+        # Mettre à jour le mot de passe
+        hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+        cursor.execute("""
+            UPDATE users 
+            SET password_hash = %s, is_first_login = true, last_login = NOW()
+            WHERE id = %s
+        """, (hashed, user_id))
+        
+        # Marquer le code comme utilisé
+        cursor.execute("""
+            UPDATE password_resets 
+            SET is_used = true
+            WHERE user_id = %s AND reset_code = %s
+        """, (user_id, reset_code))
+        
+        conn.commit()
+        return True, "Mot de passe réinitialisé avec succès"
+        
+    except Exception as e:
+        conn.rollback()
+        return False, f"Erreur: {str(e)}"
+    finally:
+        cursor.close()
+        self.return_connection(conn)
+        
     def _parse_db_url(self, url):
         """Parse une URL de base de données"""
         try:
@@ -282,26 +453,17 @@ class DatabaseManager:
                     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
                 )
             """)
-            
-            
             cursor.execute("""
-        CREATE TABLE IF NOT EXISTS support_tickets (
-            id SERIAL PRIMARY KEY,
-            subject VARCHAR(200) NOT NULL,
-            description TEXT,
-            category VARCHAR(50),
-            priority VARCHAR(20) DEFAULT 'Moyenne',
-            client_name VARCHAR(100) NOT NULL,
-            client_email VARCHAR(100),
-            status VARCHAR(20) DEFAULT 'Ouvert',
-            assigned_to VARCHAR(50),
-            created_by INTEGER REFERENCES users(id),
-            created_at TIMESTAMP DEFAULT NOW(),
-            updated_at TIMESTAMP DEFAULT NOW(),
-            resolved_at TIMESTAMP,
-            first_response_at TIMESTAMP
-        )
-    """)
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    reset_code VARCHAR(10) NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    expires_at TIMESTAMP NOT NULL,
+                    is_used BOOLEAN DEFAULT false
+                )
+            """)
+          
             
             conn.commit()
             
@@ -416,7 +578,138 @@ class DatabaseManager:
         finally:
             cursor.close()
             self.return_connection(conn)
-
+    def render_forgot_password_page(db):
+    """Page de mot de passe oublié"""
+    apply_custom_css()
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        
+        st.markdown('<div class="login-header">', unsafe_allow_html=True)
+        st.markdown('<h1 class="login-title">Mot de passe oublié</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="login-subtitle">Réinitialisez votre mot de passe avec un code temporaire</p>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Onglets pour les différentes étapes
+        tab1, tab2 = st.tabs(["Demander un code", "Réinitialiser"])
+        
+        with tab1:
+            st.markdown("### Étape 1 : Demander un code de réinitialisation")
+            
+            with st.form(key="request_reset_form"):
+                username_or_email = st.text_input(
+                    "Nom d'utilisateur ou Email",
+                    placeholder="Entrez votre nom d'utilisateur ou email"
+                )
+                
+                submitted = st.form_submit_button("Générer un code", use_container_width=True)
+                
+                if submitted:
+                    if not username_or_email:
+                        st.error("Veuillez entrer votre nom d'utilisateur ou email")
+                    else:
+                        with st.spinner("Génération du code..."):
+                            result = db.create_password_reset(username_or_email)
+                            
+                            if result:
+                                st.session_state['reset_info'] = {
+                                    'username': result['username'],
+                                    'reset_code': result['reset_code']
+                                }
+                                
+                                # Afficher le code directement (dans un vrai système, vous l'enverriez par email)
+                                st.success("Code généré avec succès!")
+                                
+                                col1, col2 = st.columns([2, 1])
+                                with col1:
+                                    st.info(f"""
+                                    **Informations :**
+                                    - **Code :** {result['reset_code']}
+                                    - **Expire dans :** 15 minutes
+                                    - **Utilisateur :** {result['username']}
+                                    """)
+                                
+                                with col2:
+                                    if st.button("Copier le code"):
+                                        st.write(result['reset_code'])
+                                        st.success("Code copié!")
+                                
+                                st.info("**Important :** Passez à l'onglet 'Réinitialiser' pour utiliser ce code.")
+                            else:
+                                st.error("Utilisateur non trouvé ou compte inactif")
+        
+        with tab2:
+            st.markdown("### Étape 2 : Réinitialiser votre mot de passe")
+            
+            # Pré-remplir si on a déjà les infos
+            default_username = ""
+            default_code = ""
+            if 'reset_info' in st.session_state:
+                default_username = st.session_state['reset_info']['username']
+                default_code = st.session_state['reset_info']['reset_code']
+            
+            with st.form(key="reset_password_form"):
+                username = st.text_input(
+                    "Nom d'utilisateur",
+                    value=default_username,
+                    placeholder="Entrez votre nom d'utilisateur"
+                )
+                
+                reset_code = st.text_input(
+                    "Code de réinitialisation",
+                    value=default_code,
+                    placeholder="Entrez le code à 6 chiffres"
+                )
+                
+                new_password = st.text_input(
+                    "Nouveau mot de passe",
+                    type="password",
+                    placeholder="Minimum 8 caractères"
+                )
+                
+                confirm_password = st.text_input(
+                    "Confirmer le nouveau mot de passe",
+                    type="password"
+                )
+                
+                submitted = st.form_submit_button("Réinitialiser le mot de passe", use_container_width=True)
+                
+                if submitted:
+                    if not all([username, reset_code, new_password, confirm_password]):
+                        st.error("Veuillez remplir tous les champs")
+                    elif len(new_password) < 8:
+                        st.error("Le mot de passe doit contenir au moins 8 caractères")
+                    elif new_password != confirm_password:
+                        st.error("Les mots de passe ne correspondent pas")
+                    elif not reset_code.isdigit() or len(reset_code) != 6:
+                        st.error("Le code doit être composé de 6 chiffres")
+                    else:
+                        success, message = db.reset_password_with_code(
+                            username, reset_code, new_password
+                        )
+                        
+                        if success:
+                            # Effacer les infos de session
+                            if 'reset_info' in st.session_state:
+                                del st.session_state['reset_info']
+                            
+                            st.success(message)
+                            st.info("Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.")
+                            
+                            if st.button("Aller à la page de connexion"):
+                                st.session_state.clear()
+                                st.rerun()
+                        else:
+                            st.error(message)
+        
+        # Bouton pour retourner à la connexion
+        st.markdown("---")
+        if st.button("Retour à la connexion", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
     def update_user_profile(self, user_id, **kwargs):
         """Met à jour le profil utilisateur"""
         if not self.connection_pool:
@@ -1497,7 +1790,6 @@ def apply_custom_css():
 #     PAGES D'AUTHENTIFICATION
 # ==================================
 def render_login_page(db):
-    """Page de connexion avec design moderne"""
     apply_custom_css()
     
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -1541,9 +1833,14 @@ def render_login_page(db):
                     else:
                         st.error("Identifiants incorrects")
         
-        # SUPPRIMÉ: Section identifiants de démonstration
+       st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.button("Mot de passe oublié ?", use_container_width=True):
+                st.session_state['show_forgot_password'] = True
+                st.rerun()
         
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True))
 
 def render_password_change_page(user, db):
     """Page de changement de mot de passe obligatoire"""
@@ -5206,8 +5503,12 @@ def main():
     
     # Vérifier l'état de l'authentification
     if 'user' not in st.session_state:
-        # Page de connexion
-        render_login_page(db)
+        # Vérifier si on doit afficher la page de réinitialisation
+        if 'show_forgot_password' in st.session_state and st.session_state.show_forgot_password:
+            render_forgot_password_page(db)
+        else:
+            # Page de connexion
+            render_login_page(db)
     
     elif 'force_password_change' in st.session_state and st.session_state.force_password_change:
         # Page de changement de mot de passe obligatoire
