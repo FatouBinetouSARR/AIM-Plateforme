@@ -1877,55 +1877,18 @@ def apply_custom_css():
 #     PAGES D'AUTHENTIFICATION
 # ==================================
 def render_login_page(db):
-    """Page de connexion avec logo simple et élégant"""
+    """Page de connexion avec design moderne"""
     apply_custom_css()
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
-        # Logo et titre
-        st.markdown("""
-        <div style="text-align: center; margin-bottom: 30px;">
-            <!-- Logo avec icône PNG -->
-            <div style="
-                width: 90px;
-                height: 90px;
-                margin: 0 auto 20px auto;
-                background: linear-gradient(135deg, #8B5CF6, #C084FC);
-                border-radius: 20px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 10px 25px rgba(139, 92, 246, 0.2);
-                border: 2px solid rgba(255, 255, 255, 0.3);
-            ">
-                <img src="images/AIM.png" 
-                     alt="AIM Logo"
-                     style="width: 50px; height: 50px; filter: brightness(0) invert(1);">
-            </div>
-            
-            <h1 style="
-                font-size: 2.5em;
-                font-weight: 800;
-                background: linear-gradient(135deg, #8B5CF6 0%, #C084FC 100%);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                margin: 10px 0 5px 0;
-            ">
-                AIM Analytics
-            </h1>
-            
-            <p style="
-                color: #A855F7;
-                font-size: 1.1em;
-                opacity: 0.8;
-                margin: 0;
-            ">
-                Plateforme d'analyse intelligente et marketing
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        # En-tête
+        st.markdown('<div class="login-header">', unsafe_allow_html=True)
+        st.markdown('<h1 class="login-title">AIM Analytics</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="login-subtitle">Plateforme d\'analyse intelligente et marketing</p>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # Formulaire de connexion
         with st.form("login_form"):
@@ -1940,6 +1903,7 @@ def render_login_page(db):
                 else:
                     user = db.authenticate_user(username, password)
                     if user:
+                        # Assurer que toutes les clés nécessaires existent
                         user.setdefault('full_name', user.get('username', 'Utilisateur'))
                         user.setdefault('role', 'user')
                         user.setdefault('is_first_login', False)
@@ -1956,6 +1920,8 @@ def render_login_page(db):
                         st.rerun()
                     else:
                         st.error("Identifiants incorrects")
+        
+        # SUPPRIMÉ: Section identifiants de démonstration
         
         st.markdown('</div>', unsafe_allow_html=True)
 
