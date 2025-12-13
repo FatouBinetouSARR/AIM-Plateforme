@@ -5493,7 +5493,7 @@ def _generate_dynamic_ai_recommendations(data_insights, sentiment_insights, fake
 # =============================
 #          MAIN APP
 # =============================
-def main():
+ def main():
     """Fonction principale de l'application"""
     
     # Initialiser la base de données
@@ -5503,7 +5503,19 @@ def main():
     if 'user' not in st.session_state:
         # Vérifier si on doit afficher la page de réinitialisation
         if 'show_forgot_password' in st.session_state and st.session_state.show_forgot_password:
-            render_forgot_password_page(db)
+            try:
+                # Vérifier si la fonction existe
+                if 'render_forgot_password_page' in globals():
+                    render_forgot_password_page(db)
+                else:
+                    st.error("Fonction non disponible. Retour à la connexion.")
+                    del st.session_state['show_forgot_password']
+                    st.rerun()
+            except NameError:
+                st.error("Erreur: Fonction de réinitialisation non trouvée")
+                if 'show_forgot_password' in st.session_state:
+                    del st.session_state['show_forgot_password']
+                st.rerun()
         else:
             # Page de connexion
             render_login_page(db)
