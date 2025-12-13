@@ -1884,48 +1884,59 @@ def render_login_page(db):
     with col2:
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
-        # Logo et titre
-        st.markdown("""
-        <div style="text-align: center; margin-bottom: 30px;">
-            <!-- Logo avec icône PNG -->
-            <div style="
-                width: 90px;
-                height: 90px;
-                margin: 0 auto 20px auto;
-                background: linear-gradient(135deg, #8B5CF6, #C084FC);
-                border-radius: 20px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 10px 25px rgba(139, 92, 246, 0.2);
-                border: 2px solid rgba(255, 255, 255, 0.3);
-            ">
-                <img src="images/AIM.png" 
-                     alt="AIM Logo"
-                     style="width: 50px; height: 50px; filter: brightness(0) invert(1);">
-            </div>
-            
-            <h1 style="
-                font-size: 2.5em;
-                font-weight: 800;
-                background: linear-gradient(135deg, #8B5CF6 0%, #C084FC 100%);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                margin: 10px 0 5px 0;
-            ">
-                AIM Analytics
-            </h1>
-            
-            <p style="
-                color: #A855F7;
-                font-size: 1.1em;
-                opacity: 0.8;
-                margin: 0;
-            ">
-                Plateforme d'analyse intelligente et marketing
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+       # Logo et titre côte à côte
+st.markdown("""
+<div style="
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+">
+    <!-- Logo -->
+    <div style="
+        width: 90px;
+        height: 90px;
+        background: linear-gradient(135deg, #8B5CF6, #C084FC);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 10px 25px rgba(139, 92, 246, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        flex-shrink: 0;
+    ">
+        <img src="images/AIM.png" 
+             alt="AIM Logo"
+             style="width: 50px; height: 50px; filter: brightness(0) invert(1);">
+    </div>
+    
+    <!-- Titre et sous-titre -->
+    <div style="text-align: left;">
+        <h1 style="
+            font-size: 2.5em;
+            font-weight: 800;
+            background: linear-gradient(135deg, #8B5CF6 0%, #C084FC 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0 0 5px 0;
+            line-height: 1;
+        ">
+            AIM Analytics
+        </h1>
+        
+        <p style="
+            color: #A855F7;
+            font-size: 1.1em;
+            opacity: 0.8;
+            margin: 0;
+        ">
+            Plateforme d'analyse intelligente et marketing
+        </p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
         
         # Formulaire de connexion
         with st.form("login_form"):
