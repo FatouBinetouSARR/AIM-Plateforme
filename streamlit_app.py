@@ -149,11 +149,7 @@ class DatabaseManager:
         except Exception as e:
             print(f"Erreur configuration DB: {e}")
             return None
-    
-    
-
-    
-    
+   
     
     def _fix_render_url(self, url):
         """Corrige les URLs Render incomplètes"""
@@ -315,8 +311,6 @@ class DatabaseManager:
         finally:
             cursor.close()
             self.return_connection(conn)
-
-    # SUPPRIMÉ: _init_default_users() - Pas d'utilisateurs de démo
 
     def authenticate_user(self, username, password):
         """Authentifie un utilisateur avec bcrypt"""
@@ -1812,14 +1806,15 @@ def render_user_management_enhanced(user, db):
                 new_email = st.text_input("Email *")
             
             with col2:
+                # SUPPRIMER "support" DE LA LISTE DES RÔLES
                 new_role = st.selectbox(
                     "Rôle *",
-                    ["admin", "data_analyst", "marketing", "support"],
+                    ["admin", "data_analyst", "marketing"],  # SUPPRIMÉ: "support"
                     format_func=lambda x: {
                         "admin": "Administrateur",
                         "data_analyst": "Analyste de données",
-                        "marketing": "Marketing",
-                        "support": "Support"
+                        "marketing": "Marketing"
+                        # SUPPRIMÉ: "support": "Support"
                     }.get(x, x)
                 )
                 new_password = st.text_input("Mot de passe *", type="password")
@@ -1908,7 +1903,7 @@ def render_user_management_enhanced(user, db):
                     'admin': 'Admin',
                     'data_analyst': 'Analyste',
                     'marketing': 'Marketing',
-                    'support': 'Support'
+                    'support': 'Support'  # Gardé pour l'affichage des utilisateurs existants
                 }.get(x, x)
             )
         
@@ -1927,8 +1922,99 @@ def render_user_management_enhanced(user, db):
         st.dataframe(display_df, use_container_width=True, height=400)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Actions rapides
-        st.subheader("Actions rapides")
+        # SECTION SUPPRESSION D'UTILISATEUR - NOUVELLE FONCTIONNALITÉ
+        st.subheader("Supprimer un utilisateur")
+        st.markdown('<div class="alert-danger">', unsafe_allow_html=True)
+        st.markdown("""
+        **Attention :** Cette action est irréversible !
+        - Toutes les données associées à l'utilisateur seront supprimées
+        - Les sessions seront invalidées
+        - Les logs d'activité seront conservés (pour audit)
+        """)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Sélection de l'utilisateur à supprimer
+        if len(filtered_df) > 0:
+            user_to_delete = st.selectbox(
+                "Sélectionner un utilisateur à supprimer :",
+                filtered_df['username'].tolist(),
+                key="user_delete_select"
+            )
+            
+            if user_to_delete:
+                user_data = filtered_df[filtered_df['username'] == user_to_delete].iloc[0]
+                
+                # Affichage des informations de l'utilisateur
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.info(f"**Nom complet :** {user_data.get('full_name', 'N/A')}")
+                    st.info(f"**Email :** {user_data.get('email', 'N/A')}")
+                with col2:
+                    st.info(f"**Rôle :** {display_df[display_df['username'] == user_to_delete]['role'].iloc[0]}")
+                    st.info(f"**Créé le :** {user_data.get('created_at', 'N/A')}")
+                
+                # Protection contre la suppression du compte admin principal
+                if user_data['username'] == 'admin':
+                    st.error("**Impossible de supprimer le compte administrateur principal !**")
+                elif user_data['id'] == user['id']:
+                    st.error("**Vous ne pouvez pas supprimer votre propre compte !**")
+                else:
+                    # Confirmation sécurisée
+                    st.markdown("### Confirmation de suppression")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        confirmation_text = st.text_input(
+                            f"Tapez 'SUPPRIMER {user_to_delete}' pour confirmer :",
+                            key="delete_confirmation"
+                        )
+                    
+                    with col2:
+                        st.markdown(" ")
+                        st.markdown(" ")
+                        delete_button = st.button(
+                            "Supprimer définitivement",
+                            type="primary",
+                            use_container_width=True,
+                            disabled=confirmation_text != f'SUPPRIMER {user_to_delete}'
+                        )
+                    
+                    if delete_button:
+                        try:
+                            # Méthode pour supprimer l'utilisateur de la base de données
+                            conn = db.get_connection()
+                            if conn:
+                                cursor = conn.cursor()
+                                
+                                # Supprimer les données associées (selon les contraintes de clé étrangère)
+                                cursor.execute("DELETE FROM user_sessions WHERE user_id = %s", (user_data['id'],))
+                                cursor.execute("DELETE FROM activity_logs WHERE user_id = %s", (user_data['id'],))
+                                cursor.execute("DELETE FROM data_uploads WHERE user_id = %s", (user_data['id'],))
+                                cursor.execute("DELETE FROM dashboard_metrics WHERE user_id = %s", (user_data['id'],))
+                                cursor.execute("DELETE FROM marketing_data WHERE user_id = %s", (user_data['id'],))
+                                cursor.execute("DELETE FROM support_tickets WHERE created_by = %s", (user_data['id'],))
+                                
+                                # Supprimer l'utilisateur
+                                cursor.execute("DELETE FROM users WHERE id = %s", (user_data['id'],))
+                                
+                                conn.commit()
+                                cursor.close()
+                                db.return_connection(conn)
+                                
+                                # Log l'activité
+                                db.log_activity(user['id'], "user_deletion", 
+                                               f"Suppression de l'utilisateur {user_to_delete} (ID: {user_data['id']})")
+                                
+                                st.success(f"Utilisateur '{user_to_delete}' supprimé avec succès!")
+                                st.rerun()
+                            else:
+                                st.error("Erreur de connexion à la base de données")
+                        
+                        except Exception as e:
+                            st.error(f"Erreur lors de la suppression : {str(e)}")
+        
+        # Actions rapides (section existante)
+        st.subheader("Autres actions")
         col1, col2 = st.columns(2)
         
         with col1:
@@ -1973,7 +2059,6 @@ def render_user_management_enhanced(user, db):
                 )
     else:
         st.info("Aucun utilisateur trouvé dans la base de données")
-
 def render_password_reset_page(user, db):
     """Page de réinitialisation des mots de passe"""
     st.subheader("Réinitialisation des mots de passe")
