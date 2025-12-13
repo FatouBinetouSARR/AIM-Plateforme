@@ -5477,3 +5477,8 @@ def main():
         except Exception as e:
             st.error(f"Une erreur est survenue : {str(e)}")
             st.info("Veuillez rafraîchir la page ou vous reconnecter.")
+
+
+# Point d'entrée
+if __name__ == "__main__":
+    main()
