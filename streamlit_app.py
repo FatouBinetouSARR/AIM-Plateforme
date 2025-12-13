@@ -1912,31 +1912,31 @@ def render_login_page(db):
                      style="width: 50px; height: 50px; filter: brightness(0) invert(1);">
             </div>
             
+            st.markdown("""
             <!-- Titre et sous-titre -->
             <div style="text-align: left;">
-            <h1 style="
-            font-size: 2.5em;
-            font-weight: 800;
-            background: linear-gradient(135deg, #885CF6 0%, #C084FC 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 0 0 5px 0;
-            line-height: 1;
-        ">
-            AIM Analytics
-        </h1>
-    
-        <p style="
-            color: #A855F7;
-            font-size: 1.1em;
-            opacity: 0.8;
-            margin: 0;
-        ">
-            Plateforme d'analyse intelligente et marketing
-        </p>
-    </div>
-        </div>
-        """, unsafe_allow_html=True)
+                <h1 style="  
+                    font-size: 2.5em;  
+                    font-weight: 800;  
+                    background: linear-gradient(135deg, #885CF6 0%, #C084FC 100%);  
+                    -webkit-background-clip: text;  
+                    -webkit-text-fill-color: transparent;  
+                    margin: 0 0 5px 0;  
+                    line-height: 1;  
+                ">  
+                    AIM Analytics  
+                </h1>  
+                
+                <p style="  
+                    color: #A855F7;  
+                    font-size: 1.1em;  
+                    opacity: 0.8;  
+                    margin: 0;  
+                ">  
+                    Plateforme d'analyse intelligente et marketing  
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Formulaire de connexion
         with st.form("login_form"):
