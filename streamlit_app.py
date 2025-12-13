@@ -1951,7 +1951,11 @@ def render_user_management_enhanced(user, db):
                     st.info(f"**Email :** {user_data.get('email', 'N/A')}")
                 with col2:
                     st.info(f"**Rôle :** {display_df[display_df['username'] == user_to_delete]['role'].iloc[0]}")
-                    st.info(f"**Créé le :** {user_data.get('created_at', 'N/A')}")
+                    created_at = user_data.get('created_at', 'N/A')
+                    if hasattr(created_at, 'strftime'):
+                        st.info(f"**Créé le :** {created_at.strftime('%d/%m/%Y %H:%M')}")
+                    else:
+                        st.info(f"**Créé le :** {created_at}")
                 
                 # Protection contre la suppression du compte admin principal
                 if user_data['username'] == 'admin':
@@ -1986,16 +1990,19 @@ def render_user_management_enhanced(user, db):
                             if conn:
                                 cursor = conn.cursor()
                                 
+                                # CONVERTIR L'ID EN TYPE NATIF PYTHON
+                                user_id = int(user_data['id'])
+                                
                                 # Supprimer les données associées (selon les contraintes de clé étrangère)
-                                cursor.execute("DELETE FROM user_sessions WHERE user_id = %s", (user_data['id'],))
-                                cursor.execute("DELETE FROM activity_logs WHERE user_id = %s", (user_data['id'],))
-                                cursor.execute("DELETE FROM data_uploads WHERE user_id = %s", (user_data['id'],))
-                                cursor.execute("DELETE FROM dashboard_metrics WHERE user_id = %s", (user_data['id'],))
-                                cursor.execute("DELETE FROM marketing_data WHERE user_id = %s", (user_data['id'],))
-                                cursor.execute("DELETE FROM support_tickets WHERE created_by = %s", (user_data['id'],))
+                                cursor.execute("DELETE FROM user_sessions WHERE user_id = %s", (user_id,))
+                                cursor.execute("DELETE FROM activity_logs WHERE user_id = %s", (user_id,))
+                                cursor.execute("DELETE FROM data_uploads WHERE user_id = %s", (user_id,))
+                                cursor.execute("DELETE FROM dashboard_metrics WHERE user_id = %s", (user_id,))
+                                cursor.execute("DELETE FROM marketing_data WHERE user_id = %s", (user_id,))
+                                cursor.execute("DELETE FROM support_tickets WHERE created_by = %s", (user_id,))
                                 
                                 # Supprimer l'utilisateur
-                                cursor.execute("DELETE FROM users WHERE id = %s", (user_data['id'],))
+                                cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
                                 
                                 conn.commit()
                                 cursor.close()
@@ -2003,7 +2010,7 @@ def render_user_management_enhanced(user, db):
                                 
                                 # Log l'activité
                                 db.log_activity(user['id'], "user_deletion", 
-                                               f"Suppression de l'utilisateur {user_to_delete} (ID: {user_data['id']})")
+                                               f"Suppression de l'utilisateur {user_to_delete} (ID: {user_id})")
                                 
                                 st.success(f"Utilisateur '{user_to_delete}' supprimé avec succès!")
                                 st.rerun()
@@ -2037,7 +2044,9 @@ def render_user_management_enhanced(user, db):
                     
                     if st.button("Mettre à jour le statut", key="update_status_btn"):
                         is_active = new_status == "Actif"
-                        success = db.update_user_status(user_data['id'], is_active)
+                        # CONVERTIR L'ID EN TYPE NATIF PYTHON
+                        user_id = int(user_data['id'])
+                        success = db.update_user_status(user_id, is_active)
                         if success:
                             db.log_activity(user['id'], "user_status_change", 
                                            f"Statut {selected_username} changé à {new_status}")
