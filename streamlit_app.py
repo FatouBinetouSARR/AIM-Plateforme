@@ -1776,7 +1776,7 @@ def render_login_page(db):
                 st.session_state['show_forgot_password'] = True
                 st.rerun()
         
-        st.markdown('</div>', unsafe_allow_html=True))
+        st.markdown('</div>', unsafe_allow_html=True)
 
 def render_password_change_page(user, db):
     """Page de changement de mot de passe obligatoire"""
