@@ -6,3 +6,4 @@ numpy>=1.24.0
 plotly>=5.17.0
 textblob>=0.17.1
 python-dotenv==1.0.0
+langdetect>=1.0.9
