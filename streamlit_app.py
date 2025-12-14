@@ -1877,72 +1877,15 @@ def apply_custom_css():
 #     PAGES D'AUTHENTIFICATION
 # ==================================
 def render_login_page(db):
-    """Page de connexion avec logo local"""
+    """Page de connexion avec design moderne"""
     apply_custom_css()
     
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
-        # Logo local
+        # En-tête
         st.markdown('<div class="login-header">', unsafe_allow_html=True)
-        
-        try:
-            # Essayer de charger le logo local
-            logo_path = "images/AIM.png"
-            
-            st.markdown(f"""
-            <div style="text-align: center; margin-bottom: 25px; padding: 15px 0;">
-                <div style="
-                    width: 100px;
-                    height: 100px;
-                    margin: 0 auto;
-                    background: linear-gradient(135deg, #8B5CF6, #C084FC);
-                    border-radius: 20px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: 0 10px 25px rgba(139, 92, 246, 0.2);
-                    border: 2px solid rgba(255, 255, 255, 0.3);
-                    overflow: hidden;
-                    padding: 15px;
-                ">
-                    <img src="{logo_path}" 
-                         alt="AIM Analytics Logo"
-                         style="
-                            width: 100%;
-                            height: 100%;
-                            object-fit: contain;
-                            filter: brightness(0) invert(1);
-                         "
-                         onerror="this.onerror=null; this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png';">
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        except Exception as e:
-            # Fallback si problème
-            st.markdown("""
-            <div style="text-align: center; margin-bottom: 25px;">
-                <div style="
-                    width: 100px;
-                    height: 100px;
-                    margin: 0 auto;
-                    background: linear-gradient(135deg, #8B5CF6, #C084FC);
-                    border-radius: 20px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: white;
-                    font-size: 2em;
-                    font-weight: bold;
-                    box-shadow: 0 10px 25px rgba(139, 92, 246, 0.2);
-                ">
-                    AIM
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
         st.markdown('<h1 class="login-title">AIM Analytics</h1>', unsafe_allow_html=True)
         st.markdown('<p class="login-subtitle">Plateforme d\'analyse intelligente et marketing</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -1960,6 +1903,7 @@ def render_login_page(db):
                 else:
                     user = db.authenticate_user(username, password)
                     if user:
+                        # Assurer que toutes les clés nécessaires existent
                         user.setdefault('full_name', user.get('username', 'Utilisateur'))
                         user.setdefault('role', 'user')
                         user.setdefault('is_first_login', False)
@@ -1976,6 +1920,8 @@ def render_login_page(db):
                         st.rerun()
                     else:
                         st.error("Identifiants incorrects")
+        
+        # SUPPRIMÉ: Section identifiants de démonstration
         
         st.markdown('</div>', unsafe_allow_html=True)
 
