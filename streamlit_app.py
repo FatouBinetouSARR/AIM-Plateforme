@@ -6455,14 +6455,6 @@ def render_marketing_overview_advanced(user, db):
     
     with col2:
         st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-        st.markdown('<div class="kpi-label">REVENU</div>', unsafe_allow_html=True)
-        revenue = metrics.get('total_revenue', 0)
-        st.markdown(f'<div class="kpi-value">{revenue:,.0f}€</div>'.replace(",", " "), unsafe_allow_html=True)
-        st.markdown(f'<div style="color: #FFAB00; font-size: 0.8em;">ROI: {metrics.get("roi", 0):.1f}%</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
         st.markdown('<div class="kpi-label">SATISFACTION</div>', unsafe_allow_html=True)
         satisfaction = metrics.get('avg_sentiment_score', 0)
         satisfaction_color = "#36B37E" if satisfaction >= 0.3 else "#FFAB00" if satisfaction >= -0.3 else "#FF5630"
@@ -6470,7 +6462,7 @@ def render_marketing_overview_advanced(user, db):
         st.markdown(f'<div style="color: #6554C0; font-size: 0.8em;">Score sentiment</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
-    with col4:
+    with col3:
         st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
         st.markdown('<div class="kpi-label">CONVERSIONS</div>', unsafe_allow_html=True)
         conversion_rate = metrics.get('conversion_rate', 0)
