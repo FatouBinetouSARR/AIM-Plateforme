@@ -2334,7 +2334,7 @@ def dashboard_data_analyst(user, db):
     elif selected_page == "Gestion Données":
         render_data_management(user, db)
     elif selected_page == "Profil":
-        render_user_profile_enhanced(user, db)  # Utilise la même fonction de profil que l'admin
+        render_user_profile_enhanced(user, db) 
 
 def render_ml_models(user, db):
     """Page dédiée à la détection de faux avis (Spam/Ham)"""
@@ -5085,7 +5085,7 @@ def render_analyst_overview(user, db):
             'upload_activity': [],
             'avg_records': len(df),
             'avg_columns': len(df.columns),
-            'avg_size_kb': st.session_state.get('uploaded_file_size', 0) / 1024 if 'uploaded_file_size' in st.session_state else 0
+           
         }
         
         # Distribution par type de données
