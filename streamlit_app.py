@@ -2570,125 +2570,6 @@ def render_user_profile_enhanced(user, db):
 # ==================================
 #       DASHBOARD DATA ANALYSTE
 # ==================================
-def dashboard_data_analyst(user, db):
-    """Dashboard dynamique pour les analystes de données"""
-    apply_custom_css()
-    
-    user_full_name = user.get('full_name', user.get('username', 'Analyste'))
-    user_role = user.get('role', 'data_analyst')
-    
-    # En-tête principal
-    st.markdown(f"""
-    <div class="main-header">
-        <h1 style="margin-bottom: 0.5rem; font-size: 2.4em;">Dashboard Analyste de Données</h1>
-        <p style="opacity: 0.95; font-size: 1.1em;">
-            Bienvenue {user_full_name} • Outils d'analyse avancée
-        </p>
-    </div>
-    """, unsafe_allow_html=True)                
-    
-    with st.sidebar:
-        # En-tête sidebar
-        st.markdown('<div class="sidebar-header">', unsafe_allow_html=True)
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            initials = user_full_name[0].upper() if user_full_name else 'A'
-            st.markdown(f'<div style="width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #667eea; font-size: 1.5em; font-weight: bold;">{initials}</div>', unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"**{user_full_name}**")
-            st.markdown(f"<span class='role-badge role-analyst'>Analyste</span>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # IMPORT DES DONNÉES DANS LA SIDEBAR (disponible pour toutes les sections)
-        st.markdown("### Import de données")
-        
-        uploaded_file = st.file_uploader(
-            "Importer un fichier CSV/Excel",
-            type=['csv', 'xlsx', 'xls'],
-            key="sidebar_data_upload",
-            label_visibility="collapsed"
-        )
-        
-        if uploaded_file is not None:
-            try:
-                if uploaded_file.name.endswith('.csv'):
-                    df = pd.read_csv(uploaded_file)
-                else:
-                    df = pd.read_excel(uploaded_file)
-                
-                # Stocker les données dans la session
-                st.session_state['uploaded_data'] = df
-                st.session_state['uploaded_filename'] = uploaded_file.name
-                st.session_state['uploaded_file_size'] = len(uploaded_file.getvalue())
-                
-                st.success(f"{uploaded_file.name} importé!")
-                st.info(f"{df.shape[0]} lignes × {df.shape[1]} colonnes")
-                
-                # Log l'activité
-                db.log_activity(user['id'], "data_upload", 
-                               f"Import données: {uploaded_file.name} ({df.shape[0]}×{df.shape[1]})")
-                
-            except Exception as e:
-                st.error(f"Erreur d'import: {str(e)}")
-        
-        # Afficher les informations du fichier importé s'il existe
-        if 'uploaded_data' in st.session_state and st.session_state['uploaded_data'] is not None:
-            st.markdown("---")
-            st.markdown("### Fichier actuel")
-            df = st.session_state['uploaded_data']
-            filename = st.session_state.get('uploaded_filename', 'Fichier inconnu')
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Lignes", df.shape[0])
-            with col2:
-                st.metric("Colonnes", df.shape[1])
-            
-            st.caption(f"Fichier: {filename}")
-            
-            # Bouton pour effacer les données
-            if st.button("Effacer les données", use_container_width=True):
-                del st.session_state['uploaded_data']
-                del st.session_state['uploaded_filename']
-                st.success("Données effacées!")
-                st.rerun()
-        
-        # Navigation MODIFIÉE
-        st.markdown("---")
-        pages = ["Vue d'ensemble", "Analytics", "EDA", "Analyse Sentiments", "Profil"]
-        selected_page = st.radio(
-            "Navigation",
-            pages,
-            label_visibility="collapsed",
-            key="analyst_nav"
-        )
-        
-        st.markdown("---")
-        
-        # Boutons d'action
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Rafraîchir", use_container_width=True):
-                st.rerun()
-        with col2:
-            if st.button("Déconnexion", use_container_width=True, type="primary"):
-                db.log_activity(user['id'], "logout", "Déconnexion analyste")
-                st.session_state.clear()
-                st.rerun()
-    
-    # Contenu principal MODIFIÉ
-    if selected_page == "Vue d'ensemble":
-        render_analyst_overview(user, db)
-    elif selected_page == "Analytics":
-        render_analyst_analytics(user, db)
-    elif selected_page == "EDA":
-        render_eda_analysis(user, db)  # NOUVELLE FONCTION
-    elif selected_page == "Analyse Sentiments":
-        render_sentiment_analysis(user, db)  # NOUVELLE FONCTION
-    elif selected_page == "Profil":
-        render_user_profile_enhanced(user, db)
-        
-
 def render_eda_analysis(user, db):
     """Analyse Exploratoire des Données (EDA)"""
     st.subheader("Analyse Exploratoire des Données (EDA)")
@@ -3831,8 +3712,8 @@ def render_analyst_overview(user, db):
                 st.plotly_chart(fig, use_container_width=True)
                 
 
-def render_analyst_analytics(user, db):
-    """Page analytics pour analystes"""
+def render_analyst_analytics_enhanced(user, db):
+    """Page analytics pour analystes avec toutes les fonctionnalités"""
     st.subheader("Analytics Avancés")
     
     # Vérifier si des données ont été importées
@@ -3850,7 +3731,8 @@ def render_analyst_analytics(user, db):
         
         analysis_type = st.selectbox(
             "Type d'analyse :",
-            ["Analyse descriptive", "Analyse de corrélation", "Analyse de tendance", "Clustering", "Prédiction"],
+            ["Analyse descriptive", "Analyse de corrélation", "Analyse de tendance", 
+             "Clustering", "Régression", "Classification", "Analyse temporelle", "Analyse multivariée"],
             key="analysis_type_select"
         )
         
@@ -3947,6 +3829,25 @@ def render_analyst_analytics(user, db):
                         df_sorted = df.sort_values(date_col)
                         fig = px.line(df_sorted, x=date_col, y=value_col, title=f"Évolution de {value_col} dans le temps")
                         st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Ajouter une ligne de tendance
+                        try:
+                            # Calculer la tendance linéaire
+                            x_numeric = pd.to_numeric(pd.to_datetime(df_sorted[date_col]))
+                            y_values = df_sorted[value_col].values
+                            
+                            # Régression linéaire
+                            z = np.polyfit(x_numeric, y_values, 1)
+                            p = np.poly1d(z)
+                            
+                            # Ajouter à la figure
+                            fig.add_scatter(x=df_sorted[date_col], y=p(x_numeric), 
+                                          mode='lines', name='Tendance linéaire',
+                                          line=dict(color='red', dash='dash'))
+                            
+                            st.plotly_chart(fig, use_container_width=True)
+                        except:
+                            pass
                 else:
                     st.info("Besoin d'au moins une colonne date et une colonne numérique pour l'analyse de tendance")
             
@@ -3966,11 +3867,17 @@ def render_analyst_analytics(user, db):
                     
                     # Appliquer K-means
                     from sklearn.cluster import KMeans
+                    from sklearn.preprocessing import StandardScaler
+                    
                     data_for_clustering = df[[x_col, y_col]].dropna()
                     
                     if len(data_for_clustering) > n_clusters:
-                        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-                        clusters = kmeans.fit_predict(data_for_clustering)
+                        # Standardiser les données
+                        scaler = StandardScaler()
+                        scaled_data = scaler.fit_transform(data_for_clustering)
+                        
+                        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                        clusters = kmeans.fit_predict(scaled_data)
                         
                         data_for_clustering['cluster'] = clusters
                         
@@ -3978,14 +3885,401 @@ def render_analyst_analytics(user, db):
                                        color='cluster', title=f"Clustering K-means (k={n_clusters})",
                                        color_continuous_scale=px.colors.qualitative.Set3)
                         st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Analyse des clusters
+                        st.markdown("**Caractéristiques des clusters:**")
+                        cluster_stats = data_for_clustering.groupby('cluster').agg({
+                            x_col: ['mean', 'std', 'count'],
+                            y_col: ['mean', 'std']
+                        }).round(2)
+                        
+                        st.dataframe(cluster_stats, use_container_width=True)
                     else:
                         st.warning("Pas assez de données pour le clustering")
                 else:
                     st.info("Besoin d'au moins 2 colonnes numériques pour le clustering")
             
-            elif analysis_type == "Prédiction":
-                st.info("Fonctionnalité de prédiction en développement...")
-                st.write("Cette fonctionnalité utilisera des modèles de machine learning pour faire des prédictions sur vos données.")
+            elif analysis_type == "Régression":
+                # Analyse de régression
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                if len(numeric_cols) >= 2:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        x_col = st.selectbox("Variable indépendante (X) :", numeric_cols, key="reg_x")
+                    with col2:
+                        y_col = st.selectbox("Variable dépendante (Y) :", numeric_cols, 
+                                           index=1 if len(numeric_cols) > 1 else 0, 
+                                           key="reg_y")
+                    
+                    if x_col and y_col:
+                        # Régression linéaire
+                        from sklearn.linear_model import LinearRegression
+                        from sklearn.metrics import mean_squared_error, r2_score
+                        
+                        data_reg = df[[x_col, y_col]].dropna()
+                        
+                        if len(data_reg) > 10:
+                            X = data_reg[[x_col]].values
+                            y = data_reg[y_col].values
+                            
+                            model = LinearRegression()
+                            model.fit(X, y)
+                            
+                            y_pred = model.predict(X)
+                            
+                            # Graphique de régression
+                            fig = px.scatter(data_reg, x=x_col, y=y_col, 
+                                           title=f"Régression linéaire: {y_col} vs {x_col}")
+                            
+                            # Ajouter la ligne de régression
+                            x_range = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+                            y_range = model.predict(x_range)
+                            
+                            fig.add_scatter(x=x_range.flatten(), y=y_range, 
+                                          mode='lines', name='Régression',
+                                          line=dict(color='red', width=3))
+                            
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Métriques
+                            mse = mean_squared_error(y, y_pred)
+                            r2 = r2_score(y, y_pred)
+                            
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Coefficient R²", f"{r2:.3f}")
+                            with col2:
+                                st.metric("MSE", f"{mse:.3f}")
+                            with col3:
+                                st.metric("Pente", f"{model.coef_[0]:.3f}")
+                            
+                            # Équation de la régression
+                            st.info(f"Équation: {y_col} = {model.coef_[0]:.3f} × {x_col} + {model.intercept_:.3f}")
+                        else:
+                            st.warning("Pas assez de données pour la régression (min 10)")
+                else:
+                    st.info("Besoin d'au moins 2 colonnes numériques pour la régression")
+            
+            elif analysis_type == "Classification":
+                # Analyse de classification avec matrice de confusion
+                st.markdown("### Analyse de Classification")
+                
+                # Sélection des colonnes
+                all_cols = df.columns.tolist()
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                
+                if len(numeric_cols) >= 2 and len(all_cols) >= 3:
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        # Sélectionner la variable cible (doit être catégorielle ou binaire)
+                        target_col = st.selectbox("Variable cible :", all_cols, key="class_target")
+                    
+                    with col2:
+                        # Sélectionner les features
+                        feature_options = [col for col in numeric_cols if col != target_col]
+                        feature_cols = st.multiselect("Variables prédictives :", 
+                                                     feature_options,
+                                                     default=feature_options[:2] if len(feature_options) >= 2 else feature_options,
+                                                     key="class_features")
+                    
+                    with col3:
+                        model_type = st.selectbox("Modèle :", 
+                                                ["Arbre de décision", "Random Forest", "Régression logistique"],
+                                                key="class_model")
+                    
+                    if target_col and feature_cols and len(feature_cols) >= 1:
+                        # Préparation des données
+                        from sklearn.model_selection import train_test_split
+                        from sklearn.preprocessing import LabelEncoder, StandardScaler
+                        
+                        # Préparer les données
+                        classification_data = df[[target_col] + feature_cols].dropna()
+                        
+                        if len(classification_data) > 20:
+                            # Encoder la variable cible si nécessaire
+                            if classification_data[target_col].dtype == 'object':
+                                le = LabelEncoder()
+                                y = le.fit_transform(classification_data[target_col])
+                                class_names = le.classes_
+                            else:
+                                y = classification_data[target_col].values
+                                # Convertir en classification binaire si numérique
+                                if len(np.unique(y)) > 10:
+                                    median_val = np.median(y)
+                                    y = (y > median_val).astype(int)
+                                    class_names = ['Classe 0', 'Classe 1']
+                                else:
+                                    class_names = np.unique(y)
+                            
+                            X = classification_data[feature_cols].values
+                            
+                            # Standardiser les features
+                            scaler = StandardScaler()
+                            X_scaled = scaler.fit_transform(X)
+                            
+                            # Split train/test
+                            X_train, X_test, y_train, y_test = train_test_split(
+                                X_scaled, y, test_size=0.3, random_state=42
+                            )
+                            
+                            # Entraîner le modèle
+                            if model_type == "Arbre de décision":
+                                from sklearn.tree import DecisionTreeClassifier
+                                model = DecisionTreeClassifier(max_depth=5, random_state=42)
+                            elif model_type == "Random Forest":
+                                from sklearn.ensemble import RandomForestClassifier
+                                model = RandomForestClassifier(n_estimators=100, random_state=42)
+                            else:  # Régression logistique
+                                from sklearn.linear_model import LogisticRegression
+                                model = LogisticRegression(random_state=42)
+                            
+                            model.fit(X_train, y_train)
+                            y_pred = model.predict(X_test)
+                            
+                            # Évaluation
+                            from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+                            from sklearn.metrics import confusion_matrix, classification_report
+                            
+                            accuracy = accuracy_score(y_test, y_pred)
+                            precision = precision_score(y_test, y_pred, average='weighted')
+                            recall = recall_score(y_test, y_pred, average='weighted')
+                            f1 = f1_score(y_test, y_pred, average='weighted')
+                            
+                            # Afficher les métriques
+                            col1, col2, col3, col4 = st.columns(4)
+                            with col1:
+                                st.metric("Accuracy", f"{accuracy:.3f}")
+                            with col2:
+                                st.metric("Precision", f"{precision:.3f}")
+                            with col3:
+                                st.metric("Recall", f"{recall:.3f}")
+                            with col4:
+                                st.metric("F1-Score", f"{f1:.3f}")
+                            
+                            # MATRICE DE CONFUSION
+                            st.markdown("### Matrice de Confusion")
+                            
+                            cm = confusion_matrix(y_test, y_pred)
+                            
+                            # Créer la visualisation de la matrice de confusion
+                            fig_cm = px.imshow(
+                                cm,
+                                text_auto=True,
+                                color_continuous_scale='Blues',
+                                labels=dict(x="Prédit", y="Réel", color="Nombre"),
+                                x=class_names,
+                                y=class_names,
+                                title="Matrice de Confusion"
+                            )
+                            fig_cm.update_layout(width=600, height=500)
+                            st.plotly_chart(fig_cm, use_container_width=True)
+                            
+                            # Rapport de classification
+                            st.markdown("### Rapport de Classification")
+                            report = classification_report(y_test, y_pred, target_names=[str(c) for c in class_names])
+                            st.text(report)
+                            
+                            # Importance des features (si disponible)
+                            if hasattr(model, 'feature_importances_'):
+                                st.markdown("### Importance des Variables")
+                                importance_df = pd.DataFrame({
+                                    'Variable': feature_cols,
+                                    'Importance': model.feature_importances_
+                                }).sort_values('Importance', ascending=False)
+                                
+                                fig_importance = px.bar(importance_df, x='Variable', y='Importance',
+                                                       title="Importance des variables")
+                                st.plotly_chart(fig_importance, use_container_width=True)
+                            
+                        else:
+                            st.warning("Pas assez de données pour la classification (min 20)")
+                    else:
+                        st.warning("Sélectionnez au moins une variable prédictive")
+                else:
+                    st.info("Besoin d'au moins 3 colonnes dont 2 numériques pour la classification")
+            
+            elif analysis_type == "Analyse temporelle":
+                # Analyse temporelle avancée
+                date_cols = df.select_dtypes(include=['datetime64', 'datetime']).columns.tolist()
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                
+                if date_cols and numeric_cols:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        date_col = st.selectbox("Colonne date :", date_cols, key="time_date")
+                    with col2:
+                        value_col = st.selectbox("Colonne valeur :", numeric_cols, key="time_value")
+                    
+                    if date_col and value_col:
+                        # Préparer les données
+                        time_data = df[[date_col, value_col]].copy()
+                        time_data = time_data.sort_values(date_col)
+                        time_data = time_data.dropna()
+                        
+                        # Analyse de saisonnalité
+                        st.markdown("### Analyse de Saisonnalité")
+                        
+                        # Extraire les composantes temporelles
+                        time_data['month'] = time_data[date_col].dt.month
+                        time_data['year'] = time_data[date_col].dt.year
+                        
+                        # Moyenne par mois
+                        monthly_avg = time_data.groupby('month')[value_col].mean().reset_index()
+                        
+                        fig_seasonal = px.line(monthly_avg, x='month', y=value_col,
+                                              title=f"Saisonnalité de {value_col} par mois",
+                                              markers=True)
+                        st.plotly_chart(fig_seasonal, use_container_width=True)
+                        
+                        # Série temporelle avec moyenne mobile
+                        st.markdown("### Série temporelle avec moyenne mobile")
+                        
+                        # Calculer la moyenne mobile
+                        window_size = st.slider("Taille de la fenêtre (moyenne mobile) :", 3, 30, 7)
+                        time_data['moving_avg'] = time_data[value_col].rolling(window=window_size).mean()
+                        
+                        fig_ts = px.line(time_data, x=date_col, y=value_col,
+                                        title=f"Série temporelle de {value_col}")
+                        fig_ts.add_scatter(x=time_data[date_col], y=time_data['moving_avg'],
+                                         mode='lines', name=f'Moyenne mobile ({window_size}j)',
+                                         line=dict(color='red', width=2))
+                        
+                        st.plotly_chart(fig_ts, use_container_width=True)
+                        
+                        # Analyse de croissance
+                        if len(time_data) > 10:
+                            time_data['growth'] = time_data[value_col].pct_change() * 100
+                            
+                            fig_growth = px.line(time_data, x=date_col, y='growth',
+                                               title=f"Taux de croissance de {value_col} (%)",
+                                               labels={'growth': 'Croissance (%)'})
+                            fig_growth.add_hline(y=0, line_dash="dash", line_color="gray")
+                            
+                            st.plotly_chart(fig_growth, use_container_width=True)
+                else:
+                    st.info("Besoin d'au moins une colonne date et une colonne numérique")
+            
+            elif analysis_type == "Analyse multivariée":
+                # Analyse multivariée
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                
+                if len(numeric_cols) >= 3:
+                    selected_cols = st.multiselect("Sélectionnez 3-5 variables numériques :",
+                                                  numeric_cols,
+                                                  default=numeric_cols[:3] if len(numeric_cols) >= 3 else numeric_cols,
+                                                  max_marks=5)
+                    
+                    if len(selected_cols) >= 3:
+                        # Matrice de scatter plot
+                        st.markdown("### Matrice de Scatter Plots")
+                        
+                        scatter_matrix = pd.plotting.scatter_matrix(df[selected_cols], figsize=(12, 8))
+                        st.pyplot()
+                        
+                        # Heatmap de corrélation
+                        st.markdown("### Heatmap de Corrélation Multivariée")
+                        
+                        corr_matrix = df[selected_cols].corr()
+                        
+                        fig = px.imshow(corr_matrix,
+                                       text_auto=True,
+                                       color_continuous_scale='RdBu',
+                                       zmin=-1, zmax=1,
+                                       title="Matrice de corrélation")
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Analyse en composantes principales (PCA)
+                        st.markdown("### Analyse en Composantes Principales (PCA)")
+                        
+                        from sklearn.decomposition import PCA
+                        from sklearn.preprocessing import StandardScaler
+                        
+                        # Standardiser les données
+                        scaler = StandardScaler()
+                        scaled_data = scaler.fit_transform(df[selected_cols].dropna())
+                        
+                        # Appliquer PCA
+                        pca = PCA(n_components=2)
+                        principal_components = pca.fit_transform(scaled_data)
+                        
+                        pca_df = pd.DataFrame(data=principal_components,
+                                             columns=['PC1', 'PC2'])
+                        
+                        # Visualiser les composantes principales
+                        fig_pca = px.scatter(pca_df, x='PC1', y='PC2',
+                                           title="Projection PCA (2 composantes)")
+                        
+                        # Ajouter les pourcentages de variance expliquée
+                        var_exp = pca.explained_variance_ratio_
+                        fig_pca.update_layout(
+                            xaxis_title=f"PC1 ({var_exp[0]*100:.1f}% variance)",
+                            yaxis_title=f"PC2 ({var_exp[1]*100:.1f}% variance)"
+                        )
+                        
+                        st.plotly_chart(fig_pca, use_container_width=True)
+                        
+                        # Variance expliquée par composante
+                        st.markdown("**Variance expliquée par composante:**")
+                        for i, var in enumerate(var_exp, 1):
+                            st.write(f"- Composante {i}: {var*100:.1f}%")
+                        
+                        st.write(f"- **Variance totale expliquée:** {sum(var_exp)*100:.1f}%")
+                        
+                        # Contribution des variables originales
+                        st.markdown("**Contribution des variables aux composantes principales:**")
+                        loadings = pd.DataFrame(
+                            pca.components_.T,
+                            columns=['PC1', 'PC2'],
+                            index=selected_cols
+                        )
+                        
+                        st.dataframe(loadings.round(3), use_container_width=True)
+                        
+                    else:
+                        st.warning("Sélectionnez au moins 3 variables pour l'analyse multivariée")
+                else:
+                    st.info("Besoin d'au moins 3 colonnes numériques pour l'analyse multivariée")
+            
+            # Bouton d'export des résultats
+            st.markdown("---")
+            if st.button("Exporter les résultats d'analyse", use_container_width=True):
+                # Créer un rapport d'analyse
+                report_content = f"""
+                RAPPORT D'ANALYSE - AIM Analytics Platform
+                ============================================
+                Type d'analyse: {analysis_type}
+                Date: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+                Fichier analysé: {filename}
+                Analyste: {user.get('full_name', user.get('username', 'N/A'))}
+                
+                DONNÉES ANALYSÉES:
+                - Lignes: {df.shape[0]}
+                - Colonnes: {df.shape[1]}
+                - Valeurs manquantes: {df.isnull().sum().sum()}
+                
+                RÉSULTATS:
+                """
+                
+                # Ajouter des résultats spécifiques selon le type d'analyse
+                if analysis_type == "Analyse descriptive":
+                    report_content += "\nStatistiques descriptives:\n"
+                    report_content += df.describe().to_string()
+                
+                elif analysis_type == "Analyse de corrélation":
+                    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                    if len(numeric_cols) >= 2:
+                        corr_matrix = df[numeric_cols].corr()
+                        report_content += "\nMatrice de corrélation:\n"
+                        report_content += corr_matrix.to_string()
+                
+                st.download_button(
+                    label="Télécharger le rapport",
+                    data=report_content,
+                    file_name=f"rapport_analyse_{analysis_type.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
                 
     else:
         # Si aucune donnée n'a été importée
@@ -4001,8 +4295,270 @@ def render_analyst_analytics(user, db):
         
         # Bouton pour rediriger vers la sidebar
         if st.button("Aller à l'import de données", type="primary"):
-            # On ne peut pas directement changer la page, mais on peut afficher un message
             st.info("Utilisez la sidebar à gauche pour importer des données")
+
+def render_ml_models(user, db):
+    """Page dédiée aux modèles de machine learning"""
+    st.subheader("Modèles de Machine Learning")
+    
+    if 'uploaded_data' not in st.session_state:
+        st.warning("Importez d'abord vos données pour utiliser les modèles ML")
+        return
+    
+    df = st.session_state['uploaded_data']
+    
+    st.markdown("""
+    ### Modèles de Machine Learning Avancés
+    
+    Cette section vous permet d'entraîner et d'évaluer différents modèles de machine learning
+    sur vos données. Choisissez un type de modèle et configurez les paramètres.
+    """)
+    
+    model_type = st.selectbox(
+        "Type de modèle :",
+        ["Classification", "Régression", "Clustering", "Réduction de dimension", "Ensemble Learning"],
+        key="ml_model_type"
+    )
+    
+    if model_type == "Classification":
+        render_classification_models(user, df)
+    elif model_type == "Régression":
+        render_regression_models(user, df)
+    elif model_type == "Clustering":
+        render_clustering_models(user, df)
+    elif model_type == "Réduction de dimension":
+        render_dimensionality_reduction(user, df)
+    elif model_type == "Ensemble Learning":
+        render_ensemble_models(user, df)
+
+def render_classification_models(user, df):
+    """Modèles de classification avancés"""
+    st.markdown("### Modèles de Classification")
+    
+    # Sélection des données
+    all_cols = df.columns.tolist()
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    if len(numeric_cols) < 2 or len(all_cols) < 3:
+        st.warning("Besoin d'au moins 3 colonnes dont 2 numériques pour la classification")
+        return
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        target_col = st.selectbox("Variable cible :", all_cols, key="ml_class_target")
+    
+    with col2:
+        feature_options = [col for col in numeric_cols if col != target_col]
+        feature_cols = st.multiselect("Variables prédictives :", 
+                                     feature_options,
+                                     default=feature_options[:3] if len(feature_options) >= 3 else feature_options,
+                                     key="ml_class_features")
+    
+    if not target_col or not feature_cols:
+        return
+    
+    # Préparation des données
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import LabelEncoder, StandardScaler
+    
+    data = df[[target_col] + feature_cols].dropna()
+    
+    if len(data) < 20:
+        st.warning("Pas assez de données (minimum 20 observations)")
+        return
+    
+    # Encoder la cible
+    if data[target_col].dtype == 'object':
+        le = LabelEncoder()
+        y = le.fit_transform(data[target_col])
+        class_names = le.classes_
+    else:
+        y = data[target_col].values
+        if len(np.unique(y)) > 10:
+            median_val = np.median(y)
+            y = (y > median_val).astype(int)
+            class_names = ['Classe 0', 'Classe 1']
+        else:
+            class_names = np.unique(y)
+    
+    X = data[feature_cols].values
+    
+    # Standardiser
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Split
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)
+    
+    # Sélection du modèle
+    model_choice = st.selectbox(
+        "Choix du modèle :",
+        ["Random Forest", "SVM", "K-NN", "Régression Logistique", "Naive Bayes", "XGBoost"],
+        key="class_model_choice"
+    )
+    
+    # Configuration des paramètres
+    if model_choice == "Random Forest":
+        n_estimators = st.slider("Nombre d'arbres :", 10, 200, 100)
+        max_depth = st.slider("Profondeur max :", 2, 20, 10)
+        
+        from sklearn.ensemble import RandomForestClassifier
+        model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+    
+    elif model_choice == "SVM":
+        C = st.slider("Paramètre C :", 0.1, 10.0, 1.0)
+        kernel = st.selectbox("Noyau :", ['linear', 'rbf', 'poly'], key="svm_kernel")
+        
+        from sklearn.svm import SVC
+        model = SVC(C=C, kernel=kernel, random_state=42, probability=True)
+    
+    elif model_choice == "K-NN":
+        n_neighbors = st.slider("Nombre de voisins :", 3, 20, 5)
+        
+        from sklearn.neighbors import KNeighborsClassifier
+        model = KNeighborsClassifier(n_neighbors=n_neighbors)
+    
+    elif model_choice == "Régression Logistique":
+        C = st.slider("Régularisation C :", 0.01, 10.0, 1.0)
+        
+        from sklearn.linear_model import LogisticRegression
+        model = LogisticRegression(C=C, random_state=42, max_iter=1000)
+    
+    elif model_choice == "Naive Bayes":
+        from sklearn.naive_bayes import GaussianNB
+        model = GaussianNB()
+    
+    elif model_choice == "XGBoost":
+        try:
+            from xgboost import XGBClassifier
+            n_estimators = st.slider("Nombre d'arbres :", 50, 500, 100)
+            max_depth = st.slider("Profondeur max :", 3, 15, 6)
+            
+            model = XGBClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+        except:
+            st.warning("XGBoost n'est pas installé. Utilisation de Random Forest à la place.")
+            from sklearn.ensemble import RandomForestClassifier
+            model = RandomForestClassifier(random_state=42)
+    
+    # Entraînement
+    if st.button("Entraîner le modèle", type="primary"):
+        with st.spinner("Entraînement en cours..."):
+            model.fit(X_train, y_train)
+            
+            # Prédictions
+            y_pred = model.predict(X_test)
+            y_prob = model.predict_proba(X_test) if hasattr(model, 'predict_proba') else None
+            
+            # Évaluation
+            from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
+                                       f1_score, confusion_matrix, classification_report,
+                                       roc_curve, auc, precision_recall_curve)
+            
+            # Métriques de base
+            accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred, average='weighted')
+            recall = recall_score(y_test, y_pred, average='weighted')
+            f1 = f1_score(y_test, y_pred, average='weighted')
+            
+            # Afficher les métriques
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Accuracy", f"{accuracy:.3f}")
+            with col2:
+                st.metric("Precision", f"{precision:.3f}")
+            with col3:
+                st.metric("Recall", f"{recall:.3f}")
+            with col4:
+                st.metric("F1-Score", f"{f1:.3f}")
+            
+            # Matrice de confusion
+            st.markdown("### Matrice de Confusion")
+            cm = confusion_matrix(y_test, y_pred)
+            
+            fig_cm = px.imshow(
+                cm,
+                text_auto=True,
+                color_continuous_scale='Blues',
+                labels=dict(x="Prédit", y="Réel", color="Nombre"),
+                x=[str(c) for c in class_names],
+                y=[str(c) for c in class_names],
+                title=f"Matrice de Confusion - {model_choice}"
+            )
+            st.plotly_chart(fig_cm, use_container_width=True)
+            
+            # Courbe ROC (pour classification binaire)
+            if len(class_names) == 2 and y_prob is not None:
+                st.markdown("### Courbe ROC")
+                
+                fpr, tpr, _ = roc_curve(y_test, y_prob[:, 1])
+                roc_auc = auc(fpr, tpr)
+                
+                fig_roc = go.Figure()
+                fig_roc.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines',
+                                           name=f'ROC curve (AUC = {roc_auc:.3f})',
+                                           line=dict(color='blue', width=2)))
+                fig_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines',
+                                           name='Random', line=dict(color='red', dash='dash')))
+                
+                fig_roc.update_layout(
+                    title=f'Courbe ROC - {model_choice}',
+                    xaxis_title='False Positive Rate',
+                    yaxis_title='True Positive Rate',
+                    width=600, height=500
+                )
+                st.plotly_chart(fig_roc, use_container_width=True)
+            
+            # Rapport de classification
+            st.markdown("### Rapport de Classification")
+            report = classification_report(y_test, y_pred, target_names=[str(c) for c in class_names])
+            st.text(report)
+            
+            # Importance des features
+            if hasattr(model, 'feature_importances_'):
+                st.markdown("### Importance des Variables")
+                
+                importance_df = pd.DataFrame({
+                    'Variable': feature_cols,
+                    'Importance': model.feature_importances_
+                }).sort_values('Importance', ascending=False)
+                
+                fig_imp = px.bar(importance_df.head(10), x='Variable', y='Importance',
+                               title="Top 10 des variables les plus importantes")
+                st.plotly_chart(fig_imp, use_container_width=True)
+            
+            # Prédictions sur de nouvelles données
+            st.markdown("### Faire une prédiction")
+            
+            col1, col2 = st.columns(2)
+            input_values = {}
+            
+            for i, feature in enumerate(feature_cols[:4]):  # Limiter à 4 features pour l'affichage
+                with col1 if i % 2 == 0 else col2:
+                    mean_val = df[feature].mean()
+                    std_val = df[feature].std()
+                    input_values[feature] = st.number_input(
+                        f"{feature} :",
+                        value=float(mean_val),
+                        step=float(std_val/10)
+                    )
+            
+            if st.button("Prédire"):
+                # Préparer l'input
+                input_array = np.array([[input_values[f] for f in feature_cols]])
+                input_scaled = scaler.transform(input_array)
+                
+                # Faire la prédiction
+                prediction = model.predict(input_scaled)[0]
+                proba = model.predict_proba(input_scaled)[0] if hasattr(model, 'predict_proba') else None
+                
+                if proba is not None:
+                    st.success(f"**Prédiction :** {class_names[prediction]}")
+                    st.info(f"**Probabilités :**")
+                    for i, prob in enumerate(proba):
+                        st.write(f"- {class_names[i]}: {prob:.3f}")
+                else:
+                    st.success(f"**Prédiction :** {class_names[prediction]}")
 
 def render_data_management(user, db):
     """Gestion des données pour analystes"""
