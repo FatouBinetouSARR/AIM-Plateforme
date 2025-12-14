@@ -2337,567 +2337,647 @@ def dashboard_data_analyst(user, db):
         render_user_profile_enhanced(user, db)  # Utilise la même fonction de profil que l'admin
 
 def render_ml_models(user, db):
-    """Page dédiée à l'étude comparative des modèles ML"""
-    st.subheader("Étude Comparative des Modèles ML")
+    """Page dédiée à la détection de faux avis (Spam/Ham)"""
+    st.subheader("Détection Intelligente de Faux Avis")
     
     if 'uploaded_data' not in st.session_state:
-        st.warning("Importez d'abord vos données pour utiliser les modèles ML")
+        st.warning("Importez d'abord vos données pour analyser les avis")
         return
     
     df = st.session_state['uploaded_data']
     
     st.markdown("""
-    ### Étude Comparative : Régression Logistique vs Naive Bayes
+    ### Système de Détection de Faux Avis (Spam/Ham)
     
-    Cette section permet de comparer les performances de deux modèles de classification populaire :
-    la **Régression Logistique** et le **Naive Bayes**. L'analyse inclut une évaluation complète
-    et une comparaison détaillée des performances.
+    Cette section utilise des algorithmes de machine learning pour détecter automatiquement 
+    les faux avis (spam) et les authentiques (ham). L'analyse inclut :
+    - Détection automatique des avis suspects
+    - Identification des auteurs récurrents
+    - Visualisations détaillées
+    - Export des résultats
     """)
     
     # ===========================================
-    # SECTION 1: CONFIGURATION DES DONNÉES
+    # SECTION 1: IDENTIFICATION DES COLONNES
     # ===========================================
     st.markdown("---")
-    st.markdown("### 1. Configuration des données")
+    st.markdown("### 1. Identification des colonnes")
     
-    # Sélection des données
-    all_cols = df.columns.tolist()
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    # Identifier les colonnes automatiquement
+    text_cols = df.select_dtypes(include=['object']).columns.tolist()
+    possible_author_cols = []
+    possible_rating_cols = []
+    possible_date_cols = []
     
-    if len(numeric_cols) < 2 or len(all_cols) < 3:
-        st.warning("Besoin d'au moins 3 colonnes dont 2 numériques pour la classification")
-        return
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        target_col = st.selectbox("Variable cible (Y) :", all_cols, key="ml_comparison_target")
-        st.info("""
-        **Variable cible :** 
-        La variable que vous souhaitez prédire. 
-        Doit être catégorielle ou numérique discrète.
-        """)
-    
-    with col2:
-        feature_options = [col for col in numeric_cols if col != target_col]
-        feature_cols = st.multiselect("Variables prédictives (X) :", 
-                                     feature_options,
-                                     default=feature_options[:3] if len(feature_options) >= 3 else feature_options,
-                                     key="ml_comparison_features")
-        st.info("""
-        **Variables prédictives :**
-        Les variables utilisées pour faire la prédiction.
-        Sélectionnez plusieurs variables numériques pour de meilleurs résultats.
-        """)
-    
-    if not target_col or not feature_cols:
-        return
-    
-    # Préparation des données
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import LabelEncoder, StandardScaler
-    
-    data = df[[target_col] + feature_cols].dropna()
-    
-    if len(data) < 20:
-        st.warning("Pas assez de données (minimum 20 observations)")
-        return
-    
-    # Informations sur les données
-    st.info(f"""
-    **Configuration des données :**
-    - Nombre d'observations : **{len(data)}**
-    - Nombre de variables prédictives : **{len(feature_cols)}**
-    - Variables sélectionnées : {', '.join(feature_cols[:3])}{'...' if len(feature_cols) > 3 else ''}
-    """)
-    
-    # ===========================================
-    # SECTION 2: PRÉPARATION DES DONNÉES
-    # ===========================================
-    st.markdown("---")
-    st.markdown("### 2. Préparation des données")
-    
-    # Encoder la cible
-    if data[target_col].dtype == 'object':
-        le = LabelEncoder()
-        y = le.fit_transform(data[target_col])
-        class_names = le.classes_
-        encoding_info = f"Variable cible encodée en {len(class_names)} classes"
-    else:
-        y = data[target_col].values
-        if len(np.unique(y)) > 10:
-            median_val = np.median(y)
-            y = (y > median_val).astype(int)
-            class_names = ['Classe 0', 'Classe 1']
-            encoding_info = "Variable numérique transformée en classification binaire (médiane)"
-        else:
-            class_names = np.unique(y)
-            encoding_info = f"Variable numérique avec {len(class_names)} classes"
-    
-    X = data[feature_cols].values
-    
-    # Standardiser
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    # Split train/test
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42, stratify=y)
-    
-    # Afficher les informations de split
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Données totales", len(data))
-    with col2:
-        st.metric("Données d'entraînement", len(X_train))
-    with col3:
-        st.metric("Données de test", len(X_test))
-    
-    st.info(f"""
-    **Préparation terminée :**
-    - {encoding_info}
-    - Données standardisées (moyenne=0, écart-type=1)
-    - Split : 70% entraînement / 30% test
-    - Random State : 42 (reproductibilité)
-    """)
-    
-    # ===========================================
-    # SECTION 3: ENTRAÎNEMENT DES MODÈLES
-    # ===========================================
-    st.markdown("---")
-    st.markdown("### 3. Entraînement des modèles")
-    
-    # Paramètres des modèles
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("#### Régression Logistique")
-        lr_C = st.slider("Paramètre C (régularisation) :", 0.01, 10.0, 1.0, key="lr_C", 
-                        help="Contrôle la force de régularisation. Plus C est petit, plus la régularisation est forte.")
-        lr_max_iter = st.slider("Nombre max d'itérations :", 100, 2000, 1000, key="lr_max_iter")
+    # Détection intelligente des colonnes
+    for col in df.columns:
+        col_lower = col.lower()
         
-        from sklearn.linear_model import LogisticRegression
-        lr_model = LogisticRegression(
-            C=lr_C, 
-            max_iter=lr_max_iter, 
-            random_state=42,
-            class_weight='balanced'
+        # Colonnes de texte (avis)
+        if df[col].dtype == 'object' and df[col].str.len().mean() > 20:
+            text_cols.append(col)
+        
+        # Colonnes d'auteur
+        if any(keyword in col_lower for keyword in ['author', 'user', 'name', 'client', 'utilisateur']):
+            possible_author_cols.append(col)
+        
+        # Colonnes de note
+        if any(keyword in col_lower for keyword in ['rating', 'note', 'score', 'star', 'review']):
+            possible_rating_cols.append(col)
+        
+        # Colonnes de date
+        if any(keyword in col_lower for keyword in ['date', 'time', 'created', 'posted']):
+            possible_date_cols.append(col)
+    
+    # Sélection des colonnes
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        review_col = st.selectbox(
+            "Colonne des avis/textes :",
+            text_cols,
+            help="Colonne contenant le texte des avis",
+            key="review_col"
         )
     
     with col2:
-        st.markdown("#### Naive Bayes")
-        nb_var_smoothing = st.slider("Lissage de variance :", 1e-9, 1e-5, 1e-9, format="%.1e", key="nb_var_smoothing",
-                                    help="Stabilité numérique pour éviter les variances nulles")
-        
-        from sklearn.naive_bayes import GaussianNB
-        nb_model = GaussianNB(var_smoothing=nb_var_smoothing)
+        if possible_author_cols:
+            author_col = st.selectbox(
+                "Colonne des auteurs :",
+                ['Aucune'] + possible_author_cols,
+                help="Colonne contenant les noms d'auteurs",
+                key="author_col"
+            )
+        else:
+            author_col = 'Aucune'
+            st.info("Aucune colonne auteur détectée")
     
-    # Bouton d'entraînement
-    if st.button("🚀 Lancer l'entraînement et la comparaison", type="primary", use_container_width=True):
-        with st.spinner("Entraînement des modèles en cours..."):
-            # Entraîner les modèles
-            lr_model.fit(X_train, y_train)
-            nb_model.fit(X_train, y_train)
+    with col3:
+        if possible_rating_cols:
+            rating_col = st.selectbox(
+                "Colonne des notes :",
+                ['Aucune'] + possible_rating_cols,
+                help="Colonne contenant les notes/ratings",
+                key="rating_col"
+            )
+        else:
+            rating_col = 'Aucune'
+            st.info("Aucune colonne note détectée")
+    
+    # Informations sur les données
+    total_reviews = len(df[review_col].dropna())
+    st.info(f"""
+    **Données disponibles :**
+    - Total avis analysables : **{total_reviews}**
+    - Colonne avis : **{review_col}**
+    - Colonne auteur : **{author_col if author_col != 'Aucune' else 'Non détectée'}**
+    - Colonne note : **{rating_col if rating_col != 'Aucune' else 'Non détectée'}**
+    """)
+    
+    # ===========================================
+    # SECTION 2: CONFIGURATION DE LA DÉTECTION
+    # ===========================================
+    st.markdown("---")
+    st.markdown("### 2. Configuration de la détection")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### Règles de détection")
+        
+        min_text_length = st.slider(
+            "Longueur texte minimale :",
+            min_value=5,
+            max_value=100,
+            value=10,
+            help="Textes plus courts que cette valeur seront suspects"
+        )
+        
+        max_repetition = st.slider(
+            "Seuil de répétition (%) :",
+            min_value=10,
+            max_value=50,
+            value=30,
+            help="Pourcentage maximum de répétition d'un mot dans le texte"
+        )
+        
+        extreme_rating = st.checkbox(
+            "Détecter notes extrêmes",
+            value=True,
+            help="Marquer comme suspect les notes 1 ou 5 avec texte court"
+        )
+    
+    with col2:
+        st.markdown("#### Algorithmes ML")
+        
+        use_ml = st.checkbox(
+            "Utiliser machine learning avancé",
+            value=True,
+            help="Utiliser des algorithmes ML pour améliorer la détection"
+        )
+        
+        if use_ml:
+            ml_method = st.selectbox(
+                "Algorithme de détection :",
+                ["Naive Bayes", "Régression Logistique", "Forêt Aléatoire"],
+                help="Algorithme ML pour classification spam/ham"
+            )
+        
+        confidence_threshold = st.slider(
+            "Seuil de confiance :",
+            min_value=50,
+            max_value=95,
+            value=75,
+            help="Seuil minimum de confiance pour marquer comme spam"
+        )
+    
+    # ===========================================
+    # SECTION 3: ANALYSE ET DÉTECTION
+    # ===========================================
+    st.markdown("---")
+    
+    if st.button("Lancer la détection de faux avis", type="primary", use_container_width=True):
+        with st.spinner("Analyse des avis en cours..."):
+            # Préparer les données
+            analysis_data = df.copy()
             
-            # Prédictions
-            y_pred_lr = lr_model.predict(X_test)
-            y_prob_lr = lr_model.predict_proba(X_test)
+            # Appliquer les règles de base
+            analysis_data['text_length'] = analysis_data[review_col].astype(str).apply(len)
+            analysis_data['suspicious_short'] = analysis_data['text_length'] < min_text_length
             
-            y_pred_nb = nb_model.predict(X_test)
-            y_prob_nb = nb_model.predict_proba(X_test)
+            # Détection de répétition
+            def check_repetition(text):
+                if isinstance(text, str) and len(text) > 0:
+                    words = text.split()
+                    if len(words) > 0:
+                        word_counts = Counter(words)
+                        most_common_count = word_counts.most_common(1)[0][1]
+                        return (most_common_count / len(words)) * 100 > max_repetition
+                return False
+            
+            analysis_data['suspicious_repetition'] = analysis_data[review_col].apply(check_repetition)
+            
+            # Détection notes extrêmes
+            if rating_col != 'Aucune' and extreme_rating:
+                analysis_data['suspicious_rating'] = (
+                    (analysis_data[rating_col].isin([1, 5])) & 
+                    (analysis_data['text_length'] < 50)
+                )
+            else:
+                analysis_data['suspicious_rating'] = False
+            
+            # Calculer le score de suspicion (règles basiques)
+            rule_columns = ['suspicious_short', 'suspicious_repetition', 'suspicious_rating']
+            analysis_data['suspicion_score_rules'] = analysis_data[rule_columns].sum(axis=1)
+            analysis_data['is_spam_rules'] = analysis_data['suspicion_score_rules'] >= 2
             
             # ===========================================
-            # SECTION 4: ÉVALUATION DES PERFORMANCES
+            # SECTION 4: ANALYSE AVANCÉE AVEC ML
             # ===========================================
-            st.markdown("---")
-            st.markdown("### 4. Évaluation des performances")
-            
-            from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
-                                       f1_score, confusion_matrix, classification_report,
-                                       roc_curve, auc, roc_auc_score)
-            
-            # Calcul des métriques pour les deux modèles
-            metrics_data = []
-            
-            for model_name, y_pred, y_prob in [("Régression Logistique", y_pred_lr, y_prob_lr),
-                                              ("Naive Bayes", y_pred_nb, y_prob_nb)]:
-                
-                accuracy = accuracy_score(y_test, y_pred)
-                precision = precision_score(y_test, y_pred, average='weighted')
-                recall = recall_score(y_test, y_pred, average='weighted')
-                f1 = f1_score(y_test, y_pred, average='weighted')
-                
-                # ROC-AUC pour classification binaire
-                if len(class_names) == 2:
-                    roc_auc = roc_auc_score(y_test, y_prob[:, 1])
-                else:
-                    roc_auc = roc_auc_score(y_test, y_prob, multi_class='ovr')
-                
-                metrics_data.append({
-                    'Modèle': model_name,
-                    'Accuracy': f"{accuracy:.3f}",
-                    'Precision': f"{precision:.3f}",
-                    'Recall': f"{recall:.3f}",
-                    'F1-Score': f"{f1:.3f}",
-                    'ROC-AUC': f"{roc_auc:.3f}" if len(class_names) == 2 else "N/A",
-                    'Temps entraînement (ms)': np.random.randint(10, 100)  # Simulé
-                })
-            
-            # Afficher le tableau comparatif
-            st.markdown("#### Tableau comparatif des métriques")
-            metrics_df = pd.DataFrame(metrics_data)
-            st.dataframe(metrics_df, use_container_width=True)
-            
-            # Visualisation comparative
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Graphique en barres comparatif
-                fig_compare = go.Figure()
-                
-                metrics_to_plot = ['Accuracy', 'Precision', 'Recall', 'F1-Score']
-                if len(class_names) == 2:
-                    metrics_to_plot.append('ROC-AUC')
-                
-                for model_idx, model_name in enumerate(['Régression Logistique', 'Naive Bayes']):
-                    model_metrics = metrics_data[model_idx]
-                    values = [float(model_metrics[metric]) for metric in metrics_to_plot]
+            if use_ml and total_reviews >= 20:
+                try:
+                    from sklearn.feature_extraction.text import TfidfVectorizer
+                    from sklearn.model_selection import train_test_split
+                    from sklearn.naive_bayes import MultinomialNB
+                    from sklearn.linear_model import LogisticRegression
+                    from sklearn.ensemble import RandomForestClassifier
+                    from sklearn.metrics import classification_report
                     
-                    fig_compare.add_trace(go.Bar(
-                        name=model_name,
-                        x=metrics_to_plot,
-                        y=values,
-                        text=[f"{v:.3f}" for v in values],
-                        textposition='auto',
-                    ))
-                
-                fig_compare.update_layout(
-                    title="Comparaison des métriques de performance",
-                    barmode='group',
-                    yaxis_title="Score",
-                    yaxis_range=[0, 1],
-                    height=400
-                )
-                st.plotly_chart(fig_compare, use_container_width=True)
+                    # Préparer les données pour ML
+                    texts = analysis_data[review_col].fillna('').astype(str).tolist()
+                    
+                    # Créer des labels basés sur les règles
+                    y = analysis_data['is_spam_rules'].astype(int).values
+                    
+                    # Vectorisation TF-IDF
+                    vectorizer = TfidfVectorizer(
+                        max_features=1000,
+                        stop_words='english',
+                        ngram_range=(1, 2)
+                    )
+                    X = vectorizer.fit_transform(texts)
+                    
+                    # Sélectionner le modèle
+                    if ml_method == "Naive Bayes":
+                        model = MultinomialNB()
+                    elif ml_method == "Régression Logistique":
+                        model = LogisticRegression(max_iter=1000, random_state=42)
+                    else:  # Forêt Aléatoire
+                        model = RandomForestClassifier(n_estimators=100, random_state=42)
+                    
+                    # Entraîner le modèle
+                    model.fit(X, y)
+                    
+                    # Prédictions
+                    y_pred = model.predict(X)
+                    y_prob = model.predict_proba(X)
+                    
+                    # Ajouter les résultats ML
+                    analysis_data['is_spam_ml'] = y_pred == 1
+                    analysis_data['spam_confidence'] = y_prob[:, 1] * 100
+                    analysis_data['is_spam_final'] = (
+                        (analysis_data['is_spam_ml']) & 
+                        (analysis_data['spam_confidence'] >= confidence_threshold)
+                    ) | analysis_data['is_spam_rules']
+                    
+                    ml_used = True
+                    
+                except Exception as e:
+                    st.warning(f"ML non disponible : {str(e)}")
+                    analysis_data['is_spam_final'] = analysis_data['is_spam_rules']
+                    analysis_data['spam_confidence'] = analysis_data['suspicion_score_rules'] * 25
+                    ml_used = False
+            else:
+                analysis_data['is_spam_final'] = analysis_data['is_spam_rules']
+                analysis_data['spam_confidence'] = analysis_data['suspicion_score_rules'] * 25
+                ml_used = False
+            
+            # ===========================================
+            # SECTION 5: STATISTIQUES ET VISUALISATIONS
+            # ===========================================
+            st.markdown("### 3. Résultats de la détection")
+            
+            # Calculer les statistiques
+            total_spam = analysis_data['is_spam_final'].sum()
+            spam_percentage = (total_spam / len(analysis_data)) * 100
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Avis analysés", len(analysis_data))
             
             with col2:
-                # Analyse des forces/faiblesses
-                st.markdown("#### Analyse comparative")
+                st.metric("Faux avis détectés", total_spam)
+            
+            with col3:
+                st.metric("Taux de faux avis", f"{spam_percentage:.1f}%")
+            
+            with col4:
+                avg_confidence = analysis_data.loc[analysis_data['is_spam_final'], 'spam_confidence'].mean()
+                st.metric("Confiance moyenne", f"{avg_confidence:.1f}%" if not pd.isna(avg_confidence) else "0%")
+            
+            # Visualisation 1: Répartition Spam/Ham
+            st.markdown("---")
+            st.markdown("#### Répartition Spam vs Ham")
+            
+            spam_counts = pd.Series(['Ham (Authentique)', 'Spam (Faux)']).value_counts()
+            spam_counts['Ham (Authentique)'] = len(analysis_data) - total_spam
+            spam_counts['Spam (Faux)'] = total_spam
+            
+            fig_dist = px.pie(
+                values=spam_counts.values,
+                names=spam_counts.index,
+                title="Distribution des avis",
+                hole=0.4,
+                color_discrete_map={
+                    'Ham (Authentique)': '#36B37E',
+                    'Spam (Faux)': '#FF5630'
+                }
+            )
+            fig_dist.update_traces(textposition='inside', textinfo='percent+label')
+            st.plotly_chart(fig_dist, use_container_width=True)
+            
+            # Visualisation 2: Causes des faux avis
+            st.markdown("---")
+            st.markdown("#### Causes principales des faux avis")
+            
+            spam_data = analysis_data[analysis_data['is_spam_final']].copy()
+            
+            if len(spam_data) > 0:
+                causes = []
                 
-                # Déterminer le meilleur modèle pour chaque métrique
-                best_models = {}
-                for metric in ['Accuracy', 'Precision', 'Recall', 'F1-Score']:
-                    lr_score = float(metrics_data[0][metric])
-                    nb_score = float(metrics_data[1][metric])
-                    best_models[metric] = 'Régression Logistique' if lr_score > nb_score else 'Naive Bayes'
+                for idx, row in spam_data.iterrows():
+                    cause_parts = []
+                    
+                    if row['suspicious_short']:
+                        cause_parts.append("Texte court")
+                    if row['suspicious_repetition']:
+                        cause_parts.append("Répétition")
+                    if row.get('suspicious_rating', False):
+                        cause_parts.append("Note extrême")
+                    
+                    causes.append(', '.join(cause_parts) if cause_parts else "Autre")
                 
-                # Afficher l'analyse
-                analysis_text = f"""
-                **Observations :**
+                cause_counts = Counter(causes)
                 
-                **Régression Logistique :**
-                - Meilleure pour : {', '.join([k for k, v in best_models.items() if v == 'Régression Logistique'])}
-                - Avantages : Interprétabilité, bonne régularisation, stable
-                - Limitations : Suppose une relation linéaire, sensible aux outliers
-                
-                **Naive Bayes :**
-                - Meilleure pour : {', '.join([k for k, v in best_models.items() if v == 'Naive Bayes'])}
-                - Avantages : Rapide, peu de données nécessaires, gère bien le bruit
-                - Limitations : Hypothèse d'indépendance forte, moins performant sur données complexes
-                
-                **Recommandation :**
-                """
-                
-                # Calculer le score global
-                lr_total = sum(float(metrics_data[0][m]) for m in ['Accuracy', 'Precision', 'Recall', 'F1-Score'])
-                nb_total = sum(float(metrics_data[1][m]) for m in ['Accuracy', 'Precision', 'Recall', 'F1-Score'])
-                
-                if lr_total > nb_total:
-                    analysis_text += "Privilégier la **Régression Logistique** pour ce dataset"
-                else:
-                    analysis_text += "Privilégier le **Naive Bayes** pour ce dataset"
-                
-                st.info(analysis_text)
+                fig_causes = px.bar(
+                    x=list(cause_counts.keys()),
+                    y=list(cause_counts.values()),
+                    title="Répartition des causes de détection",
+                    labels={'x': 'Cause', 'y': 'Nombre d\'avis'},
+                    color=list(cause_counts.values()),
+                    color_continuous_scale='Reds'
+                )
+                fig_causes.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig_causes, use_container_width=True)
+            
+            # Visualisation 3: Longueur des textes
+            st.markdown("---")
+            st.markdown("#### Analyse de la longueur des textes")
+            
+            fig_length = px.histogram(
+                analysis_data,
+                x='text_length',
+                color='is_spam_final',
+                nbins=30,
+                title="Distribution de la longueur des textes",
+                labels={'text_length': 'Longueur du texte (caractères)', 'is_spam_final': 'Est spam'},
+                color_discrete_map={False: '#36B37E', True: '#FF5630'},
+                opacity=0.7
+            )
+            fig_length.add_vline(x=min_text_length, line_dash="dash", line_color="red", 
+                               annotation_text=f"Seuil: {min_text_length} caractères")
+            st.plotly_chart(fig_length, use_container_width=True)
             
             # ===========================================
-            # SECTION 5: MATRICES DE CONFUSION
+            # SECTION 6: IDENTIFICATION DES AUTEURS
             # ===========================================
             st.markdown("---")
-            st.markdown("### 5. Matrices de confusion")
+            st.markdown("### 4. Identification des auteurs")
             
+            if author_col != 'Aucune' and author_col in analysis_data.columns:
+                # Analyse par auteur
+                author_analysis = analysis_data.groupby(author_col).agg({
+                    review_col: 'count',
+                    'is_spam_final': 'sum',
+                    'spam_confidence': 'mean',
+                    'text_length': 'mean'
+                }).rename(columns={
+                    review_col: 'total_reviews',
+                    'is_spam_final': 'spam_count',
+                    'spam_confidence': 'avg_confidence',
+                    'text_length': 'avg_text_length'
+                }).round(2)
+                
+                author_analysis['spam_percentage'] = (author_analysis['spam_count'] / author_analysis['total_reviews']) * 100
+                author_analysis = author_analysis.sort_values('spam_count', ascending=False)
+                
+                # Afficher les auteurs suspects
+                suspicious_authors = author_analysis[author_analysis['spam_count'] > 0]
+                
+                st.markdown(f"**{len(suspicious_authors)} auteurs suspects identifiés**")
+                
+                if len(suspicious_authors) > 0:
+                    # Top 10 auteurs les plus suspects
+                    top_suspicious = suspicious_authors.head(10)
+                    
+                    fig_authors = px.bar(
+                        top_suspicious.reset_index(),
+                        x=author_col,
+                        y='spam_count',
+                        color='spam_percentage',
+                        title="Top 10 des auteurs les plus suspects",
+                        labels={'spam_count': 'Nombre de faux avis', 'spam_percentage': '% de spam'},
+                        color_continuous_scale='Reds',
+                        hover_data=['total_reviews', 'avg_confidence', 'avg_text_length']
+                    )
+                    fig_authors.update_layout(xaxis_tickangle=-45)
+                    st.plotly_chart(fig_authors, use_container_width=True)
+                    
+                    # Tableau détaillé des auteurs
+                    st.markdown("#### Détail des auteurs suspects")
+                    
+                    display_cols = [
+                        author_col, 
+                        'total_reviews', 
+                        'spam_count', 
+                        'spam_percentage', 
+                        'avg_confidence',
+                        'avg_text_length'
+                    ]
+                    
+                    st.dataframe(
+                        suspicious_authors[display_cols].reset_index(drop=True),
+                        use_container_width=True,
+                        height=400
+                    )
+                    
+                    # Analyse des patterns d'auteurs
+                    st.markdown("#### Patterns des auteurs suspects")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        avg_reviews_suspicious = suspicious_authors['total_reviews'].mean()
+                        st.metric("Moyenne d'avis par auteur suspect", f"{avg_reviews_suspicious:.1f}")
+                    
+                    with col2:
+                        avg_spam_rate = suspicious_authors['spam_percentage'].mean()
+                        st.metric("Taux moyen de spam", f"{avg_spam_rate:.1f}%")
+                    
+                    # Auteurs avec pattern suspect
+                    pattern_authors = suspicious_authors[
+                        (suspicious_authors['total_reviews'] >= 3) & 
+                        (suspicious_authors['spam_percentage'] >= 50)
+                    ]
+                    
+                    if len(pattern_authors) > 0:
+                        st.warning(f"**{len(pattern_authors)} auteurs** ont un pattern très suspect (≥3 avis, ≥50% de spam)")
+            else:
+                st.info("Aucune colonne auteur disponible pour l'analyse")
+            
+            # ===========================================
+            # SECTION 7: TABLEAU COMPLET DES RÉSULTATS
+            # ===========================================
+            st.markdown("---")
+            st.markdown("### 5. Résultats détaillés")
+            
+            # Préparer le tableau des résultats
+            results_df = analysis_data.copy()
+            
+            # Ajouter des colonnes d'analyse
+            results_df['statut'] = results_df['is_spam_final'].map({True: 'SPAM', False: 'HAM'})
+            results_df['confiance'] = results_df['spam_confidence'].round(1)
+            
+            # Colonnes à afficher
+            display_columns = ['statut', 'confiance']
+            
+            if author_col != 'Aucune':
+                display_columns.insert(0, author_col)
+            
+            display_columns.append(review_col)
+            
+            if rating_col != 'Aucune':
+                display_columns.append(rating_col)
+            
+            display_columns.extend(['text_length', 'suspicion_score_rules'])
+            
+            # Afficher le tableau
+            st.markdown(f"**{len(results_df)} avis analysés**")
+            
+            # Filtres
             col1, col2 = st.columns(2)
             
             with col1:
-                # Matrice de confusion Régression Logistique
-                cm_lr = confusion_matrix(y_test, y_pred_lr)
-                fig_cm_lr = px.imshow(
-                    cm_lr,
-                    text_auto=True,
-                    color_continuous_scale='Blues',
-                    labels=dict(x="Prédit", y="Réel", color="Nombre"),
-                    x=[str(c) for c in class_names],
-                    y=[str(c) for c in class_names],
-                    title="Régression Logistique"
+                filter_status = st.multiselect(
+                    "Filtrer par statut :",
+                    ['SPAM', 'HAM'],
+                    default=['SPAM'],
+                    key="filter_status"
                 )
-                st.plotly_chart(fig_cm_lr, use_container_width=True)
             
             with col2:
-                # Matrice de confusion Naive Bayes
-                cm_nb = confusion_matrix(y_test, y_pred_nb)
-                fig_cm_nb = px.imshow(
-                    cm_nb,
-                    text_auto=True,
-                    color_continuous_scale='Greens',
-                    labels=dict(x="Prédit", y="Réel", color="Nombre"),
-                    x=[str(c) for c in class_names],
-                    y=[str(c) for c in class_names],
-                    title="Naive Bayes"
+                min_confidence = st.slider(
+                    "Confiance minimale :",
+                    0, 100, 0,
+                    key="min_confidence_filter"
                 )
-                st.plotly_chart(fig_cm_nb, use_container_width=True)
             
-            # Analyse des erreurs
-            st.markdown("#### Analyse des erreurs")
+            # Appliquer les filtres
+            filtered_df = results_df[
+                (results_df['statut'].isin(filter_status)) &
+                (results_df['confiance'] >= min_confidence)
+            ]
             
-            # Identifier les erreurs communes
-            errors_lr = (y_test != y_pred_lr)
-            errors_nb = (y_test != y_pred_nb)
+            st.dataframe(
+                filtered_df[display_columns].head(100),
+                use_container_width=True,
+                height=500
+            )
             
-            common_errors = np.sum(errors_lr & errors_nb)
-            unique_lr_errors = np.sum(errors_lr & ~errors_nb)
-            unique_nb_errors = np.sum(errors_nb & ~errors_lr)
+            # ===========================================
+            # SECTION 8: EXPORT ET RAPPORT
+            # ===========================================
+            st.markdown("---")
+            st.markdown("### 6. Export des résultats")
             
             col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Erreurs communes", common_errors)
-            with col2:
-                st.metric("Erreurs uniques RL", unique_lr_errors)
-            with col3:
-                st.metric("Erreurs uniques NB", unique_nb_errors)
-            
-            # ===========================================
-            # SECTION 6: COURBES ROC (pour classification binaire)
-            # ===========================================
-            if len(class_names) == 2:
-                st.markdown("---")
-                st.markdown("### 6. Courbes ROC")
-                
-                # Calculer les courbes ROC
-                fpr_lr, tpr_lr, _ = roc_curve(y_test, y_prob_lr[:, 1])
-                roc_auc_lr = auc(fpr_lr, tpr_lr)
-                
-                fpr_nb, tpr_nb, _ = roc_curve(y_test, y_prob_nb[:, 1])
-                roc_auc_nb = auc(fpr_nb, tpr_nb)
-                
-                # Graphique comparatif
-                fig_roc = go.Figure()
-                
-                fig_roc.add_trace(go.Scatter(
-                    x=fpr_lr, y=tpr_lr,
-                    mode='lines',
-                    name=f'Régression Logistique (AUC = {roc_auc_lr:.3f})',
-                    line=dict(color='blue', width=2)
-                ))
-                
-                fig_roc.add_trace(go.Scatter(
-                    x=fpr_nb, y=tpr_nb,
-                    mode='lines',
-                    name=f'Naive Bayes (AUC = {roc_auc_nb:.3f})',
-                    line=dict(color='green', width=2)
-                ))
-                
-                fig_roc.add_trace(go.Scatter(
-                    x=[0, 1], y=[0, 1],
-                    mode='lines',
-                    name='Aléatoire (AUC = 0.5)',
-                    line=dict(color='red', dash='dash')
-                ))
-                
-                fig_roc.update_layout(
-                    title='Courbes ROC comparatives',
-                    xaxis_title='Taux de faux positifs',
-                    yaxis_title='Taux de vrais positifs',
-                    width=800,
-                    height=500,
-                    legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
-                )
-                
-                st.plotly_chart(fig_roc, use_container_width=True)
-                
-                # Interprétation ROC
-                st.info(f"""
-                **Interprétation ROC :**
-                - **Régression Logistique AUC :** {roc_auc_lr:.3f}
-                - **Naive Bayes AUC :** {roc_auc_nb:.3f}
-                - **Différence :** {abs(roc_auc_lr - roc_auc_nb):.3f}
-                
-                Plus l'AUC est proche de 1, meilleur est le modèle.
-                Un AUC de 0.5 équivaut à une prédiction aléatoire.
-                """)
-            
-            # ===========================================
-            # SECTION 7: INTERPRÉTABILITÉ
-            # ===========================================
-            st.markdown("---")
-            st.markdown("### 7. Interprétabilité des modèles")
-            
-            col1, col2 = st.columns(2)
             
             with col1:
-                # Coefficients de la régression logistique
-                if hasattr(lr_model, 'coef_'):
-                    st.markdown("#### Coefficients RL (importance)")
-                    
-                    coef_df = pd.DataFrame({
-                        'Variable': feature_cols,
-                        'Coefficient': lr_model.coef_[0],
-                        'Importance': np.abs(lr_model.coef_[0])
-                    }).sort_values('Importance', ascending=False)
-                    
-                    fig_coef = px.bar(
-                        coef_df.head(10),
-                        x='Variable',
-                        y='Coefficient',
-                        color='Coefficient',
-                        color_continuous_scale='RdBu',
-                        title="Top 10 des coefficients RL",
-                        labels={'Coefficient': 'Valeur du coefficient'}
-                    )
-                    st.plotly_chart(fig_coef, use_container_width=True)
-                    
-                    st.info("""
-                    **Interprétation coefficients :**
-                    - **Positif** : Augmente la probabilité de la classe positive
-                    - **Négatif** : Diminue la probabilité de la classe positive
-                    - **Grande valeur absolue** : Forte influence sur la prédiction
-                    """)
-            
-            with col2:
-                # Naive Bayes : variances par classe
-                if hasattr(nb_model, 'sigma_'):
-                    st.markdown("#### Variances NB par classe")
-                    
-                    # Pour classification binaire, montrer les variances
-                    if len(class_names) == 2:
-                        var_df = pd.DataFrame({
-                            'Variable': feature_cols,
-                            'Classe 0 variance': nb_model.sigma_[0],
-                            'Classe 1 variance': nb_model.sigma_[1]
-                        })
-                        
-                        # Graphique
-                        fig_var = px.scatter(
-                            var_df,
-                            x='Classe 0 variance',
-                            y='Classe 1 variance',
-                            text='Variable',
-                            title="Variances par classe (Naive Bayes)",
-                            labels={
-                                'Classe 0 variance': 'Variance Classe 0',
-                                'Classe 1 variance': 'Variance Classe 1'
-                            }
-                        )
-                        fig_var.update_traces(textposition='top center')
-                        st.plotly_chart(fig_var, use_container_width=True)
-                        
-                        st.info("""
-                        **Interprétation variances :**
-                        - Points près de la diagonale : variances similaires entre classes
-                        - Points éloignés : variances différentes entre classes
-                        - Variables avec faibles variances : caractéristiques discriminantes
-                        """)
-            
-            # ===========================================
-            # SECTION 8: CONCLUSION ET RECOMMANDATIONS
-            # ===========================================
-            st.markdown("---")
-            st.markdown("### 8. Conclusion et recommandations")
-            
-            # Générer un rapport de conclusion
-            conclusion_text = f"""
-            ## Rapport d'étude comparative
-            
-            **Dataset analysé :** {st.session_state.get('uploaded_filename', 'Données importées')}
-            **Nombre d'observations :** {len(data)}
-            **Nombre de variables :** {len(feature_cols)}
-            **Classes cibles :** {len(class_names)}
-            
-            **Synthèse des performances :**
-            
-            | Métrique | Régression Logistique | Naive Bayes | Meilleur |
-            |----------|----------------------|-------------|----------|
-            """
-            
-            for metric in ['Accuracy', 'Precision', 'Recall', 'F1-Score']:
-                lr_val = metrics_data[0][metric]
-                nb_val = metrics_data[1][metric]
-                best = "RL" if float(lr_val) > float(nb_val) else "NB" if float(nb_val) > float(lr_val) else "Égal"
-                conclusion_text += f"| {metric} | {lr_val} | {nb_val} | {best} |\n"
-            
-            # Recommandation finale
-            total_lr = sum(float(metrics_data[0][m]) for m in ['Accuracy', 'Precision', 'Recall', 'F1-Score'])
-            total_nb = sum(float(metrics_data[1][m]) for m in ['Accuracy', 'Precision', 'Recall', 'F1-Score'])
-            
-            if total_lr > total_nb:
-                recommendation = """
-                **Recommandation : Privilégier la Régression Logistique**
-                
-                **Pourquoi :**
-                1. Meilleures performances globales
-                2. Interprétabilité des coefficients
-                3. Bonne régularisation contre le surapprentissage
-                4. Stable avec des données normalisées
-                
-                **Cas d'usage idéal :**
-                - Données linéairement séparables
-                - Besoin d'interprétabilité
-                - Variables corrélées
-                """
-            else:
-                recommendation = """
-                **Recommandation : Privilégier Naive Bayes**
-                
-                **Pourquoi :**
-                1. Meilleures performances sur ce dataset
-                2. Entraînement très rapide
-                3. Peu sensible au surapprentissage
-                4. Fonctionne bien avec peu de données
-                
-                **Cas d'usage idéal :**
-                - Données textuelles ou catégorielles
-                - Grands volumes de données
-                - Variables indépendantes
-                - Classification multi-classes
-                """
-            
-            # Afficher la conclusion
-            st.markdown(conclusion_text)
-            st.success(recommendation)
-            
-            # Bouton pour exporter les résultats
-            st.markdown("---")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Exporter les métriques
-                export_df = pd.DataFrame(metrics_data)
-                csv = export_df.to_csv(index=False)
+                # Export CSV complet
+                csv_data = results_df[display_columns].to_csv(index=False)
                 st.download_button(
-                    label="📥 Exporter les métriques (CSV)",
-                    data=csv,
-                    file_name=f"comparaison_ml_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    label="Exporter tous les résultats (CSV)",
+                    data=csv_data,
+                    file_name=f"detection_faux_avis_complet_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
                     mime="text/csv",
                     use_container_width=True
                 )
             
             with col2:
-                # Exporter le rapport complet
-                full_report = conclusion_text + "\n\n" + recommendation
+                # Export seulement les spam
+                spam_df = results_df[results_df['statut'] == 'SPAM']
+                if len(spam_df) > 0:
+                    csv_spam = spam_df[display_columns].to_csv(index=False)
+                    st.download_button(
+                        label=f"Exporter les {len(spam_df)} SPAM (CSV)",
+                        data=csv_spam,
+                        file_name=f"faux_avis_detectes_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+            
+            with col3:
+                # Rapport synthétique
+                report_content = f"""
+                RAPPORT DE DÉTECTION DE FAUX AVIS
+                ===================================
+                
+                Date d'analyse : {datetime.now().strftime('%d/%m/%Y %H:%M')}
+                Fichier source : {st.session_state.get('uploaded_filename', 'N/A')}
+                
+                PARAMÈTRES DE DÉTECTION :
+                - Longueur texte minimale : {min_text_length} caractères
+                - Seuil répétition : {max_repetition}%
+                - Détection notes extrêmes : {'Activée' if extreme_rating else 'Désactivée'}
+                - Machine Learning : {'Activé' if ml_used else 'Désactivé'}
+                - Seuil confiance : {confidence_threshold}%
+                
+                RÉSULTATS :
+                - Total avis analysés : {len(analysis_data)}
+                - Faux avis détectés (SPAM) : {total_spam}
+                - Avis authentiques (HAM) : {len(analysis_data) - total_spam}
+                - Taux de faux avis : {spam_percentage:.1f}%
+                
+                """
+                
+                if author_col != 'Aucune' and 'suspicious_authors' in locals():
+                    report_content += f"""
+                    ANALYSE PAR AUTEUR :
+                    - Auteurs suspects identifiés : {len(suspicious_authors)}
+                    - Auteurs avec pattern suspect : {len(pattern_authors) if 'pattern_authors' in locals() else 0}
+                    
+                    TOP 5 AUTEURS SUSPECTS :
+                    """
+                    
+                    for i, (author, data) in enumerate(suspicious_authors.head(5).iterrows(), 1):
+                        report_content += f"""
+                        {i}. {author}:
+                           - Total avis : {data['total_reviews']}
+                           - Avis spam : {data['spam_count']}
+                           - Taux spam : {data['spam_percentage']:.1f}%
+                           - Confiance moyenne : {data['avg_confidence']:.1f}%
+                        """
+                
+                report_content += f"""
+                
+                RECOMMANDATIONS :
+                1. Vérifier manuellement les avis marqués SPAM avec haute confiance
+                2. Surveiller les auteurs identifiés comme suspects
+                3. Mettre en place une modération pour les nouveaux avis
+                4. Réviser régulièrement les paramètres de détection
+                
+                Généré par AIM Analytics Platform
+                """
+                
                 st.download_button(
-                    label="📄 Exporter le rapport complet",
-                    data=full_report,
-                    file_name=f"rapport_comparaison_ml_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                    label="Télécharger rapport détaillé",
+                    data=report_content,
+                    file_name=f"rapport_detection_faux_avis_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
                     mime="text/plain",
                     use_container_width=True
                 )
+            
+            # ===========================================
+            # SECTION 9: ACTIONS RECOMMANDÉES
+            # ===========================================
+            st.markdown("---")
+            st.markdown("### 7. Actions recommandées")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("""
+                **Actions immédiates :**
+                
+                1. **Vérifier les SPAM haute confiance**
+                   - Priorité aux avis avec confiance > 90%
+                   - Vérifier manuellement au moins 10% des détections
+                
+                2. **Contacter les auteurs suspects**
+                   - Auteurs avec ≥3 avis spam
+                   - Pattern de notes extrêmes
+                
+                3. **Mettre à jour les filtres**
+                   - Ajuster les seuils si faux positifs
+                   - Ajouter mots-clés spécifiques au domaine
+                """)
+            
+            with col2:
+                st.markdown("""
+                **Actions préventives :**
+                
+                1. **Implémenter CAPTCHA**
+                   - Pour soumission d'avis
+                   - Réduit les bots automatisés
+                
+                2. **Limite temporelle**
+                   - 1 avis par utilisateur par jour
+                   - Prévention des spams massifs
+                
+                3. **Signalement communautaire**
+                   - Bouton "Signaler cet avis"
+                   - Modération collaborative
+                
+                4. **Analyse périodique**
+                   - Revue hebdomadaire des résultats
+                   - Ajustement des algorithmes
+                """)
+            
+            # Bouton pour ré-analyser
+            st.markdown("---")
+            if st.button("Relancer l'analyse avec nouveaux paramètres", use_container_width=True):
+                st.rerun()
 
 def render_classification_models(user, df):
     """Modèles de classification avancés"""
