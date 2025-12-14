@@ -1492,386 +1492,249 @@ class DatabaseManager:
 def apply_custom_css():
     st.markdown("""
     <style>
-    /* Style général - Violet pastel très clair */
+
+    /* =========================
+       GLOBAL – STYLE CORPORATE
+    ========================= */
     .stApp {
-        background: linear-gradient(135deg, #F3E8FF 0%, #FAF5FF 100%);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #F8FAFC;
+        font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #0F172A;
     }
-    
-    /* Login page spécifique */
+
+    /* =========================
+       LOGIN PAGE
+    ========================= */
     .login-container {
-        max-width: 450px;
-        margin: 80px auto;
+        max-width: 420px;
+        margin: 90px auto;
         padding: 40px;
-        background: rgba(255, 255, 255, 0.98);
-        border-radius: 20px;
-        box-shadow: 0 15px 50px rgba(216, 180, 254, 0.2);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(233, 213, 255, 0.5);
+        background: #FFFFFF;
+        border-radius: 14px;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
     }
-    
+
     .login-header {
         text-align: center;
-        margin-bottom: 40px;
+        margin-bottom: 32px;
     }
-    
+
     .login-title {
-        font-size: 2.8em;
-        font-weight: 800;
-        background: linear-gradient(135deg, #C084FC 0%, #D8B4FE 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 10px;
-        text-shadow: 0 2px 4px rgba(192, 132, 252, 0.1);
+        font-size: 2.2em;
+        font-weight: 700;
+        color: #1E3A8A;
+        margin-bottom: 6px;
     }
-    
+
     .login-subtitle {
-        color: #A855F7;
-        font-size: 1.2em;
-        margin-bottom: 30px;
-        opacity: 0.8;
+        color: #64748B;
+        font-size: 0.95em;
     }
-    
-    /* Input fields - Très doux */
-    .stTextInput > div > div > input {
-        background: rgba(255, 255, 255, 0.95);
-        border: 2px solid #EDE9FE;
-        border-radius: 12px;
-        padding: 16px;
-        font-size: 16px;
-        transition: all 0.3s ease;
-        color: #7C3AED;
+
+    /* =========================
+       INPUTS
+    ========================= */
+    .stTextInput input {
+        background: #FFFFFF;
+        border: 1px solid #CBD5E1;
+        border-radius: 8px;
+        padding: 14px;
+        font-size: 15px;
+        color: #0F172A;
     }
-    
-    .stTextInput > div > div > input:focus {
-        border-color: #C084FC;
-        box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.1);
+
+    .stTextInput input:focus {
+        border-color: #2563EB;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
         outline: none;
     }
-    
-    .stTextInput > div > div > input::placeholder {
-        color: #C4B5FD;
-        opacity: 0.7;
+
+    .stTextInput input::placeholder {
+        color: #94A3B8;
     }
-    
-    /* Boutons - Violet pastel */
-    .stButton > button {
+
+    /* =========================
+       BUTTONS
+    ========================= */
+    .stButton button {
         width: 100%;
-        background: linear-gradient(135deg, #D8B4FE 0%, #E9D5FF 100%);
-        color: #7C3AED;
-        border: 1px solid #DDD6FE;
-        padding: 18px;
-        border-radius: 12px;
-        font-size: 16px;
+        background: #1E3A8A;
+        color: #FFFFFF;
+        border: none;
+        padding: 14px;
+        border-radius: 8px;
+        font-size: 15px;
         font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
         margin-top: 10px;
-        box-shadow: 0 4px 15px rgba(216, 180, 254, 0.15);
+        transition: background 0.2s ease;
     }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(192, 132, 252, 0.2);
-        background: linear-gradient(135deg, #C084FC 0%, #D8B4FE 100%);
-        color: white;
-        border-color: #C084FC;
+
+    .stButton button:hover {
+        background: #2563EB;
     }
-    
-    /* Dashboard styles */
+
+    /* =========================
+       HEADERS / SECTIONS
+    ========================= */
     .main-header {
-        background: linear-gradient(135deg, #E9D5FF 0%, #F3E8FF 100%);
-        padding: 2.5rem;
-        border-radius: 20px;
-        color: #7C3AED;
+        background: #FFFFFF;
+        padding: 2rem;
+        border-radius: 14px;
         margin-bottom: 2rem;
-        box-shadow: 0 8px 25px rgba(216, 180, 254, 0.15);
-        border: 1px solid rgba(233, 213, 255, 0.5);
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
     }
-    
+
+    /* =========================
+       KPI CARDS
+    ========================= */
     .kpi-card {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9));
+        background: #FFFFFF;
         padding: 1.5rem;
-        border-radius: 15px;
-        box-shadow: 0 5px 20px rgba(216, 180, 254, 0.1);
-        transition: all 0.3s ease;
-        border-left: 4px solid #D8B4FE;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(237, 233, 254, 0.3);
-    }
-    
-    .kpi-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 30px rgba(192, 132, 252, 0.15);
-        border-left: 4px solid #C084FC;
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(250, 245, 255, 0.95));
-    }
-    
-    .kpi-value {
-        font-size: 2.5em;
-        font-weight: 800;
-        color: #8B5CF6;
-        margin: 0.5rem 0;
-        text-shadow: 0 2px 4px rgba(139, 92, 246, 0.1);
-    }
-    
-    .kpi-label {
-        font-size: 0.9em;
-        color: #A78BFA;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    
-    /* Sidebar */
-    .sidebar-header {
-        background: linear-gradient(135deg, #E9D5FF 0%, #F3E8FF 100%);
-        padding: 1.5rem;
-        color: #7C3AED;
-        margin: -1rem -1rem 1rem -1rem;
-        border-radius: 0 0 20px 20px;
-        border-bottom: 1px solid rgba(233, 213, 255, 0.5);
-        box-shadow: 0 4px 12px rgba(216, 180, 254, 0.1);
-    }
-    
-    /* Tableaux */
-    .data-table {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9));
-        border-radius: 15px;
-        overflow: hidden;
-        box-shadow: 0 5px 20px rgba(216, 180, 254, 0.1);
-        border: 1px solid rgba(237, 233, 254, 0.3);
-    }
-    
-    /* Alertes avec couleurs violettes pastel */
-    .alert-success {
-        background: linear-gradient(135deg, rgba(216, 180, 254, 0.1), rgba(233, 213, 255, 0.1));
-        border-left: 4px solid #A78BFA;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        color: #7C3AED;
-        border: 1px solid rgba(237, 233, 254, 0.3);
-    }
-    
-    .alert-warning {
-        background: linear-gradient(135deg, rgba(253, 224, 71, 0.1), rgba(254, 240, 138, 0.1));
-        border-left: 4px solid #FACC15;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        color: #CA8A04;
-        border: 1px solid rgba(254, 240, 138, 0.3);
-    }
-    
-    .alert-danger {
-        background: linear-gradient(135deg, rgba(252, 165, 165, 0.1), rgba(254, 202, 202, 0.1));
-        border-left: 4px solid #F87171;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        color: #DC2626;
-        border: 1px solid rgba(254, 202, 202, 0.3);
-    }
-    
-    /* Badges - Nuances de violet pastel */
-    .role-badge {
-        display: inline-block;
-        padding: 6px 14px;
-        border-radius: 20px;
-        font-size: 0.75em;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-    }
-    
-    .role-admin {
-        background: linear-gradient(135deg, #E9D5FF, #F3E8FF);
-        color: #8B5CF6;
-        border-color: rgba(139, 92, 246, 0.2);
-    }
-    
-    .role-analyst {
-        background: linear-gradient(135deg, #D8B4FE, #E9D5FF);
-        color: #7C3AED;
-        border-color: rgba(124, 58, 237, 0.2);
-    }
-    
-    .role-marketing {
-        background: linear-gradient(135deg, #F3E8FF, #FAF5FF);
-        color: #A855F7;
-        border-color: rgba(168, 85, 247, 0.2);
-    }
-    
-    .role-support {
-        background: linear-gradient(135deg, #C4B5FD, #DDD6FE);
-        color: #6D28D9;
-        border-color: rgba(109, 40, 217, 0.2);
-    }
-    
-    /* Radio buttons et selects */
-    .stRadio > div {
-        background: rgba(255, 255, 255, 0.8);
         border-radius: 12px;
-        padding: 10px;
-        border: 1px solid rgba(237, 233, 254, 0.5);
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+        transition: transform 0.2s ease;
     }
-    
-    .stSelectbox > div > div > div {
-        background: rgba(255, 255, 255, 0.8);
+
+    .kpi-card:hover {
+        transform: translateY(-4px);
+    }
+
+    .kpi-value {
+        font-size: 2.2em;
+        font-weight: 700;
+        color: #1E3A8A;
+    }
+
+    .kpi-label {
+        font-size: 0.85em;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+    }
+
+    /* =========================
+       SIDEBAR
+    ========================= */
+    section[data-testid="stSidebar"] > div {
+        background: #FFFFFF;
+        border-right: 1px solid #E2E8F0;
+    }
+
+    .sidebar-header {
+        padding: 1.5rem;
+        font-weight: 600;
+        color: #1E3A8A;
+        border-bottom: 1px solid #E2E8F0;
+    }
+
+    /* =========================
+       TABLES
+    ========================= */
+    .dataframe {
+        background: #FFFFFF !important;
         border-radius: 10px;
-        border: 1px solid rgba(237, 233, 254, 0.5);
+        border: 1px solid #E2E8F0;
     }
-    
-    /* Scrollbar personnalisée */
+
+    .dataframe thead {
+        background: #F1F5F9 !important;
+        color: #1E293B !important;
+        font-weight: 600;
+    }
+
+    /* =========================
+       ALERTS
+    ========================= */
+    .stAlert {
+        border-radius: 8px;
+        font-size: 14px;
+    }
+
+    /* =========================
+       TABS
+    ========================= */
+    .stTabs [data-baseweb="tab-list"] {
+        background: #F8FAFC;
+        border-radius: 10px;
+        border: 1px solid #E2E8F0;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        color: #64748B;
+        font-weight: 500;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background: #FFFFFF;
+        color: #1E3A8A !important;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+    }
+
+    /* =========================
+       PROGRESS
+    ========================= */
+    .stProgress > div > div > div {
+        background: #2563EB;
+    }
+
+    /* =========================
+       SCROLLBAR
+    ========================= */
     ::-webkit-scrollbar {
         width: 6px;
     }
-    
-    ::-webkit-scrollbar-track {
-        background: rgba(233, 213, 255, 0.2);
-        border-radius: 3px;
-    }
-    
+
     ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #D8B4FE, #E9D5FF);
+        background: #CBD5E1;
         border-radius: 3px;
     }
-    
+
     ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(135deg, #C084FC, #D8B4FE);
+        background: #94A3B8;
     }
-    
-    /* Séparateurs */
-    hr {
-        border: none;
-        height: 1px;
-        background: linear-gradient(to right, transparent, rgba(216, 180, 254, 0.3), transparent);
-        margin: 2rem 0;
-    }
-    
-    /* Checkboxes */
-    .stCheckbox > div {
-        color: #7C3AED;
-    }
-    
-    /* Expanders */
-    .streamlit-expanderHeader {
-        background: linear-gradient(135deg, rgba(233, 213, 255, 0.3), rgba(250, 245, 255, 0.3));
-        border-radius: 10px;
-        color: #7C3AED;
-        font-weight: 600;
-        border: 1px solid rgba(237, 233, 254, 0.3);
-    }
-    
-    .streamlit-expanderHeader:hover {
-        background: linear-gradient(135deg, rgba(216, 180, 254, 0.4), rgba(233, 213, 255, 0.4));
-    }
-    
-    /* Metrics */
-    .stMetric {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(250, 245, 255, 0.8));
-        border-radius: 12px;
-        padding: 15px;
-        border-left: 3px solid #D8B4FE;
-        border: 1px solid rgba(237, 233, 254, 0.3);
-        box-shadow: 0 4px 12px rgba(216, 180, 254, 0.08);
-    }
-    
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(250, 245, 255, 0.8));
-        border-radius: 12px;
-        padding: 5px;
-        border: 1px solid rgba(237, 233, 254, 0.3);
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        color: #A78BFA;
-        font-weight: 500;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #D8B4FE, #E9D5FF);
-        color: #7C3AED !important;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(216, 180, 254, 0.2);
-    }
-    
-    /* File uploader */
-    .stFileUploader > div > div {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9));
-        border: 2px dashed #DDD6FE;
-        border-radius: 12px;
-    }
-    
-    /* Progress bars */
-    .stProgress > div > div > div {
-        background: linear-gradient(90deg, #D8B4FE, #E9D5FF);
-    }
-    
-    /* Markdown text */
+
+    /* =========================
+       MARKDOWN
+    ========================= */
     .stMarkdown h1 {
-        color: #7C3AED;
-        border-bottom: 2px solid rgba(216, 180, 254, 0.3);
-        padding-bottom: 10px;
+        color: #1E3A8A;
+        border-bottom: 2px solid #E2E8F0;
+        padding-bottom: 8px;
     }
-    
+
     .stMarkdown h2 {
-        color: #8B5CF6;
+        color: #334155;
     }
-    
+
     .stMarkdown h3 {
-        color: #A78BFA;
+        color: #475569;
     }
-    
-    /* Code blocks */
-    .stCodeBlock {
-        background: rgba(250, 245, 255, 0.5) !important;
-        border: 1px solid rgba(237, 233, 254, 0.5);
-        border-radius: 10px;
-    }
-    
-    /* Tooltips */
-    [data-testid="stTooltip"] {
-        background: linear-gradient(135deg, #E9D5FF, #F3E8FF) !important;
-        color: #7C3AED !important;
-        border: 1px solid rgba(237, 233, 254, 0.5);
-        box-shadow: 0 4px 12px rgba(216, 180, 254, 0.15);
-    }
-    
-    /* Dataframe styling */
-    .dataframe {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9)) !important;
-    }
-    
-    .dataframe thead {
-        background: linear-gradient(135deg, rgba(233, 213, 255, 0.3), rgba(250, 245, 255, 0.3)) !important;
-        color: #7C3AED !important;
-    }
-    
-    /* Plotly chart background */
+
+    /* =========================
+       PLOTLY
+    ========================= */
     .js-plotly-plot {
-        background: rgba(255, 255, 255, 0.7) !important;
-        border-radius: 15px;
-        padding: 15px;
+        background: #FFFFFF !important;
+        border-radius: 12px;
+        padding: 12px;
+        border: 1px solid #E2E8F0;
     }
-    
-    /* Sidebar background */
-    section[data-testid="stSidebar"] > div {
-        background: linear-gradient(135deg, #FAF5FF 0%, #FFFFFF 100%);
-        border-right: 1px solid rgba(237, 233, 254, 0.5);
-    }
-    
-    /* Focus states */
+
+    /* =========================
+       FOCUS
+    ========================= */
     *:focus {
-        outline: 2px solid rgba(192, 132, 252, 0.3) !important;
+        outline: 2px solid rgba(37, 99, 235, 0.3) !important;
         outline-offset: 2px;
     }
+
     </style>
     """, unsafe_allow_html=True)
+
 
 # ==================================
 #     PAGES D'AUTHENTIFICATION
@@ -5863,4 +5726,4 @@ def main():
 
 # Point d'entrée
 if __name__ == "__main__":
-    main()
+    main() 
