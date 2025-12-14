@@ -2861,6 +2861,630 @@ def render_ensemble_models(user, df):
                 
         except Exception as e:
             st.error(f"Erreur: {str(e)}")
+def render_ml_models(user, db):
+    """Page dédiée aux modèles de machine learning"""
+    st.subheader("Modèles de Machine Learning")
+    
+    if 'uploaded_data' not in st.session_state:
+        st.warning("Importez d'abord vos données pour utiliser les modèles ML")
+        return
+    
+    df = st.session_state['uploaded_data']
+    
+    st.markdown("""
+    ### Modèles de Machine Learning Avancés
+    
+    Cette section vous permet d'entraîner et d'évaluer différents modèles de machine learning
+    sur vos données. Choisissez un type de modèle et configurez les paramètres.
+    """)
+    
+    model_type = st.selectbox(
+        "Type de modèle :",
+        ["Classification", "Régression", "Clustering", "Réduction de dimension", "Ensemble Learning"],
+        key="ml_model_type"
+    )
+    
+    if model_type == "Classification":
+        render_classification_models(user, df)
+    elif model_type == "Régression":
+        render_regression_models(user, df)
+    elif model_type == "Clustering":
+        render_clustering_models(user, df)
+    elif model_type == "Réduction de dimension":
+        render_dimensionality_reduction(user, df)
+    elif model_type == "Ensemble Learning":
+        render_ensemble_models(user, df)
+
+def render_classification_models(user, df):
+    """Modèles de classification avancés"""
+    st.markdown("### Modèles de Classification")
+    
+    # Sélection des données
+    all_cols = df.columns.tolist()
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    if len(numeric_cols) < 2 or len(all_cols) < 3:
+        st.warning("Besoin d'au moins 3 colonnes dont 2 numériques pour la classification")
+        return
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        target_col = st.selectbox("Variable cible :", all_cols, key="ml_class_target")
+    
+    with col2:
+        feature_options = [col for col in numeric_cols if col != target_col]
+        feature_cols = st.multiselect("Variables prédictives :", 
+                                     feature_options,
+                                     default=feature_options[:3] if len(feature_options) >= 3 else feature_options,
+                                     key="ml_class_features")
+    
+    if not target_col or not feature_cols:
+        return
+    
+    # Préparation des données
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import LabelEncoder, StandardScaler
+    
+    data = df[[target_col] + feature_cols].dropna()
+    
+    if len(data) < 20:
+        st.warning("Pas assez de données (minimum 20 observations)")
+        return
+    
+    # Encoder la cible
+    if data[target_col].dtype == 'object':
+        le = LabelEncoder()
+        y = le.fit_transform(data[target_col])
+        class_names = le.classes_
+    else:
+        y = data[target_col].values
+        if len(np.unique(y)) > 10:
+            median_val = np.median(y)
+            y = (y > median_val).astype(int)
+            class_names = ['Classe 0', 'Classe 1']
+        else:
+            class_names = np.unique(y)
+    
+    X = data[feature_cols].values
+    
+    # Standardiser
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Split
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)
+    
+    # Sélection du modèle
+    model_choice = st.selectbox(
+        "Choix du modèle :",
+        ["Random Forest", "SVM", "K-NN", "Régression Logistique", "Naive Bayes", "XGBoost"],
+        key="class_model_choice"
+    )
+    
+    # Configuration des paramètres
+    if model_choice == "Random Forest":
+        n_estimators = st.slider("Nombre d'arbres :", 10, 200, 100)
+        max_depth = st.slider("Profondeur max :", 2, 20, 10)
+        
+        from sklearn.ensemble import RandomForestClassifier
+        model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+    
+    elif model_choice == "SVM":
+        C = st.slider("Paramètre C :", 0.1, 10.0, 1.0)
+        kernel = st.selectbox("Noyau :", ['linear', 'rbf', 'poly'], key="svm_kernel")
+        
+        from sklearn.svm import SVC
+        model = SVC(C=C, kernel=kernel, random_state=42, probability=True)
+    
+    elif model_choice == "K-NN":
+        n_neighbors = st.slider("Nombre de voisins :", 3, 20, 5)
+        
+        from sklearn.neighbors import KNeighborsClassifier
+        model = KNeighborsClassifier(n_neighbors=n_neighbors)
+    
+    elif model_choice == "Régression Logistique":
+        C = st.slider("Régularisation C :", 0.01, 10.0, 1.0)
+        
+        from sklearn.linear_model import LogisticRegression
+        model = LogisticRegression(C=C, random_state=42, max_iter=1000)
+    
+    elif model_choice == "Naive Bayes":
+        from sklearn.naive_bayes import GaussianNB
+        model = GaussianNB()
+    
+    elif model_choice == "XGBoost":
+        try:
+            from xgboost import XGBClassifier
+            n_estimators = st.slider("Nombre d'arbres :", 50, 500, 100)
+            max_depth = st.slider("Profondeur max :", 3, 15, 6)
+            
+            model = XGBClassifier(n_estimators=n_estimators, max_depth=max_depth, random_state=42)
+        except:
+            st.warning("XGBoost n'est pas installé. Utilisation de Random Forest à la place.")
+            from sklearn.ensemble import RandomForestClassifier
+            model = RandomForestClassifier(random_state=42)
+    
+    # Entraînement
+    if st.button("Entraîner le modèle", type="primary"):
+        with st.spinner("Entraînement en cours..."):
+            model.fit(X_train, y_train)
+            
+            # Prédictions
+            y_pred = model.predict(X_test)
+            y_prob = model.predict_proba(X_test) if hasattr(model, 'predict_proba') else None
+            
+            # Évaluation
+            from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
+                                       f1_score, confusion_matrix, classification_report,
+                                       roc_curve, auc, precision_recall_curve)
+            
+            # Métriques de base
+            accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred, average='weighted')
+            recall = recall_score(y_test, y_pred, average='weighted')
+            f1 = f1_score(y_test, y_pred, average='weighted')
+            
+            # Afficher les métriques
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Accuracy", f"{accuracy:.3f}")
+            with col2:
+                st.metric("Precision", f"{precision:.3f}")
+            with col3:
+                st.metric("Recall", f"{recall:.3f}")
+            with col4:
+                st.metric("F1-Score", f"{f1:.3f}")
+            
+            # MATRICE DE CONFUSION
+            st.markdown("### Matrice de Confusion")
+            cm = confusion_matrix(y_test, y_pred)
+            
+            fig_cm = px.imshow(
+                cm,
+                text_auto=True,
+                color_continuous_scale='Blues',
+                labels=dict(x="Prédit", y="Réel", color="Nombre"),
+                x=[str(c) for c in class_names],
+                y=[str(c) for c in class_names],
+                title=f"Matrice de Confusion - {model_choice}"
+            )
+            st.plotly_chart(fig_cm, use_container_width=True)
+            
+            # Courbe ROC (pour classification binaire)
+            if len(class_names) == 2 and y_prob is not None:
+                st.markdown("### Courbe ROC")
+                
+                fpr, tpr, _ = roc_curve(y_test, y_prob[:, 1])
+                roc_auc = auc(fpr, tpr)
+                
+                fig_roc = go.Figure()
+                fig_roc.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines',
+                                           name=f'ROC curve (AUC = {roc_auc:.3f})',
+                                           line=dict(color='blue', width=2)))
+                fig_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines',
+                                           name='Random', line=dict(color='red', dash='dash')))
+                
+                fig_roc.update_layout(
+                    title=f'Courbe ROC - {model_choice}',
+                    xaxis_title='False Positive Rate',
+                    yaxis_title='True Positive Rate',
+                    width=600, height=500
+                )
+                st.plotly_chart(fig_roc, use_container_width=True)
+            
+            # Rapport de classification
+            st.markdown("### Rapport de Classification")
+            report = classification_report(y_test, y_pred, target_names=[str(c) for c in class_names])
+            st.text(report)
+            
+            # Importance des features
+            if hasattr(model, 'feature_importances_'):
+                st.markdown("### Importance des Variables")
+                
+                importance_df = pd.DataFrame({
+                    'Variable': feature_cols,
+                    'Importance': model.feature_importances_
+                }).sort_values('Importance', ascending=False)
+                
+                fig_imp = px.bar(importance_df.head(10), x='Variable', y='Importance',
+                               title="Top 10 des variables les plus importantes")
+                st.plotly_chart(fig_imp, use_container_width=True)
+            
+            # Prédictions sur de nouvelles données
+            st.markdown("### Faire une prédiction")
+            
+            col1, col2 = st.columns(2)
+            input_values = {}
+            
+            for i, feature in enumerate(feature_cols[:4]):  # Limiter à 4 features pour l'affichage
+                with col1 if i % 2 == 0 else col2:
+                    mean_val = df[feature].mean()
+                    std_val = df[feature].std()
+                    input_values[feature] = st.number_input(
+                        f"{feature} :",
+                        value=float(mean_val),
+                        step=float(std_val/10)
+                    )
+            
+            if st.button("Prédire"):
+                # Préparer l'input
+                input_array = np.array([[input_values[f] for f in feature_cols]])
+                input_scaled = scaler.transform(input_array)
+                
+                # Faire la prédiction
+                prediction = model.predict(input_scaled)[0]
+                proba = model.predict_proba(input_scaled)[0] if hasattr(model, 'predict_proba') else None
+                
+                if proba is not None:
+                    st.success(f"**Prédiction :** {class_names[prediction]}")
+                    st.info(f"**Probabilités :**")
+                    for i, prob in enumerate(proba):
+                        st.write(f"- {class_names[i]}: {prob:.3f}")
+                else:
+                    st.success(f"**Prédiction :** {class_names[prediction]}")
+
+# Fonctions simplifiées pour les autres types de modèles
+def render_regression_models(user, df):
+    """Modèles de régression"""
+    st.markdown("### Modèles de Régression")
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    if len(numeric_cols) >= 2:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            x_col = st.selectbox("Variable indépendante (X) :", numeric_cols, key="reg_ml_x")
+        
+        with col2:
+            y_col = st.selectbox("Variable dépendante (Y) :", numeric_cols, 
+                               index=1 if len(numeric_cols) > 1 else 0, 
+                               key="reg_ml_y")
+        
+        model_choice = st.selectbox(
+            "Choix du modèle :",
+            ["Régression Linéaire", "Ridge", "Lasso", "Random Forest Regressor"],
+            key="reg_model_choice"
+        )
+        
+        if st.button("Entraîner le modèle de régression", type="primary"):
+            with st.spinner("Entraînement en cours..."):
+                from sklearn.model_selection import train_test_split
+                from sklearn.preprocessing import StandardScaler
+                from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+                
+                data = df[[x_col, y_col]].dropna()
+                X = data[[x_col]].values
+                y = data[y_col].values
+                
+                # Split
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+                
+                # Choix du modèle
+                if model_choice == "Régression Linéaire":
+                    from sklearn.linear_model import LinearRegression
+                    model = LinearRegression()
+                
+                elif model_choice == "Ridge":
+                    from sklearn.linear_model import Ridge
+                    alpha = st.slider("Alpha (régularisation) :", 0.1, 10.0, 1.0)
+                    model = Ridge(alpha=alpha)
+                
+                elif model_choice == "Lasso":
+                    from sklearn.linear_model import Lasso
+                    alpha = st.slider("Alpha (régularisation) :", 0.01, 1.0, 0.1)
+                    model = Lasso(alpha=alpha)
+                
+                elif model_choice == "Random Forest Regressor":
+                    from sklearn.ensemble import RandomForestRegressor
+                    n_estimators = st.slider("Nombre d'arbres :", 10, 200, 100)
+                    model = RandomForestRegressor(n_estimators=n_estimators, random_state=42)
+                
+                # Entraînement
+                model.fit(X_train, y_train)
+                y_pred = model.predict(X_test)
+                
+                # Métriques
+                mse = mean_squared_error(y_test, y_pred)
+                rmse = np.sqrt(mse)
+                mae = mean_absolute_error(y_test, y_pred)
+                r2 = r2_score(y_test, y_pred)
+                
+                # Affichage des résultats
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("R² Score", f"{r2:.3f}")
+                with col2:
+                    st.metric("RMSE", f"{rmse:.3f}")
+                with col3:
+                    st.metric("MAE", f"{mae:.3f}")
+                with col4:
+                    st.metric("MSE", f"{mse:.3f}")
+                
+                # Visualisation
+                fig = px.scatter(x=y_test, y=y_pred, 
+                               labels={'x': 'Valeurs réelles', 'y': 'Prédictions'},
+                               title=f"Prédictions vs Réelles - {model_choice}")
+                fig.add_trace(go.Scatter(x=[y_test.min(), y_test.max()], 
+                                       y=[y_test.min(), y_test.max()],
+                                       mode='lines', name='Ligne parfaite',
+                                       line=dict(color='red', dash='dash')))
+                
+                st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("Besoin d'au moins 2 colonnes numériques pour la régression")
+
+def render_clustering_models(user, df):
+    """Modèles de clustering"""
+    st.markdown("### Modèles de Clustering")
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    if len(numeric_cols) >= 2:
+        selected_cols = st.multiselect("Sélectionnez les variables :",
+                                      numeric_cols,
+                                      default=numeric_cols[:2] if len(numeric_cols) >= 2 else numeric_cols,
+                                      key="cluster_features")
+        
+        model_choice = st.selectbox(
+            "Algorithme de clustering :",
+            ["K-Means", "DBSCAN", "Agglomerative Clustering"],
+            key="cluster_algorithm"
+        )
+        
+        if len(selected_cols) >= 2:
+            from sklearn.preprocessing import StandardScaler
+            
+            data = df[selected_cols].dropna()
+            scaler = StandardScaler()
+            scaled_data = scaler.fit_transform(data)
+            
+            if model_choice == "K-Means":
+                n_clusters = st.slider("Nombre de clusters :", 2, 10, 3, key="kmeans_n")
+                
+                from sklearn.cluster import KMeans
+                model = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                clusters = model.fit_predict(scaled_data)
+                
+            elif model_choice == "DBSCAN":
+                eps = st.slider("Epsilon :", 0.1, 2.0, 0.5, key="dbscan_eps")
+                min_samples = st.slider("Échantillons minimum :", 2, 20, 5, key="dbscan_min")
+                
+                from sklearn.cluster import DBSCAN
+                model = DBSCAN(eps=eps, min_samples=min_samples)
+                clusters = model.fit_predict(scaled_data)
+                
+            elif model_choice == "Agglomerative Clustering":
+                n_clusters = st.slider("Nombre de clusters :", 2, 10, 3, key="agg_n")
+                linkage = st.selectbox("Lien :", ['ward', 'complete', 'average', 'single'])
+                
+                from sklearn.cluster import AgglomerativeClustering
+                model = AgglomerativeClustering(n_clusters=n_clusters, linkage=linkage)
+                clusters = model.fit_predict(scaled_data)
+            
+            if st.button("Appliquer le clustering", type="primary"):
+                # Visualisation
+                data['cluster'] = clusters
+                
+                if len(selected_cols) >= 2:
+                    fig = px.scatter(data, x=selected_cols[0], y=selected_cols[1],
+                                   color='cluster', title=f"Clustering - {model_choice}",
+                                   color_continuous_scale=px.colors.qualitative.Set3)
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # Statistiques des clusters
+                st.markdown("### Statistiques des clusters")
+                cluster_stats = data.groupby('cluster').agg(['mean', 'std', 'count']).round(2)
+                st.dataframe(cluster_stats, use_container_width=True)
+    else:
+        st.warning("Besoin d'au moins 2 colonnes numériques pour le clustering")
+
+def render_dimensionality_reduction(user, df):
+    """Réduction de dimension"""
+    st.markdown("### Réduction de Dimension")
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    
+    if len(numeric_cols) >= 3:
+        selected_cols = st.multiselect("Sélectionnez les variables :",
+                                      numeric_cols,
+                                      default=numeric_cols[:5] if len(numeric_cols) >= 5 else numeric_cols,
+                                      key="pca_features")
+        
+        method = st.selectbox(
+            "Méthode :",
+            ["PCA", "t-SNE", "UMAP"],
+            key="dim_reduction_method"
+        )
+        
+        n_components = st.slider("Nombre de composantes :", 2, 5, 2, key="n_components")
+        
+        if len(selected_cols) >= 3:
+            from sklearn.preprocessing import StandardScaler
+            
+            data = df[selected_cols].dropna()
+            scaler = StandardScaler()
+            scaled_data = scaler.fit_transform(data)
+            
+            if method == "PCA":
+                from sklearn.decomposition import PCA
+                reducer = PCA(n_components=n_components)
+                reduced_data = reducer.fit_transform(scaled_data)
+                
+                # Variance expliquée
+                var_exp = reducer.explained_variance_ratio_
+                
+                st.markdown("### Variance expliquée")
+                for i, var in enumerate(var_exp, 1):
+                    st.write(f"- Composante {i}: {var*100:.1f}%")
+                st.write(f"- **Total:** {sum(var_exp)*100:.1f}%")
+                
+            elif method == "t-SNE":
+                from sklearn.manifold import TSNE
+                reducer = TSNE(n_components=n_components, random_state=42)
+                reduced_data = reducer.fit_transform(scaled_data)
+                
+            elif method == "UMAP":
+                try:
+                    from umap import UMAP
+                    reducer = UMAP(n_components=n_components, random_state=42)
+                    reduced_data = reducer.fit_transform(scaled_data)
+                except:
+                    st.warning("UMAP n'est pas installé. Utilisation de PCA.")
+                    from sklearn.decomposition import PCA
+                    reducer = PCA(n_components=n_components)
+                    reduced_data = reducer.fit_transform(scaled_data)
+            
+            if st.button("Appliquer la réduction de dimension", type="primary"):
+                # Visualisation
+                reduced_df = pd.DataFrame(reduced_data, 
+                                        columns=[f'Composante {i+1}' for i in range(n_components)])
+                
+                if n_components >= 2:
+                    fig = px.scatter(reduced_df, x='Composante 1', y='Composante 2',
+                                   title=f"Réduction de dimension - {method}")
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # Matrice des composantes
+                st.markdown("### Composantes principales")
+                st.dataframe(reduced_df.head(10), use_container_width=True)
+    else:
+        st.warning("Besoin d'au moins 3 colonnes numériques pour la réduction de dimension")
+
+def render_ensemble_models(user, df):
+    """Modèles d'ensemble"""
+    st.markdown("### Ensemble Learning")
+    
+    st.info("""
+    ### Modèles d'Ensemble
+    
+    Les modèles d'ensemble combinent plusieurs modèles pour améliorer les performances.
+    Cette section permet d'expérimenter avec différentes techniques d'ensemble.
+    
+    **Fonctionnalités disponibles :**
+    - Bagging (Bootstrap Aggregating)
+    - Boosting
+    - Stacking
+    - Voting Classifiers
+    
+    *Sélectionnez une technique ci-dessous :*
+    """)
+    
+    ensemble_method = st.selectbox(
+        "Technique d'ensemble :",
+        ["Voting Classifier", "Bagging", "Boosting", "Stacking"],
+        key="ensemble_method"
+    )
+    
+    if ensemble_method == "Voting Classifier":
+        st.markdown("""
+        ### Voting Classifier
+        
+        Combine les prédictions de plusieurs classificateurs en utilisant le vote majoritaire
+        ou le vote pondéré par les probabilités.
+        """)
+        
+    elif ensemble_method == "Bagging":
+        st.markdown("""
+        ### Bagging (Bootstrap Aggregating)
+        
+        Entraîne plusieurs instances du même modèle sur des sous-échantillons bootstrap
+        des données d'entraînement, puis combine leurs prédictions.
+        """)
+        
+    elif ensemble_method == "Boosting":
+        st.markdown("""
+        ### Boosting
+        
+        Entraîne séquentiellement plusieurs modèles faibles, chaque nouveau modèle
+        corrige les erreurs des précédents.
+        """)
+        
+    elif ensemble_method == "Stacking":
+        st.markdown("""
+        ### Stacking
+        
+        Combine les prédictions de plusieurs modèles de base en utilisant un méta-modèle
+        qui apprend à pondérer les prédictions.
+        """)
+    
+    # Exemple simple de Voting Classifier
+    if st.button("Essayer un Voting Classifier simple", type="primary"):
+        try:
+            from sklearn.ensemble import VotingClassifier
+            from sklearn.tree import DecisionTreeClassifier
+            from sklearn.svm import SVC
+            from sklearn.linear_model import LogisticRegression
+            from sklearn.model_selection import train_test_split
+            from sklearn.preprocessing import StandardScaler, LabelEncoder
+            
+            # Préparer des données simples
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            
+            if len(numeric_cols) >= 3:
+                # Prendre 3 colonnes pour l'exemple
+                sample_cols = numeric_cols[:3]
+                sample_data = df[sample_cols].dropna().head(100)  # Limiter à 100 lignes
+                
+                # Créer une variable cible binaire simple
+                median_val = sample_data[sample_cols[0]].median()
+                y = (sample_data[sample_cols[0]] > median_val).astype(int)
+                X = sample_data[sample_cols[1:]].values
+                
+                # Standardiser
+                scaler = StandardScaler()
+                X_scaled = scaler.fit_transform(X)
+                
+                # Split
+                X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)
+                
+                # Créer les classificateurs de base
+                clf1 = LogisticRegression(random_state=42)
+                clf2 = DecisionTreeClassifier(max_depth=5, random_state=42)
+                clf3 = SVC(probability=True, random_state=42)
+                
+                # Créer le Voting Classifier
+                eclf = VotingClassifier(
+                    estimators=[('lr', clf1), ('dt', clf2), ('svc', clf3)],
+                    voting='soft'  # soft voting utilise les probabilités
+                )
+                
+                # Entraîner
+                eclf.fit(X_train, y_train)
+                
+                # Évaluer
+                from sklearn.metrics import accuracy_score
+                y_pred = eclf.predict(X_test)
+                accuracy = accuracy_score(y_test, y_pred)
+                
+                st.success(f"Accuracy du Voting Classifier: {accuracy:.3f}")
+                
+                # Comparer avec les classificateurs individuels
+                st.markdown("### Comparaison avec les classificateurs individuels")
+                
+                scores = []
+                for clf, label in zip([clf1, clf2, clf3, eclf], 
+                                     ['Logistic Regression', 'Decision Tree', 'SVM', 'Voting Classifier']):
+                    clf.fit(X_train, y_train)
+                    score = clf.score(X_test, y_test)
+                    scores.append((label, score))
+                
+                scores_df = pd.DataFrame(scores, columns=['Modèle', 'Accuracy'])
+                scores_df = scores_df.sort_values('Accuracy', ascending=False)
+                
+                fig = px.bar(scores_df, x='Modèle', y='Accuracy', 
+                           title="Comparaison des performances",
+                           color='Accuracy',
+                           color_continuous_scale='Viridis')
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+            else:
+                st.warning("Besoin d'au moins 3 colonnes numériques pour cet exemple")
+                
+        except Exception as e:
+            st.error(f"Erreur: {str(e)}")
 
 def render_eda_analysis(user, db):
     """Analyse Exploratoire des Données (EDA)"""
