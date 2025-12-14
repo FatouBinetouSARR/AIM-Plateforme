@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import time
 import io
 import re
-import sqilte3
+import sqlite3
 from langdetect import detect 
 from collections import Counter
 import warnings
