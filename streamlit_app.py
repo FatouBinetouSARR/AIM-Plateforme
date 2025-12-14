@@ -1749,7 +1749,7 @@ def render_login_page(db):
         
         # En-tête
         st.markdown('<div class="login-header">', unsafe_allow_html=True)
-        st.markdown('<h1 class="login-title">AIM Analytics</h1>', unsafe_allow_html=True)
+        st.markdown('<h1 class="login-title">🧮 AIM Analytics</h1>', unsafe_allow_html=True)
         st.markdown('<p class="login-subtitle">Plateforme d\'analyse intelligente et marketing</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
