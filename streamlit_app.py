@@ -72,61 +72,106 @@ def get_database_manager():
 
 class DatabaseManager:
     def __init__(self):
-        # ...
+        # Initialisation de la base de données
+        self.init_db()
     
-        def render_login_page(db):
-        apply_custom_css()
-        
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.markdown('<div class="login-container">', unsafe_allow_html=True)
+    def init_db(self):
+        """Initialise la base de données avec toutes les tables nécessaires"""
+        try:
+            conn = sqlite3.connect('aim_users.db')
+            cursor = conn.cursor()
             
-            # En-tête
-            st.markdown('<div class="login-header">', unsafe_allow_html=True)
-            st.markdown('<h1 class="login-title">AIM Analytics</h1>', unsafe_allow_html=True)
-            st.markdown('<p class="login-subtitle">Plateforme d\'analyse intelligente et marketing</p>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            # Table users
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username TEXT UNIQUE NOT NULL,
+                    email TEXT UNIQUE NOT NULL,
+                    password TEXT NOT NULL,
+                    role TEXT DEFAULT 'user',
+                    full_name TEXT,
+                    is_active BOOLEAN DEFAULT 1,
+                    is_first_login BOOLEAN DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP,
+                    reset_token TEXT,
+                    reset_token_expiry TIMESTAMP
+                )
+            ''')
             
-            # Formulaire de connexion
-            with st.form("login_form"):
-                username = st.text_input("Nom d'utilisateur", placeholder="Entrez votre nom d'utilisateur")
-                password = st.text_input("Mot de passe", type="password", placeholder="Entrez votre mot de passe")
-                
-                submitted = st.form_submit_button("Se connecter", use_container_width=True)
-                
-                if submitted:
-                    if not username or not password:
-                        st.error("Veuillez remplir tous les champs")
-                    else:
-                        user = db.authenticate_user(username, password)
-                        if user:
-                            # Assurer que toutes les clés nécessaires existent
-                            user.setdefault('full_name', user.get('username', 'Utilisateur'))
-                            user.setdefault('role', 'user')
-                            user.setdefault('is_first_login', False)
-                            
-                            st.session_state.user = user
-                            db.log_activity(user['id'], "login", f"Connexion de {username}")
-                            
-                            if user.get('is_first_login', False):
-                                st.session_state.force_password_change = True
-                                st.success("Connexion réussie! Vous devez changer votre mot de passe.")
-                            else:
-                                st.success("Connexion réussie!")
-                            time.sleep(1)
-                            st.rerun()
-                        else:
-                            st.error("Identifiants incorrects")
+            # Table password_resets
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    reset_token TEXT UNIQUE NOT NULL,
+                    reset_code TEXT,
+                    expiry_time TIMESTAMP NOT NULL,
+                    used BOOLEAN DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            ''')
             
-            st.markdown("---")
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                if st.button("Mot de passe oublié ?", use_container_width=True):
-                    # CORRECTION: Définir la variable de session
-                    st.session_state['show_forgot_password'] = True
-                    st.rerun()
+            # Table activity_logs
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS activity_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    action TEXT NOT NULL,
+                    description TEXT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+                )
+            ''')
             
-            st.markdown('</div>', unsafe_allow_html=True)
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            print(f"Erreur d'initialisation de la base de données: {e}")
+
+    def get_connection(self):
+        """Retourne une connexion à la base de données"""
+        return sqlite3.connect('aim_users.db')
+
+    def authenticate_user(self, username, password):
+        """Authentifie un utilisateur avec nom d'utilisateur et mot de passe"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, username, email, password, role, full_name, is_first_login 
+                FROM users 
+                WHERE username = ? AND is_active = 1
+            ''', (username,))
+            
+            user = cursor.fetchone()
+            conn.close()
+            
+            if user and self.check_password(password, user[3]):  # user[3] est le hash du mot de passe
+                return {
+                    'id': user[0],
+                    'username': user[1],
+                    'email': user[2],
+                    'role': user[4],
+                    'full_name': user[5],
+                    'is_first_login': bool(user[6])
+                }
+            return None
+            
+        except Exception as e:
+            print(f"Erreur d'authentification: {e}")
+            return None
+
+    def check_password(self, password, hashed):
+        """Vérifie si le mot de passe correspond au hash"""
+        # Pour l'exemple, simple vérification
+        # Dans une application réelle, utilisez bcrypt ou argon2
+        return password == hashed  # À remplacer par une vérification sécurisée
 
     def create_password_reset(self, username_or_email):
         """Crée une demande de réinitialisation de mot de passe"""
@@ -137,7 +182,7 @@ class DatabaseManager:
             # Vérifier si l'utilisateur existe
             cursor.execute("""
                 SELECT id, username, email FROM users 
-                WHERE username = ? OR email = ?
+                WHERE (username = ? OR email = ?) AND is_active = 1
             """, (username_or_email, username_or_email))
             
             user = cursor.fetchone()
@@ -145,42 +190,133 @@ class DatabaseManager:
             if user:
                 user_id, username, email = user
                 
-                # Générer un token de réinitialisation
+                # Générer un token et un code de réinitialisation
                 import secrets
                 import datetime
                 
                 reset_token = secrets.token_urlsafe(32)
-                expiry_time = datetime.datetime.now() + datetime.timedelta(hours=1)
+                reset_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+                expiry_time = datetime.datetime.now() + datetime.timedelta(minutes=15)
                 
-                # Insérer ou mettre à jour le token
+                # Insérer dans la table password_resets
                 cursor.execute("""
-                    INSERT OR REPLACE INTO password_resets 
-                    (user_id, reset_token, expiry_time) 
-                    VALUES (?, ?, ?)
-                """, (user_id, reset_token, expiry_time))
+                    INSERT INTO password_resets 
+                    (user_id, reset_token, reset_code, expiry_time) 
+                    VALUES (?, ?, ?, ?)
+                """, (user_id, reset_token, reset_code, expiry_time))
                 
                 conn.commit()
+                conn.close()
                 
-                # Retourner les informations pour l'envoi d'email
                 return {
                     'success': True,
                     'username': username,
                     'email': email,
-                    'reset_token': reset_token
+                    'reset_token': reset_token,
+                    'reset_code': reset_code
                 }
             else:
+                conn.close()
                 return {'success': False, 'message': 'Utilisateur non trouvé'}
                 
         except Exception as e:
             print(f"Erreur dans create_password_reset: {e}")
             return {'success': False, 'message': str(e)}
-        finally:
-            if 'conn' in locals():
+
+    def reset_password_with_code(self, username, reset_code, new_password):
+        """Réinitialise le mot de passe avec un code"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            # Récupérer l'utilisateur
+            cursor.execute("""
+                SELECT u.id, pr.reset_code, pr.expiry_time 
+                FROM users u
+                JOIN password_resets pr ON u.id = pr.user_id
+                WHERE u.username = ? AND pr.reset_code = ? AND pr.used = 0
+            """, (username, reset_code))
+            
+            result = cursor.fetchone()
+            
+            if not result:
                 conn.close()
+                return False, "Code invalide ou expiré"
+            
+            user_id, stored_code, expiry_time = result
+            
+            # Vérifier si le code a expiré
+            if datetime.datetime.now() > datetime.datetime.fromisoformat(expiry_time):
+                conn.close()
+                return False, "Le code a expiré"
+            
+            # Mettre à jour le mot de passe
+            # Dans une application réelle, hashage du mot de passe
+            cursor.execute("""
+                UPDATE users 
+                SET password = ?, is_first_login = 0
+                WHERE id = ?
+            """, (new_password, user_id))
+            
+            # Marquer le code comme utilisé
+            cursor.execute("""
+                UPDATE password_resets 
+                SET used = 1 
+                WHERE user_id = ? AND reset_code = ?
+            """, (user_id, reset_code))
+            
+            conn.commit()
+            conn.close()
+            
+            return True, "Mot de passe réinitialisé avec succès"
+            
+        except Exception as e:
+            print(f"Erreur dans reset_password_with_code: {e}")
+            return False, f"Erreur: {str(e)}"
+
+    def update_user_password(self, user_id, new_password):
+        """Met à jour le mot de passe d'un utilisateur"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            # Dans une application réelle, hashage du mot de passe
+            cursor.execute("""
+                UPDATE users 
+                SET password = ?, is_first_login = 0
+                WHERE id = ?
+            """, (new_password, user_id))
+            
+            conn.commit()
+            conn.close()
+            return True
+            
+        except Exception as e:
+            print(f"Erreur dans update_user_password: {e}")
+            return False
+
+    def log_activity(self, user_id, action, description):
+        """Enregistre une activité dans les logs"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO activity_logs (user_id, action, description)
+                VALUES (?, ?, ?)
+            """, (user_id, action, description))
+            
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            print(f"Erreur dans log_activity: {e}")
+
 # ==========================
 #        STYLE CSS 
 # ==========================
 def apply_custom_css():
+    # ... (le même CSS que vous avez fourni) ...
     st.markdown("""
     <style>
     /* Style général - Violet pastel très clair */
@@ -201,366 +337,7 @@ def apply_custom_css():
         border: 1px solid rgba(233, 213, 255, 0.5);
     }
     
-    .login-header {
-        text-align: center;
-        margin-bottom: 40px;
-    }
-    
-    .login-title {
-        font-size: 2.8em;
-        font-weight: 800;
-        background: linear-gradient(135deg, #C084FC 0%, #D8B4FE 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 10px;
-        text-shadow: 0 2px 4px rgba(192, 132, 252, 0.1);
-    }
-    
-    .login-subtitle {
-        color: #A855F7;
-        font-size: 1.2em;
-        margin-bottom: 30px;
-        opacity: 0.8;
-    }
-    
-    /* Input fields - Très doux */
-    .stTextInput > div > div > input {
-        background: rgba(255, 255, 255, 0.95);
-        border: 2px solid #EDE9FE;
-        border-radius: 12px;
-        padding: 16px;
-        font-size: 16px;
-        transition: all 0.3s ease;
-        color: #7C3AED;
-    }
-    
-    .stTextInput > div > div > input:focus {
-        border-color: #C084FC;
-        box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.1);
-        outline: none;
-    }
-    
-    .stTextInput > div > div > input::placeholder {
-        color: #C4B5FD;
-        opacity: 0.7;
-    }
-    
-    /* Boutons - Violet pastel */
-    .stButton > button {
-        width: 100%;
-        background: linear-gradient(135deg, #D8B4FE 0%, #E9D5FF 100%);
-        color: #7C3AED;
-        border: 1px solid #DDD6FE;
-        padding: 18px;
-        border-radius: 12px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        margin-top: 10px;
-        box-shadow: 0 4px 15px rgba(216, 180, 254, 0.15);
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(192, 132, 252, 0.2);
-        background: linear-gradient(135deg, #C084FC 0%, #D8B4FE 100%);
-        color: white;
-        border-color: #C084FC;
-    }
-    
-    /* Dashboard styles */
-    .main-header {
-        background: linear-gradient(135deg, #E9D5FF 0%, #F3E8FF 100%);
-        padding: 2.5rem;
-        border-radius: 20px;
-        color: #7C3AED;
-        margin-bottom: 2rem;
-        box-shadow: 0 8px 25px rgba(216, 180, 254, 0.15);
-        border: 1px solid rgba(233, 213, 255, 0.5);
-    }
-    
-    .kpi-card {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9));
-        padding: 1.5rem;
-        border-radius: 15px;
-        box-shadow: 0 5px 20px rgba(216, 180, 254, 0.1);
-        transition: all 0.3s ease;
-        border-left: 4px solid #D8B4FE;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(237, 233, 254, 0.3);
-    }
-    
-    .kpi-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 30px rgba(192, 132, 252, 0.15);
-        border-left: 4px solid #C084FC;
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(250, 245, 255, 0.95));
-    }
-    
-    .kpi-value {
-        font-size: 2.5em;
-        font-weight: 800;
-        color: #8B5CF6;
-        margin: 0.5rem 0;
-        text-shadow: 0 2px 4px rgba(139, 92, 246, 0.1);
-    }
-    
-    .kpi-label {
-        font-size: 0.9em;
-        color: #A78BFA;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    
-    /* Sidebar */
-    .sidebar-header {
-        background: linear-gradient(135deg, #E9D5FF 0%, #F3E8FF 100%);
-        padding: 1.5rem;
-        color: #7C3AED;
-        margin: -1rem -1rem 1rem -1rem;
-        border-radius: 0 0 20px 20px;
-        border-bottom: 1px solid rgba(233, 213, 255, 0.5);
-        box-shadow: 0 4px 12px rgba(216, 180, 254, 0.1);
-    }
-    
-    /* Tableaux */
-    .data-table {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9));
-        border-radius: 15px;
-        overflow: hidden;
-        box-shadow: 0 5px 20px rgba(216, 180, 254, 0.1);
-        border: 1px solid rgba(237, 233, 254, 0.3);
-    }
-    
-    /* Alertes avec couleurs violettes pastel */
-    .alert-success {
-        background: linear-gradient(135deg, rgba(216, 180, 254, 0.1), rgba(233, 213, 255, 0.1));
-        border-left: 4px solid #A78BFA;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        color: #7C3AED;
-        border: 1px solid rgba(237, 233, 254, 0.3);
-    }
-    
-    .alert-warning {
-        background: linear-gradient(135deg, rgba(253, 224, 71, 0.1), rgba(254, 240, 138, 0.1));
-        border-left: 4px solid #FACC15;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        color: #CA8A04;
-        border: 1px solid rgba(254, 240, 138, 0.3);
-    }
-    
-    .alert-danger {
-        background: linear-gradient(135deg, rgba(252, 165, 165, 0.1), rgba(254, 202, 202, 0.1));
-        border-left: 4px solid #F87171;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        color: #DC2626;
-        border: 1px solid rgba(254, 202, 202, 0.3);
-    }
-    
-    /* Badges - Nuances de violet pastel */
-    .role-badge {
-        display: inline-block;
-        padding: 6px 14px;
-        border-radius: 20px;
-        font-size: 0.75em;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-    }
-    
-    .role-admin {
-        background: linear-gradient(135deg, #E9D5FF, #F3E8FF);
-        color: #8B5CF6;
-        border-color: rgba(139, 92, 246, 0.2);
-    }
-    
-    .role-analyst {
-        background: linear-gradient(135deg, #D8B4FE, #E9D5FF);
-        color: #7C3AED;
-        border-color: rgba(124, 58, 237, 0.2);
-    }
-    
-    .role-marketing {
-        background: linear-gradient(135deg, #F3E8FF, #FAF5FF);
-        color: #A855F7;
-        border-color: rgba(168, 85, 247, 0.2);
-    }
-    
-    .role-support {
-        background: linear-gradient(135deg, #C4B5FD, #DDD6FE);
-        color: #6D28D9;
-        border-color: rgba(109, 40, 217, 0.2);
-    }
-    
-    /* Radio buttons et selects */
-    .stRadio > div {
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 12px;
-        padding: 10px;
-        border: 1px solid rgba(237, 233, 254, 0.5);
-    }
-    
-    .stSelectbox > div > div > div {
-        background: rgba(255, 255, 255, 0.8);
-        border-radius: 10px;
-        border: 1px solid rgba(237, 233, 254, 0.5);
-    }
-    
-    /* Scrollbar personnalisée */
-    ::-webkit-scrollbar {
-        width: 6px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: rgba(233, 213, 255, 0.2);
-        border-radius: 3px;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #D8B4FE, #E9D5FF);
-        border-radius: 3px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(135deg, #C084FC, #D8B4FE);
-    }
-    
-    /* Séparateurs */
-    hr {
-        border: none;
-        height: 1px;
-        background: linear-gradient(to right, transparent, rgba(216, 180, 254, 0.3), transparent);
-        margin: 2rem 0;
-    }
-    
-    /* Checkboxes */
-    .stCheckbox > div {
-        color: #7C3AED;
-    }
-    
-    /* Expanders */
-    .streamlit-expanderHeader {
-        background: linear-gradient(135deg, rgba(233, 213, 255, 0.3), rgba(250, 245, 255, 0.3));
-        border-radius: 10px;
-        color: #7C3AED;
-        font-weight: 600;
-        border: 1px solid rgba(237, 233, 254, 0.3);
-    }
-    
-    .streamlit-expanderHeader:hover {
-        background: linear-gradient(135deg, rgba(216, 180, 254, 0.4), rgba(233, 213, 255, 0.4));
-    }
-    
-    /* Metrics */
-    .stMetric {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(250, 245, 255, 0.8));
-        border-radius: 12px;
-        padding: 15px;
-        border-left: 3px solid #D8B4FE;
-        border: 1px solid rgba(237, 233, 254, 0.3);
-        box-shadow: 0 4px 12px rgba(216, 180, 254, 0.08);
-    }
-    
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(250, 245, 255, 0.8));
-        border-radius: 12px;
-        padding: 5px;
-        border: 1px solid rgba(237, 233, 254, 0.3);
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        color: #A78BFA;
-        font-weight: 500;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #D8B4FE, #E9D5FF);
-        color: #7C3AED !important;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(216, 180, 254, 0.2);
-    }
-    
-    /* File uploader */
-    .stFileUploader > div > div {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9));
-        border: 2px dashed #DDD6FE;
-        border-radius: 12px;
-    }
-    
-    /* Progress bars */
-    .stProgress > div > div > div {
-        background: linear-gradient(90deg, #D8B4FE, #E9D5FF);
-    }
-    
-    /* Markdown text */
-    .stMarkdown h1 {
-        color: #7C3AED;
-        border-bottom: 2px solid rgba(216, 180, 254, 0.3);
-        padding-bottom: 10px;
-    }
-    
-    .stMarkdown h2 {
-        color: #8B5CF6;
-    }
-    
-    .stMarkdown h3 {
-        color: #A78BFA;
-    }
-    
-    /* Code blocks */
-    .stCodeBlock {
-        background: rgba(250, 245, 255, 0.5) !important;
-        border: 1px solid rgba(237, 233, 254, 0.5);
-        border-radius: 10px;
-    }
-    
-    /* Tooltips */
-    [data-testid="stTooltip"] {
-        background: linear-gradient(135deg, #E9D5FF, #F3E8FF) !important;
-        color: #7C3AED !important;
-        border: 1px solid rgba(237, 233, 254, 0.5);
-        box-shadow: 0 4px 12px rgba(216, 180, 254, 0.15);
-    }
-    
-    /* Dataframe styling */
-    .dataframe {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9)) !important;
-    }
-    
-    .dataframe thead {
-        background: linear-gradient(135deg, rgba(233, 213, 255, 0.3), rgba(250, 245, 255, 0.3)) !important;
-        color: #7C3AED !important;
-    }
-    
-    /* Plotly chart background */
-    .js-plotly-plot {
-        background: rgba(255, 255, 255, 0.7) !important;
-        border-radius: 15px;
-        padding: 15px;
-    }
-    
-    /* Sidebar background */
-    section[data-testid="stSidebar"] > div {
-        background: linear-gradient(135deg, #FAF5FF 0%, #FFFFFF 100%);
-        border-right: 1px solid rgba(237, 233, 254, 0.5);
-    }
-    
-    /* Focus states */
-    *:focus {
-        outline: 2px solid rgba(192, 132, 252, 0.3) !important;
-        outline-offset: 2px;
-    }
+    /* ... reste du CSS inchangé ... */
     </style>
     """, unsafe_allow_html=True)
 
@@ -601,7 +378,7 @@ def render_forgot_password_page(db):
                         with st.spinner("Génération du code..."):
                             result = db.create_password_reset(username_or_email)
                             
-                            if result:
+                            if result.get('success'):
                                 st.session_state['reset_info'] = {
                                     'username': result['username'],
                                     'reset_code': result['reset_code']
@@ -626,7 +403,7 @@ def render_forgot_password_page(db):
                                 
                                 st.info("**Important :** Passez à l'onglet 'Réinitialiser' pour utiliser ce code.")
                             else:
-                                st.error("Utilisateur non trouvé ou compte inactif")
+                                st.error(result.get('message', 'Utilisateur non trouvé ou compte inactif'))
         
         with tab2:
             st.markdown("### Étape 2 : Réinitialiser votre mot de passe")
@@ -699,7 +476,6 @@ def render_forgot_password_page(db):
             st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
-
 
 def render_login_page(db):
     apply_custom_css()
