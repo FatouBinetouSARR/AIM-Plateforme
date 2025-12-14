@@ -3209,6 +3209,7 @@ def render_classification_models(user, df):
                     st.success(f"**Prédiction :** {class_names[prediction]}")
 
 # Fonctions simplifiées pour les autres types de modèles
+
 def render_regression_models(user, df):
     """Modèles de régression"""
     st.markdown("### Modèles de Régression")
@@ -3833,6 +3834,7 @@ def render_classification_models(user, df):
                     st.success(f"**Prédiction :** {class_names[prediction]}")
 
 # Fonctions simplifiées pour les autres types de modèles
+
 def render_regression_models(user, df):
     """Modèles de régression"""
     st.markdown("### Modèles de Régression")
@@ -5082,9 +5084,9 @@ def render_analyst_overview(user, db):
             'columns': len(df.columns),
             'data_types': len(df.dtypes.unique()),
             'data_distribution': [],
-            'upload_activity': [],
             'avg_records': len(df),
             'avg_columns': len(df.columns),
+             'avg_size_kb': st.session_state.get('uploaded_file_size', 0) / 1024 if 'uploaded_file_size' in st.session_state else 0
            
         }
         
@@ -5103,7 +5105,6 @@ def render_analyst_overview(user, db):
                 'columns': 0,
                 'data_types': 0,
                 'data_distribution': [],
-                'upload_activity': [],
                 'avg_records': 0,
                 'avg_columns': 0,
                 'avg_size_kb': 0
