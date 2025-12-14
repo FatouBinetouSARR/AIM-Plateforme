@@ -6183,7 +6183,7 @@ def render_classification_models(user, df):
                 else:
                     st.success(f"**Prédiction :** {class_names[prediction]}")
 
-info("Aucun dataset disponible")
+
 
 def render_reports(user, db):
     """Génération de rapports (Section désactivée)"""
