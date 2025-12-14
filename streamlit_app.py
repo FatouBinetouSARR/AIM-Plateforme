@@ -1714,7 +1714,7 @@ def render_user_management_enhanced(user, db):
             with col2:
                 new_role = st.selectbox(
                     "Rôle *",
-                    ["admin", "data_analyst", "marketing", "support"],
+                    ["data_analyst", "marketing"],
                     format_func=lambda x: {
                         "data_analyst": "Analyste de données",
                         "marketing": "Marketing",
