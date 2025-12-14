@@ -15,12 +15,10 @@ from datetime import datetime, timedelta
 import time
 import io
 import re
-import sqlite3
 from langdetect import detect 
 from collections import Counter
 import warnings
 import urllib.parse
-import secrets
 warnings.filterwarnings('ignore')
 
 # Gestion des imports optionnels
@@ -68,254 +66,1425 @@ class Config:
 # =======================================
 #      GESTION DE LA BASE DE DONNÉES
 # =======================================
-import streamlit as st
-import sqlite3
-import time
-import datetime
-import secrets
-
 @st.cache_resource
 def get_database_manager():
     return DatabaseManager()
 
 class DatabaseManager:
     def __init__(self):
-        # Initialisation de la base de données
-        self.init_db()
+        self.connection_pool = None
+        self._initialize_database()
     
-    def init_db(self):
-        """Initialise la base de données avec toutes les tables nécessaires"""
+    def _initialize_database(self):
+        """Initialise la connexion à la base de données silencieusement"""
         try:
-            conn = sqlite3.connect('aim_users.db')
-            cursor = conn.cursor()
+            # Récupération des paramètres
+            db_params = self._get_db_params()
             
-            # Table users
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT UNIQUE NOT NULL,
-                    email TEXT UNIQUE NOT NULL,
-                    password TEXT NOT NULL,
-                    role TEXT DEFAULT 'user',
-                    full_name TEXT,
-                    is_active BOOLEAN DEFAULT 1,
-                    is_first_login BOOLEAN DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_login TIMESTAMP,
-                    reset_token TEXT,
-                    reset_token_expiry TIMESTAMP
-                )
-            ''')
+            if not db_params:
+                return
             
-            # Table password_resets
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS password_resets (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    reset_token TEXT UNIQUE NOT NULL,
-                    reset_code TEXT,
-                    expiry_time TIMESTAMP NOT NULL,
-                    used BOOLEAN DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            ''')
+            # Création du pool de connexions
+            self.connection_pool = psycopg2.pool.SimpleConnectionPool(
+                Config.DB_POOL_MIN,
+                Config.DB_POOL_MAX,
+                **db_params
+            )
             
-            # Table activity_logs
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS activity_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER,
-                    action TEXT NOT NULL,
-                    description TEXT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    ip_address TEXT,
-                    user_agent TEXT,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-                )
-            ''')
+            # Test de connexion silencieux
+            conn = self.get_connection()
+            if conn:
+                try:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT 1")
+                    cursor.close()
+                    self._create_tables()
+                    # Supprimé: self._init_default_users() - Pas d'utilisateurs par défaut
+                finally:
+                    self.return_connection(conn)
+                
+        except Exception as e:
+            print(f"Erreur DB initialisation: {str(e)}")
+    
+    def get_connection(self):
+        """Obtient une connexion depuis le pool"""
+        if self.connection_pool:
+            try:
+                return self.connection_pool.getconn()
+            except:
+                return None
+        return None
+    
+    def return_connection(self, conn):
+        """Retourne une connexion au pool"""
+        if self.connection_pool and conn:
+            try:
+                self.connection_pool.putconn(conn)
+            except:
+                pass
+    
+    def _get_db_params(self):
+        """Récupère les paramètres de connexion silencieusement"""
+        try:
+            if 'RENDER_DB_URL' in st.secrets:
+                url = st.secrets['RENDER_DB_URL']
+                url = self._fix_render_url(url)
+                return self._parse_db_url(url)
+            
+            if 'DATABASE_URL' in st.secrets:
+                return self._parse_db_url(st.secrets['DATABASE_URL'])
+            
+            required_params = ['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD']
+            if all(param in st.secrets for param in required_params):
+                return {
+                    'host': st.secrets['DB_HOST'],
+                    'database': st.secrets['DB_NAME'],
+                    'user': st.secrets['DB_USER'],
+                    'password': st.secrets['DB_PASSWORD'],
+                    'port': int(st.secrets.get('DB_PORT', 5432))
+                }
+            
+            return None
+            
+        except Exception as e:
+            print(f"Erreur configuration DB: {e}")
+            return None
+    
+    
+    def resolve_ticket(self, ticket_id, user_id):
+        """Marque un ticket comme résolu"""
+        if not self.connection_pool:
+            return False
+        
+        conn = self.get_connection()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                UPDATE support_tickets 
+                SET status = 'Résolu',
+                    resolved_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = %s
+            """, (ticket_id,))
             
             conn.commit()
-            conn.close()
+            
+            # Log l'activité
+            self.log_activity(
+                user_id,
+                "ticket_resolved",
+                f"Ticket #{ticket_id} résolu"
+            )
+            
+            return cursor.rowcount > 0
             
         except Exception as e:
-            print(f"Erreur d'initialisation de la base de données: {e}")
+            conn.rollback()
+            print(f"Erreur resolve_ticket: {e}")
+            return False
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+    
+    
+    
+    def _fix_render_url(self, url):
+        """Corrige les URLs Render incomplètes"""
+        if not url:
+            return url
+        
+        if '-a/' in url and ':5432' not in url:
+            parts = url.split('@')
+            if len(parts) == 2:
+                credentials = parts[0]
+                host_db = parts[1]
+                
+                if host_db.endswith('-a/'):
+                    host_db = host_db.replace('-a/', '-a.frankfurt-postgres.render.com:5432/')
+                elif '/aim_plateforme_db' in host_db:
+                    host_part = host_db.split('/')[0]
+                    if not host_part.endswith('.render.com'):
+                        host_db = host_part + '.frankfurt-postgres.render.com:5432/aim_plateforme_db'
+                
+                url = f"{credentials}@{host_db}"
+        
+        return url
+    
+    def _parse_db_url(self, url):
+        """Parse une URL de base de données"""
+        try:
+            if not url:
+                return None
+            
+            parsed = urllib.parse.urlparse(url)
+            
+            return {
+                'host': parsed.hostname,
+                'database': parsed.path[1:] if parsed.path else 'postgres',
+                'user': parsed.username,
+                'password': parsed.password,
+                'port': parsed.port or 5432
+            }
+        except Exception as e:
+            print(f"Erreur parsing URL DB: {e}")
+            return None
+    
+    def _create_tables(self):
+        """Crée les tables nécessaires"""
+        conn = self.get_connection()
+        if not conn:
+            return
+        
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    full_name VARCHAR(100) DEFAULT 'Utilisateur',
+                    email VARCHAR(100),
+                    password_hash TEXT NOT NULL,
+                    role VARCHAR(20) NOT NULL,
+                    department VARCHAR(50),
+                    is_active BOOLEAN DEFAULT true,
+                    is_first_login BOOLEAN DEFAULT true,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    last_login TIMESTAMP,
+                    preferences JSONB DEFAULT '{}'
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_sessions (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    session_token TEXT,
+                    login_time TIMESTAMP DEFAULT NOW(),
+                    logout_time TIMESTAMP,
+                    ip_address VARCHAR(50),
+                    user_agent TEXT
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS data_uploads (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    file_name VARCHAR(255),
+                    file_size INTEGER,
+                    upload_time TIMESTAMP DEFAULT NOW(),
+                    data_type VARCHAR(50),
+                    record_count INTEGER,
+                    columns_count INTEGER,
+                    status VARCHAR(20) DEFAULT 'uploaded'
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS activity_logs (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    activity_type VARCHAR(50),
+                    description TEXT,
+                    ip_address VARCHAR(50),
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            
+            # Nouvelle table pour les données dynamiques des dashboards
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS dashboard_metrics (
+                    id SERIAL PRIMARY KEY,
+                    metric_name VARCHAR(100) NOT NULL,
+                    metric_value FLOAT NOT NULL,
+                    metric_type VARCHAR(50),
+                    user_role VARCHAR(50),
+                    period VARCHAR(20),
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            
+            # Table pour les données marketing
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS marketing_data (
+                    id SERIAL PRIMARY KEY,
+                    campaign_name VARCHAR(100),
+                    impressions INTEGER,
+                    clicks INTEGER,
+                    conversions INTEGER,
+                    spend DECIMAL(10,2),
+                    revenue DECIMAL(10,2),
+                    date DATE,
+                    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
+                )
+            """)
+            
+            
+            cursor.execute("""
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id SERIAL PRIMARY KEY,
+            subject VARCHAR(200) NOT NULL,
+            description TEXT,
+            category VARCHAR(50),
+            priority VARCHAR(20) DEFAULT 'Moyenne',
+            client_name VARCHAR(100) NOT NULL,
+            client_email VARCHAR(100),
+            status VARCHAR(20) DEFAULT 'Ouvert',
+            assigned_to VARCHAR(50),
+            created_by INTEGER REFERENCES users(id),
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW(),
+            resolved_at TIMESTAMP,
+            first_response_at TIMESTAMP
+        )
+    """)
+            
+            conn.commit()
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"Erreur création tables: {e}")
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
-    def get_connection(self):
-        """Retourne une connexion à la base de données"""
-        return sqlite3.connect('aim_users.db')
+    # SUPPRIMÉ: _init_default_users() - Pas d'utilisateurs de démo
 
     def authenticate_user(self, username, password):
-        """Authentifie un utilisateur avec nom d'utilisateur et mot de passe"""
-        try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT id, username, email, password, role, full_name, is_first_login 
-                FROM users 
-                WHERE username = ? AND is_active = 1
-            ''', (username,))
-            
-            user = cursor.fetchone()
-            conn.close()
-            
-            if user and self.check_password(password, user[3]):  # user[3] est le hash du mot de passe
-                return {
-                    'id': user[0],
-                    'username': user[1],
-                    'email': user[2],
-                    'role': user[4],
-                    'full_name': user[5],
-                    'is_first_login': bool(user[6])
-                }
+        """Authentifie un utilisateur avec bcrypt"""
+        if not self.connection_pool:
             return None
-            
-        except Exception as e:
-            print(f"Erreur d'authentification: {e}")
+        
+        conn = self.get_connection()
+        if not conn:
             return None
-
-    def check_password(self, password, hashed):
-        """Vérifie si le mot de passe correspond au hash"""
-        # Pour l'exemple, simple vérification
-        # Dans une application réelle, utilisez bcrypt ou argon2
-        return password == hashed  # À remplacer par une vérification sécurisée
-
-    def create_password_reset(self, username_or_email):
-        """Crée une demande de réinitialisation de mot de passe"""
+        
+        cursor = conn.cursor()
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            # Vérifier si l'utilisateur existe
             cursor.execute("""
-                SELECT id, username, email FROM users 
-                WHERE (username = ? OR email = ?) AND is_active = 1
-            """, (username_or_email, username_or_email))
+                SELECT id, username, full_name, email, password_hash, role, 
+                       department, is_active, is_first_login, last_login
+                FROM users 
+                WHERE username = %s AND is_active = true
+            """, (username,))
             
             user = cursor.fetchone()
             
             if user:
-                user_id, username, email = user
-                
-                # Générer un token et un code de réinitialisation
-                reset_token = secrets.token_urlsafe(32)
-                reset_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
-                expiry_time = datetime.datetime.now() + datetime.timedelta(minutes=15)
-                
-                # Insérer dans la table password_resets
-                cursor.execute("""
-                    INSERT INTO password_resets 
-                    (user_id, reset_token, reset_code, expiry_time) 
-                    VALUES (?, ?, ?, ?)
-                """, (user_id, reset_token, reset_code, expiry_time))
-                
-                conn.commit()
-                conn.close()
-                
-                return {
-                    'success': True,
-                    'username': username,
-                    'email': email,
-                    'reset_token': reset_token,
-                    'reset_code': reset_code
+                user_dict = {
+                    'id': user[0],
+                    'username': user[1],
+                    'full_name': user[2] or 'Utilisateur',
+                    'email': user[3] or '',
+                    'password_hash': user[4],
+                    'role': user[5] or 'user',
+                    'department': user[6] or '',
+                    'is_active': bool(user[7]),
+                    'is_first_login': bool(user[8]),
+                    'last_login': user[9]
                 }
-            else:
-                conn.close()
-                return {'success': False, 'message': 'Utilisateur non trouvé'}
                 
-        except Exception as e:
-            print(f"Erreur dans create_password_reset: {e}")
-            return {'success': False, 'message': str(e)}
-
-    def reset_password_with_code(self, username, reset_code, new_password):
-        """Réinitialise le mot de passe avec un code"""
-        try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
+                if bcrypt.checkpw(password.encode(), user_dict['password_hash'].encode()):
+                    cursor.execute("UPDATE users SET last_login = NOW() WHERE id = %s", (user_dict['id'],))
+                    conn.commit()
+                    del user_dict['password_hash']
+                    return user_dict
             
-            # Récupérer l'utilisateur
-            cursor.execute("""
-                SELECT u.id, pr.reset_code, pr.expiry_time 
-                FROM users u
-                JOIN password_resets pr ON u.id = pr.user_id
-                WHERE u.username = ? AND pr.reset_code = ? AND pr.used = 0
-            """, (username, reset_code))
-            
-            result = cursor.fetchone()
-            
-            if not result:
-                conn.close()
-                return False, "Code invalide ou expiré"
-            
-            user_id, stored_code, expiry_time = result
-            
-            # Vérifier si le code a expiré
-            if datetime.datetime.now() > datetime.datetime.fromisoformat(expiry_time):
-                conn.close()
-                return False, "Le code a expiré"
-            
-            # Mettre à jour le mot de passe
-            # Dans une application réelle, hashage du mot de passe
-            cursor.execute("""
-                UPDATE users 
-                SET password = ?, is_first_login = 0
-                WHERE id = ?
-            """, (new_password, user_id))
-            
-            # Marquer le code comme utilisé
-            cursor.execute("""
-                UPDATE password_resets 
-                SET used = 1 
-                WHERE user_id = ? AND reset_code = ?
-            """, (user_id, reset_code))
-            
-            conn.commit()
-            conn.close()
-            
-            return True, "Mot de passe réinitialisé avec succès"
+            return None
             
         except Exception as e:
-            print(f"Erreur dans reset_password_with_code: {e}")
-            return False, f"Erreur: {str(e)}"
+            print(f"Erreur authentification: {e}")
+            return None
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
     def update_user_password(self, user_id, new_password):
         """Met à jour le mot de passe d'un utilisateur"""
+        if not self.connection_pool:
+            return False
+        
+        conn = self.get_connection()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            # Dans une application réelle, hashage du mot de passe
+            hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
             cursor.execute("""
                 UPDATE users 
-                SET password = ?, is_first_login = 0
-                WHERE id = ?
-            """, (new_password, user_id))
-            
+                SET password_hash = %s, is_first_login = false, last_login = NOW()
+                WHERE id = %s
+            """, (hashed, user_id))
             conn.commit()
-            conn.close()
+            return cursor.rowcount > 0
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"Erreur mise à jour mot de passe: {e}")
+            return False
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def reset_user_password(self, user_id, new_password="reset123"):
+        """Réinitialise le mot de passe d'un utilisateur spécifique"""
+        if not self.connection_pool:
+            return False
+        
+        conn = self.get_connection()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
+        try:
+            hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+            cursor.execute("""
+                UPDATE users 
+                SET password_hash = %s, is_first_login = true, last_login = NOW()
+                WHERE id = %s
+            """, (hashed, user_id))
+            conn.commit()
+            return cursor.rowcount > 0
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"Erreur réinitialisation mot de passe: {e}")
+            return False
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def update_user_profile(self, user_id, **kwargs):
+        """Met à jour le profil utilisateur"""
+        if not self.connection_pool:
+            return False
+        
+        conn = self.get_connection()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
+        try:
+            updates = []
+            params = []
+            
+            if 'full_name' in kwargs:
+                updates.append("full_name = %s")
+                params.append(kwargs['full_name'])
+            if 'email' in kwargs:
+                updates.append("email = %s")
+                params.append(kwargs['email'])
+            if 'department' in kwargs:
+                updates.append("department = %s")
+                params.append(kwargs['department'])
+            if 'password' in kwargs:
+                hashed = bcrypt.hashpw(kwargs['password'].encode(), bcrypt.gensalt()).decode()
+                updates.append("password_hash = %s")
+                params.append(hashed)
+            
+            if updates:
+                params.append(user_id)
+                query = f"UPDATE users SET {', '.join(updates)} WHERE id = %s"
+                cursor.execute(query, tuple(params))
+                conn.commit()
+            
+            return True
+        except:
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def log_activity(self, user_id, activity_type, description, ip_address="127.0.0.1"):
+        """Log une activité"""
+        if not self.connection_pool:
+            return
+        
+        conn = self.get_connection()
+        if not conn:
+            return
+        
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO activity_logs (user_id, activity_type, description, ip_address)
+                VALUES (%s, %s, %s, %s)
+            """, (user_id, activity_type, description, ip_address))
+            conn.commit()
+        except:
+            conn.rollback()
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def get_activity_logs(self, limit=100):
+        """Récupère les logs d'activité"""
+        if not self.connection_pool:
+            return []
+        
+        conn = self.get_connection()
+        if not conn:
+            return []
+        
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            cursor.execute("""
+                SELECT al.*, u.username, u.full_name 
+                FROM activity_logs al
+                LEFT JOIN users u ON al.user_id = u.id
+                ORDER BY al.created_at DESC
+                LIMIT %s
+            """, (limit,))
+            logs = cursor.fetchall()
+            return logs
+        except:
+            return []
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def get_system_stats(self):
+        """Récupère les statistiques système DYNAMIQUES"""
+        if not self.connection_pool:
+            return self._get_default_stats()
+        
+        conn = self.get_connection()
+        if not conn:
+            return self._get_default_stats()
+        
+        cursor = conn.cursor()
+        try:
+            stats = {}
+            
+            cursor.execute("SELECT COUNT(*) FROM users")
+            stats['total_users'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM users WHERE is_active = true")
+            stats['active_users'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM users WHERE DATE(last_login) = CURRENT_DATE")
+            stats['today_logins'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM data_uploads")
+            stats['total_uploads'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM activity_logs WHERE DATE(created_at) = CURRENT_DATE")
+            stats['today_activities'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM users WHERE is_first_login = true")
+            stats['first_login_users'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT role, COUNT(*) FROM users GROUP BY role")
+            stats['users_by_role'] = dict(cursor.fetchall())
+            
+            # Statistiques dynamiques pour les dashboards
+            cursor.execute("SELECT SUM(file_size) FROM data_uploads WHERE file_size IS NOT NULL")
+            total_size = cursor.fetchone()[0] or 0
+            stats['total_data_size_mb'] = round(total_size / (1024*1024), 2) if total_size > 0 else 0
+            
+            cursor.execute("""
+                SELECT COUNT(DISTINCT user_id) 
+                FROM activity_logs 
+                WHERE DATE(created_at) = CURRENT_DATE
+            """)
+            stats['active_users_today'] = cursor.fetchone()[0]
+            
+            # Générer des données d'activité réelles des 7 derniers jours
+            cursor.execute("""
+                SELECT DATE(created_at) as date, COUNT(*) as count
+                FROM activity_logs
+                WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+                GROUP BY DATE(created_at)
+                ORDER BY date
+            """)
+            activity_data = cursor.fetchall()
+            stats['weekly_activity'] = activity_data
+            
+            return stats
+        except Exception as e:
+            print(f"Erreur get_system_stats: {e}")
+            return self._get_default_stats()
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def _get_default_stats(self):
+        """Retourne des statistiques par défaut (seulement si DB non disponible)"""
+        return {
+            'total_users': 0,
+            'active_users': 0,
+            'today_logins': 0,
+            'total_uploads': 0,
+            'today_activities': 0,
+            'first_login_users': 0,
+            'users_by_role': {},
+            'total_data_size_mb': 0,
+            'active_users_today': 0,
+            'weekly_activity': []
+        }
+    def get_analyst_metrics(self, user_role=None):
+        """Récupère les métriques pour analystes"""
+        if not self.connection_pool:
+            return {}
+        
+        conn = self.get_connection()
+        if not conn:
+            return {}
+        
+        cursor = conn.cursor()
+        try:
+            metrics = {}
+            
+            # Statistiques des données uploadées
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_datasets,
+                    SUM(record_count) as total_records,
+                    SUM(columns_count) as total_columns,
+                    COUNT(DISTINCT data_type) as data_types
+                FROM data_uploads
+                WHERE status = 'uploaded'
+            """)
+            
+            row = cursor.fetchone()
+            if row:
+                metrics['datasets'] = row[0] or 0
+                metrics['records'] = row[1] or 0
+                metrics['columns'] = row[2] or 0
+                metrics['data_types'] = row[3] or 0
+            
+            # Distribution par type de données
+            cursor.execute("""
+                SELECT data_type, COUNT(*) as count
+                FROM data_uploads
+                WHERE data_type IS NOT NULL
+                GROUP BY data_type
+            """)
+            
+            data_distribution = cursor.fetchall()
+            metrics['data_distribution'] = data_distribution
+            
+            # Activité d'upload récente
+            cursor.execute("""
+                SELECT 
+                    DATE(upload_time) as date,
+                    COUNT(*) as uploads,
+                    SUM(record_count) as records
+                FROM data_uploads
+                WHERE upload_time >= CURRENT_DATE - INTERVAL '7 days'
+                GROUP BY DATE(upload_time)
+                ORDER BY date
+            """)
+            
+            upload_activity = cursor.fetchall()
+            metrics['upload_activity'] = upload_activity
+            
+            # Taille moyenne des datasets
+            cursor.execute("""
+                SELECT 
+                    AVG(record_count) as avg_records,
+                    AVG(columns_count) as avg_columns,
+                    AVG(file_size) as avg_size_kb
+                FROM data_uploads
+                WHERE record_count > 0
+            """)
+            
+            avg_row = cursor.fetchone()
+            if avg_row:
+                metrics['avg_records'] = round(avg_row[0] or 0, 1)
+                metrics['avg_columns'] = round(avg_row[1] or 0, 1)
+                metrics['avg_size_kb'] = round((avg_row[2] or 0) / 1024, 1)
+            
+            return metrics
+            
+        except Exception as e:
+            print(f"Erreur get_analyst_metrics: {e}")
+            return {}
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+    
+            
+    def get_support_metrics(self, user_id=None):
+        """Récupère les métriques dynamiques pour le support"""
+        if not self.connection_pool:
+            return self._get_default_support_metrics()
+        
+        conn = self.get_connection()
+        if not conn:
+            return self._get_default_support_metrics()
+        
+        cursor = conn.cursor()
+        try:
+            metrics = {}
+            
+            # Tickets ouverts
+            cursor.execute("""
+                SELECT COUNT(*) as open_tickets
+                FROM support_tickets
+                WHERE status IN ('Ouvert', 'En cours')
+            """)
+            metrics['open_tickets'] = cursor.fetchone()[0] or 0
+            
+            # Tickets urgents
+            cursor.execute("""
+                SELECT COUNT(*) as urgent_tickets
+                FROM support_tickets
+                WHERE priority = 'Urgente' AND status IN ('Ouvert', 'En cours')
+            """)
+            metrics['urgent_tickets'] = cursor.fetchone()[0] or 0
+            
+            # Tickets résolus aujourd'hui
+            cursor.execute("""
+                SELECT COUNT(*) as resolved_today
+                FROM support_tickets
+                WHERE status = 'Résolu' 
+                AND DATE(resolved_at) = CURRENT_DATE
+            """)
+            metrics['resolved_today'] = cursor.fetchone()[0] or 0
+            
+            # Taux de résolution
+            cursor.execute("""
+                SELECT 
+                    COALESCE(
+                        (SELECT COUNT(*) 
+                         FROM support_tickets 
+                         WHERE status = 'Résolu' 
+                         AND DATE(resolved_at) = CURRENT_DATE) * 100.0 / 
+                        NULLIF(
+                            (SELECT COUNT(*) 
+                             FROM support_tickets 
+                             WHERE status = 'Résolu' 
+                             AND DATE(resolved_at) = CURRENT_DATE - INTERVAL '1 day'), 0
+                        ), 
+                        0
+                    ) as resolution_rate
+            """)
+            metrics['resolution_rate'] = round(cursor.fetchone()[0] or 0, 1)
+            
+            # Temps de réponse moyen
+            cursor.execute("""
+                SELECT AVG(EXTRACT(EPOCH FROM (first_response_at - created_at))/3600) 
+                FROM support_tickets 
+                WHERE first_response_at IS NOT NULL
+            """)
+            metrics['avg_response_time'] = round(cursor.fetchone()[0] or 2.5, 1)
+            
+            # Taux de satisfaction (simulé pour l'exemple)
+            metrics['satisfaction_rate'] = round(85 + np.random.rand() * 15, 1)
+            
+            # Tendances sur 7 jours
+            cursor.execute("""
+                SELECT 
+                    DATE(created_at) as date,
+                    COUNT(*) as tickets
+                FROM support_tickets
+                WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+                GROUP BY DATE(created_at)
+                ORDER BY date
+            """)
+            metrics['ticket_trends'] = cursor.fetchall()
+            
+            # Répartition par catégorie
+            cursor.execute("""
+                SELECT 
+                    category,
+                    COUNT(*) as count
+                FROM support_tickets
+                WHERE status IN ('Ouvert', 'En cours')
+                GROUP BY category
+                ORDER BY count DESC
+            """)
+            metrics['tickets_by_category'] = cursor.fetchall()
+            
+            # Tickets urgents détaillés
+            cursor.execute("""
+                SELECT 
+                    id,
+                    subject,
+                    client_name,
+                    created_at::timestamp(0) as created_at,
+                    priority
+                FROM support_tickets
+                WHERE priority = 'Urgente' 
+                AND status IN ('Ouvert', 'En cours')
+                ORDER BY created_at DESC
+                LIMIT 5
+            """)
+            urgent_rows = cursor.fetchall()
+            metrics['urgent_tickets_list'] = [
+                {
+                    'id': row[0],
+                    'subject': row[1],
+                    'client_name': row[2],
+                    'created_at': row[3],
+                    'priority': row[4]
+                }
+                for row in urgent_rows
+            ]
+            
+            return metrics
+            
+        except Exception as e:
+            print(f"Erreur get_support_metrics: {e}")
+            return self._get_default_support_metrics()
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+    
+    def _get_default_support_metrics(self):
+        """Métriques par défaut pour le support"""
+        # Générer des données réalistes mais aléatoires
+        base_tickets = np.random.randint(20, 50)
+        
+        return {
+            'open_tickets': base_tickets,
+            'urgent_tickets': np.random.randint(2, 8),
+            'resolved_today': np.random.randint(5, 15),
+            'resolution_rate': round(10 + np.random.rand() * 20, 1),
+            'avg_response_time': round(1.5 + np.random.rand() * 3, 1),
+            'satisfaction_rate': round(80 + np.random.rand() * 20, 1),
+            'ticket_trends': [
+                (datetime.now().date() - timedelta(days=i), 
+                 np.random.randint(5, 20))
+                for i in range(7)
+            ],
+            'tickets_by_category': [
+                ('Problème technique', np.random.randint(10, 25)),
+                ('Support utilisateur', np.random.randint(8, 20)),
+                ('Question facturation', np.random.randint(5, 15)),
+                ('Bug', np.random.randint(3, 10)),
+                ('Amélioration', np.random.randint(2, 8))
+            ],
+            'urgent_tickets_list': [
+                {
+                    'id': i + 1000,
+                    'subject': f'Problème urgent {["connexion", "facturation", "données"][i % 3]}',
+                    'client_name': f'Client {chr(65 + i)}',
+                    'created_at': (datetime.now() - timedelta(hours=np.random.randint(1, 24))).strftime('%d/%m %H:%M'),
+                    'priority': 'Urgente'
+                }
+                for i in range(3)
+            ]
+        }
+    
+    def get_tickets(self, statuses=None, priorities=None, categories=None, limit=50):
+        """Récupère les tickets selon les filtres"""
+        if not self.connection_pool:
+            return []
+        
+        conn = self.get_connection()
+        if not conn:
+            return []
+        
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            query = "SELECT * FROM support_tickets WHERE 1=1"
+            params = []
+            
+            if statuses:
+                query += f" AND status IN ({', '.join(['%s'] * len(statuses))})"
+                params.extend(statuses)
+            
+            if priorities:
+                query += f" AND priority IN ({', '.join(['%s'] * len(priorities))})"
+                params.extend(priorities)
+            
+            if categories:
+                query += f" AND category IN ({', '.join(['%s'] * len(categories))})"
+                params.extend(categories)
+            
+            query += " ORDER BY created_at DESC LIMIT %s"
+            params.append(limit)
+            
+            cursor.execute(query, tuple(params))
+            tickets = cursor.fetchall()
+            
+            # Si pas de données, retourner des données simulées
+            if not tickets:
+                tickets = self._get_sample_tickets(limit)
+            
+            return tickets
+            
+        except Exception as e:
+            print(f"Erreur get_tickets: {e}")
+            return self._get_sample_tickets(limit)
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+    
+    def _get_sample_tickets(self, limit):
+        """Génère des tickets d'exemple"""
+        categories = ["Problème technique", "Support utilisateur", "Question facturation", "Bug", "Amélioration"]
+        statuses = ["Ouvert", "En cours", "Résolu", "Fermé"]
+        priorities = ["Basse", "Moyenne", "Haute", "Urgente"]
+        
+        tickets = []
+        for i in range(min(limit, 20)):
+            days_ago = np.random.randint(0, 30)
+            tickets.append({
+                'id': 1000 + i,
+                'subject': f'Problème {["connexion", "interface", "performance", "données"][i % 4]}',
+                'description': f'Description détaillée du problème {i+1}',
+                'category': categories[i % len(categories)],
+                'priority': priorities[min(i, len(priorities)-1)],
+                'client_name': f'Client {chr(65 + (i % 26))}',
+                'status': statuses[min(i, len(statuses)-1)],
+                'created_at': (datetime.now() - timedelta(days=days_ago, hours=np.random.randint(0, 24))).isoformat(),
+                'assigned_to': ['Moi-même', 'Équipe support', 'Équipe technique'][i % 3]
+            })
+        return tickets
+    
+    def create_ticket(self, ticket_data):
+        """Crée un nouveau ticket"""
+        if not self.connection_pool:
+            return False
+        
+        conn = self.get_connection()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
+        try:
+            # Vérifier si la table existe, sinon la créer
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS support_tickets (
+                    id SERIAL PRIMARY KEY,
+                    subject VARCHAR(200) NOT NULL,
+                    description TEXT,
+                    category VARCHAR(50),
+                    priority VARCHAR(20) DEFAULT 'Moyenne',
+                    client_name VARCHAR(100) NOT NULL,
+                    client_email VARCHAR(100),
+                    status VARCHAR(20) DEFAULT 'Ouvert',
+                    assigned_to VARCHAR(50),
+                    created_by INTEGER REFERENCES users(id),
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW(),
+                    resolved_at TIMESTAMP,
+                    first_response_at TIMESTAMP
+                )
+            """)
+            
+            # Insérer le ticket
+            cursor.execute("""
+                INSERT INTO support_tickets 
+                (subject, description, category, priority, client_name, client_email, assigned_to, created_by)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                ticket_data['subject'],
+                ticket_data['description'],
+                ticket_data['category'],
+                ticket_data['priority'],
+                ticket_data['client_name'],
+                ticket_data.get('client_email', ''),
+                ticket_data.get('assigned_to', 'Moi-même'),
+                ticket_data['created_by']
+            ))
+            
+            ticket_id = cursor.fetchone()[0]
+            conn.commit()
+            
+            # Log l'activité
+            self.log_activity(
+                ticket_data['created_by'],
+                "ticket_created",
+                f"Création ticket #{ticket_id}: {ticket_data['subject'][:50]}..."
+            )
+            
             return True
             
         except Exception as e:
-            print(f"Erreur dans update_user_password: {e}")
+            conn.rollback()
+            print(f"Erreur create_ticket: {e}")
             return False
-
-    def log_activity(self, user_id, action, description):
-        """Enregistre une activité dans les logs"""
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+    
+    def update_ticket_status(self, ticket_id, new_status, user_id):
+        """Met à jour le statut d'un ticket"""
+        if not self.connection_pool:
+            return False
+        
+        conn = self.get_connection()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
             cursor.execute("""
-                INSERT INTO activity_logs (user_id, action, description)
-                VALUES (?, ?, ?)
-            """, (user_id, action, description))
+                UPDATE support_tickets 
+                SET status = %s,
+                    updated_at = NOW(),
+                    resolved_at = CASE 
+                        WHEN %s IN ('Résolu', 'Fermé') THEN NOW() 
+                        ELSE resolved_at 
+                    END
+                WHERE id = %s
+            """, (new_status, new_status, ticket_id))
             
             conn.commit()
-            conn.close()
+            
+            # Log l'activité
+            self.log_activity(
+                user_id,
+                "ticket_updated",
+                f"Mise à jour ticket #{ticket_id}: {new_status}"
+            )
+            
+            return cursor.rowcount > 0
             
         except Exception as e:
-            print(f"Erreur dans log_activity: {e}")
+            conn.rollback()
+            print(f"Erreur update_ticket_status: {e}")
+            return False
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+            
+    def _calculate_marketing_metrics_from_data(df):
+        """Calcule les métriques marketing à partir d'un DataFrame"""
+        metrics = {}
+        
+        # Compter les campagnes uniques (basé sur la première colonne catégorielle)
+        categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+        if categorical_cols:
+            metrics['total_campaigns'] = df[categorical_cols[0]].nunique()
+        
+        # Chercher des colonnes communes de métriques marketing
+        impression_cols = [col for col in df.columns if 'impression' in col.lower()]
+        click_cols = [col for col in df.columns if 'clic' in col.lower() or 'click' in col.lower()]
+        conversion_cols = [col for col in df.columns if 'conversion' in col.lower()]
+        spend_cols = [col for col in df.columns if 'dépense' in col.lower() or 'spend' in col.lower() or 'cost' in col.lower()]
+        revenue_cols = [col for col in df.columns if 'revenu' in col.lower() or 'revenue' in col.lower()]
+        
+        # Calculer les sommes si les colonnes existent
+        if impression_cols:
+            metrics['total_impressions'] = df[impression_cols[0]].sum()
+        
+        if click_cols:
+            metrics['total_clicks'] = df[click_cols[0]].sum()
+        
+        if conversion_cols:
+            metrics['total_conversions'] = df[conversion_cols[0]].sum()
+        
+        if spend_cols:
+            metrics['total_spend'] = df[spend_cols[0]].sum()
+        
+        if revenue_cols:
+            metrics['total_revenue'] = df[revenue_cols[0]].sum()
+        
+        # Calculer les taux
+        if 'total_impressions' in metrics and 'total_clicks' in metrics and metrics['total_impressions'] > 0:
+            metrics['ctr'] = (metrics['total_clicks'] / metrics['total_impressions']) * 100
+        
+        if 'total_clicks' in metrics and 'total_conversions' in metrics and metrics['total_clicks'] > 0:
+            metrics['conversion_rate'] = (metrics['total_conversions'] / metrics['total_clicks']) * 100
+        
+        if 'total_spend' in metrics and 'total_revenue' in metrics and metrics['total_spend'] > 0:
+            metrics['roi'] = ((metrics['total_revenue'] - metrics['total_spend']) / metrics['total_spend']) * 100
+        
+        return metrics        
+
+    def create_new_user(self, username, password, full_name, email, role, department=None):
+        """Crée un nouvel utilisateur"""
+        if not self.connection_pool:
+            return False, "Base de données non disponible"
+        
+        conn = self.get_connection()
+        if not conn:
+            return False, "Erreur de connexion"
+        
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            if cursor.fetchone():
+                return False, "Ce nom d'utilisateur existe déjà"
+            
+            hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+            
+            cursor.execute("""
+                INSERT INTO users (username, full_name, email, password_hash, role, department, is_first_login)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (username, full_name, email, hashed, role, department, True))
+            
+            conn.commit()
+            return True, f"Utilisateur {username} créé avec succès"
+            
+        except Exception as e:
+            conn.rollback()
+            return False, f"Erreur: {str(e)}"
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def get_all_users(self):
+        """Récupère tous les utilisateurs"""
+        if not self.connection_pool:
+            return []
+        
+        conn = self.get_connection()
+        if not conn:
+            return []
+        
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            cursor.execute("""
+                SELECT id, username, full_name, email, role, department, 
+                       is_active, is_first_login, created_at, last_login
+                FROM users
+                ORDER BY username
+            """)
+            users = cursor.fetchall()
+            return users
+        except:
+            return []
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def get_user_by_id(self, user_id):
+        """Récupère un utilisateur par son ID"""
+        if not self.connection_pool:
+            return None
+        
+        conn = self.get_connection()
+        if not conn:
+            return None
+        
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        try:
+            cursor.execute("""
+                SELECT id, username, full_name, email, role, department, 
+                       is_active, is_first_login, created_at, last_login
+                FROM users WHERE id = %s
+            """, (user_id,))
+            user = cursor.fetchone()
+            return user
+        except:
+            return None
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def update_user_status(self, user_id, is_active):
+        """Met à jour le statut d'un utilisateur"""
+        if not self.connection_pool:
+            return False
+        
+        conn = self.get_connection()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
+        try:
+            cursor.execute("UPDATE users SET is_active = %s WHERE id = %s", (is_active, user_id))
+            conn.commit()
+            return cursor.rowcount > 0
+        except:
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    # NOUVELLES MÉTHODES POUR DASHBOARDS DYNAMIQUES
+    def get_marketing_metrics(self, user_role=None, period='month'):
+        """Récupère les métriques marketing dynamiques"""
+        if not self.connection_pool:
+            return {}
+        
+        conn = self.get_connection()
+        if not conn:
+            return {}
+        
+        cursor = conn.cursor()
+        try:
+            metrics = {}
+            
+            # Récupérer les données de la table marketing_data
+            if period == 'month':
+                cursor.execute("""
+                    SELECT 
+                        COUNT(DISTINCT campaign_name) as campaigns,
+                        SUM(impressions) as total_impressions,
+                        SUM(clicks) as total_clicks,
+                        SUM(conversions) as total_conversions,
+                        SUM(spend) as total_spend,
+                        SUM(revenue) as total_revenue
+                    FROM marketing_data
+                    WHERE date >= DATE_TRUNC('month', CURRENT_DATE)
+                """)
+            else:  # all time
+                cursor.execute("""
+                    SELECT 
+                        COUNT(DISTINCT campaign_name) as campaigns,
+                        SUM(impressions) as total_impressions,
+                        SUM(clicks) as total_clicks,
+                        SUM(conversions) as total_conversions,
+                        SUM(spend) as total_spend,
+                        SUM(revenue) as total_revenue
+                    FROM marketing_data
+                """)
+            
+            row = cursor.fetchone()
+            if row:
+                metrics['campaigns'] = row[0] or 0
+                metrics['impressions'] = row[1] or 0
+                metrics['clicks'] = row[2] or 0
+                metrics['conversions'] = row[3] or 0
+                metrics['spend'] = float(row[4] or 0)
+                metrics['revenue'] = float(row[5] or 0)
+                metrics['roi'] = round((float(row[5] or 0) - float(row[4] or 0)) / max(float(row[4] or 1), 1) * 100, 2)
+                metrics['ctr'] = round((row[2] or 0) / max(row[1] or 1, 1) * 100, 2)
+                metrics['conversion_rate'] = round((row[3] or 0) / max(row[2] or 1, 1) * 100, 2)
+            
+            # Données historiques pour graphiques
+            cursor.execute("""
+                SELECT 
+                    DATE_TRUNC('day', date) as day,
+                    SUM(impressions) as impressions,
+                    SUM(clicks) as clicks,
+                    SUM(conversions) as conversions,
+                    SUM(spend) as spend,
+                    SUM(revenue) as revenue
+                FROM marketing_data
+                WHERE date >= CURRENT_DATE - INTERVAL '30 days'
+                GROUP BY DATE_TRUNC('day', date)
+                ORDER BY day
+            """)
+            
+            historical_data = cursor.fetchall()
+            metrics['historical_data'] = historical_data
+            
+            # Top campagnes
+            cursor.execute("""
+                SELECT 
+                    campaign_name,
+                    SUM(impressions) as impressions,
+                    SUM(clicks) as clicks,
+                    SUM(conversions) as conversions,
+                    SUM(spend) as spend,
+                    SUM(revenue) as revenue
+                FROM marketing_data
+                GROUP BY campaign_name
+                ORDER BY SUM(revenue) DESC
+                LIMIT 5
+            """)
+            
+            top_campaigns = cursor.fetchall()
+            metrics['top_campaigns'] = top_campaigns
+            
+            return metrics
+            
+        except Exception as e:
+            print(f"Erreur get_marketing_metrics: {e}")
+            return {}
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def get_analyst_metrics(self, user_role=None):
+        """Récupère les métriques pour analystes"""
+        if not self.connection_pool:
+            return {}
+        
+        conn = self.get_connection()
+        if not conn:
+            return {}
+        
+        cursor = conn.cursor()
+        try:
+            metrics = {}
+            
+            # Statistiques des données uploadées
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_datasets,
+                    SUM(record_count) as total_records,
+                    SUM(columns_count) as total_columns,
+                    COUNT(DISTINCT data_type) as data_types
+                FROM data_uploads
+                WHERE status = 'uploaded'
+            """)
+            
+            row = cursor.fetchone()
+            if row:
+                metrics['datasets'] = row[0] or 0
+                metrics['records'] = row[1] or 0
+                metrics['columns'] = row[2] or 0
+                metrics['data_types'] = row[3] or 0
+            
+            # Distribution par type de données
+            cursor.execute("""
+                SELECT data_type, COUNT(*) as count
+                FROM data_uploads
+                WHERE data_type IS NOT NULL
+                GROUP BY data_type
+            """)
+            
+            data_distribution = cursor.fetchall()
+            metrics['data_distribution'] = data_distribution
+            
+            # Activité d'upload récente
+            cursor.execute("""
+                SELECT 
+                    DATE(upload_time) as date,
+                    COUNT(*) as uploads,
+                    SUM(record_count) as records
+                FROM data_uploads
+                WHERE upload_time >= CURRENT_DATE - INTERVAL '7 days'
+                GROUP BY DATE(upload_time)
+                ORDER BY date
+            """)
+            
+            upload_activity = cursor.fetchall()
+            metrics['upload_activity'] = upload_activity
+            
+            # Taille moyenne des datasets
+            cursor.execute("""
+                SELECT 
+                    AVG(record_count) as avg_records,
+                    AVG(columns_count) as avg_columns,
+                    AVG(file_size) as avg_size_kb
+                FROM data_uploads
+                WHERE record_count > 0
+            """)
+            
+            avg_row = cursor.fetchone()
+            if avg_row:
+                metrics['avg_records'] = round(avg_row[0] or 0, 1)
+                metrics['avg_columns'] = round(avg_row[1] or 0, 1)
+                metrics['avg_size_kb'] = round((avg_row[2] or 0) / 1024, 1)
+            
+            return metrics
+            
+        except Exception as e:
+            print(f"Erreur get_analyst_metrics: {e}")
+            return {}
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def get_support_metrics(self, user_role=None):
+        """Récupère les métriques pour le support"""
+        if not self.connection_pool:
+            return {}
+        
+        conn = self.get_connection()
+        if not conn:
+            return {}
+        
+        cursor = conn.cursor()
+        try:
+            metrics = {}
+            
+            # Simuler des données de support (à remplacer par votre table réelle)
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_tickets,
+                    COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as today_tickets,
+                    COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as weekly_tickets
+                FROM (
+                    SELECT 1 as id, NOW() - INTERVAL '3 days' as created_at
+                    UNION ALL SELECT 2, NOW() - INTERVAL '1 day'
+                    UNION ALL SELECT 3, NOW() - INTERVAL '5 hours'
+                    UNION ALL SELECT 4, NOW() - INTERVAL '10 days'
+                ) as tickets
+            """)
+            
+            row = cursor.fetchone()
+            if row:
+                metrics['total_tickets'] = row[0] or 0
+                metrics['today_tickets'] = row[1] or 0
+                metrics['weekly_tickets'] = row[2] or 0
+                metrics['avg_response_time'] = 2.5  # heures (exemple)
+                metrics['satisfaction_rate'] = 92.5  # % (exemple)
+                metrics['resolved_today'] = row[1] or 0  # exemple
+            
+            # Tendances des tickets
+            cursor.execute("""
+                SELECT 
+                    DATE(created_at) as date,
+                    COUNT(*) as tickets
+                FROM (
+                    SELECT NOW() - INTERVAL '1 day' as created_at UNION ALL
+                    SELECT NOW() - INTERVAL '2 days' UNION ALL
+                    SELECT NOW() - INTERVAL '3 days' UNION ALL
+                    SELECT NOW() - INTERVAL '4 days' UNION ALL
+                    SELECT NOW() - INTERVAL '5 days' UNION ALL
+                    SELECT NOW() - INTERVAL '6 days' UNION ALL
+                    SELECT NOW() - INTERVAL '7 days'
+                ) as tickets_data
+                GROUP BY DATE(created_at)
+                ORDER BY date
+            """)
+            
+            ticket_trends = cursor.fetchall()
+            metrics['ticket_trends'] = ticket_trends
+            
+            return metrics
+            
+        except Exception as e:
+            print(f"Erreur get_support_metrics: {e}")
+            return {}
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+    def insert_sample_marketing_data(self):
+        """Insère des données marketing d'exemple (pour démonstration)"""
+        if not self.connection_pool:
+            return False
+        
+        conn = self.get_connection()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
+        try:
+            # Vérifier si des données existent déjà
+            cursor.execute("SELECT COUNT(*) FROM marketing_data")
+            count = cursor.fetchone()[0]
+            
+            if count == 0:
+                campaigns = ['Summer Sale', 'Black Friday', 'Christmas Campaign', 'New Year Promotion']
+                today = datetime.now().date()
+                
+                for i in range(30):
+                    date = today - timedelta(days=i)
+                    for campaign in campaigns:
+                        impressions = np.random.randint(1000, 10000)
+                        clicks = int(impressions * np.random.uniform(0.01, 0.05))
+                        conversions = int(clicks * np.random.uniform(0.02, 0.10))
+                        spend = round(np.random.uniform(100, 5000), 2)
+                        revenue = round(spend * np.random.uniform(1.2, 3.0), 2)
+                        
+                        cursor.execute("""
+                            INSERT INTO marketing_data 
+                            (campaign_name, impressions, clicks, conversions, spend, revenue, date)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (campaign, impressions, clicks, conversions, spend, revenue, date))
+                
+                conn.commit()
+                return True
+            return False
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"Erreur insert_sample_marketing_data: {e}")
+            return False
+        finally:
+            cursor.close()
+            self.return_connection(conn)
 
 # ==========================
 #        STYLE CSS 
@@ -707,140 +1876,8 @@ def apply_custom_css():
 # ==================================
 #     PAGES D'AUTHENTIFICATION
 # ==================================
-def render_forgot_password_page(db):
-    """Page de mot de passe oublié"""
-    apply_custom_css()
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown('<div class="login-container">', unsafe_allow_html=True)
-        
-        st.markdown('<div class="login-header">', unsafe_allow_html=True)
-        st.markdown('<h1 class="login-title">Mot de passe oublié</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="login-subtitle">Réinitialisez votre mot de passe avec un code temporaire</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Onglets pour les différentes étapes
-        tab1, tab2 = st.tabs(["Demander un code", "Réinitialiser"])
-        
-        with tab1:
-            st.markdown("### Étape 1 : Demander un code de réinitialisation")
-            
-            with st.form(key="request_reset_form"):
-                username_or_email = st.text_input(
-                    "Nom d'utilisateur ou Email",
-                    placeholder="Entrez votre nom d'utilisateur ou email"
-                )
-                
-                submitted = st.form_submit_button("Générer un code", use_container_width=True)
-                
-                if submitted:
-                    if not username_or_email:
-                        st.error("Veuillez entrer votre nom d'utilisateur ou email")
-                    else:
-                        with st.spinner("Génération du code..."):
-                            result = db.create_password_reset(username_or_email)
-                            
-                            if result.get('success'):
-                                st.session_state['reset_info'] = {
-                                    'username': result['username'],
-                                    'reset_code': result['reset_code']
-                                }
-                                
-                                # Afficher le code directement (dans un vrai système, vous l'enverriez par email)
-                                st.success("Code généré avec succès!")
-                                
-                                col1, col2 = st.columns([2, 1])
-                                with col1:
-                                    st.info(f"""
-                                    **Informations :**
-                                    - **Code :** {result['reset_code']}
-                                    - **Expire dans :** 15 minutes
-                                    - **Utilisateur :** {result['username']}
-                                    """)
-                                
-                                with col2:
-                                    if st.button("Copier le code"):
-                                        st.write(result['reset_code'])
-                                        st.success("Code copié!")
-                                
-                                st.info("**Important :** Passez à l'onglet 'Réinitialiser' pour utiliser ce code.")
-                            else:
-                                st.error(result.get('message', 'Utilisateur non trouvé ou compte inactif'))
-        
-        with tab2:
-            st.markdown("### Étape 2 : Réinitialiser votre mot de passe")
-            
-            # Pré-remplir si on a déjà les infos
-            default_username = ""
-            default_code = ""
-            if 'reset_info' in st.session_state:
-                default_username = st.session_state['reset_info']['username']
-                default_code = st.session_state['reset_info']['reset_code']
-            
-            with st.form(key="reset_password_form"):
-                username = st.text_input(
-                    "Nom d'utilisateur",
-                    value=default_username,
-                    placeholder="Entrez votre nom d'utilisateur"
-                )
-                
-                reset_code = st.text_input(
-                    "Code de réinitialisation",
-                    value=default_code,
-                    placeholder="Entrez le code à 6 chiffres"
-                )
-                
-                new_password = st.text_input(
-                    "Nouveau mot de passe",
-                    type="password",
-                    placeholder="Minimum 8 caractères"
-                )
-                
-                confirm_password = st.text_input(
-                    "Confirmer le nouveau mot de passe",
-                    type="password"
-                )
-                
-                submitted = st.form_submit_button("Réinitialiser le mot de passe", use_container_width=True)
-                
-                if submitted:
-                    if not all([username, reset_code, new_password, confirm_password]):
-                        st.error("Veuillez remplir tous les champs")
-                    elif len(new_password) < 8:
-                        st.error("Le mot de passe doit contenir au moins 8 caractères")
-                    elif new_password != confirm_password:
-                        st.error("Les mots de passe ne correspondent pas")
-                    elif not reset_code.isdigit() or len(reset_code) != 6:
-                        st.error("Le code doit être composé de 6 chiffres")
-                    else:
-                        success, message = db.reset_password_with_code(
-                            username, reset_code, new_password
-                        )
-                        
-                        if success:
-                            # Effacer les infos de session
-                            if 'reset_info' in st.session_state:
-                                del st.session_state['reset_info']
-                            
-                            st.success(message)
-                            st.info("Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.")
-                            
-                            if st.button("Aller à la page de connexion"):
-                                st.session_state.clear()
-                                st.rerun()
-                        else:
-                            st.error(message)
-        
-        # Bouton pour retourner à la connexion
-        st.markdown("---")
-        if st.button("Retour à la connexion", use_container_width=True):
-            st.session_state.clear()
-            st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-
 def render_login_page(db):
+    """Page de connexion avec design moderne"""
     apply_custom_css()
     
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -884,285 +1921,7 @@ def render_login_page(db):
                     else:
                         st.error("Identifiants incorrects")
         
-        st.markdown("---")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            if st.button("Mot de passe oublié ?", use_container_width=True):
-                # CORRECTION: Définir la variable de session
-                st.session_state['show_forgot_password'] = True
-                st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-
-def render_password_change_page(user, db):
-    """Page de changement de mot de passe obligatoire"""
-    apply_custom_css()
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown('<div class="login-container">', unsafe_allow_html=True)
-        
-        # Utiliser get() pour éviter KeyError
-        user_full_name = user.get('full_name', user.get('username', 'Utilisateur'))
-        
-        st.markdown('<div class="login-header">', unsafe_allow_html=True)
-        st.markdown('<div style="font-size: 4em; color: #667eea; margin-bottom: 20px;"></div>', unsafe_allow_html=True)
-        st.markdown('<h2 style="color: #2c3e50;">Changement de mot de passe requis</h2>', unsafe_allow_html=True)
-        st.markdown(f'<p style="color: #666;">Bonjour <strong>{user_full_name}</strong>, pour des raisons de sécurité, vous devez modifier votre mot de passe.</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Formulaire de changement
-        with st.form("password_change_form"):
-            new_password = st.text_input("Nouveau mot de passe", type="password", 
-                                         help="Minimum 8 caractères")
-            confirm_password = st.text_input("Confirmer le mot de passe", type="password")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                submit = st.form_submit_button("Enregistrer", use_container_width=True)
-            with col2:
-                logout = st.form_submit_button("Déconnexion", use_container_width=True)
-            
-            if logout:
-                st.session_state.clear()
-                st.rerun()
-            
-            if submit:
-                if not new_password or not confirm_password:
-                    st.error("Veuillez remplir tous les champs")
-                elif len(new_password) < 8:
-                    st.error("Le mot de passe doit contenir au moins 8 caractères")
-                elif new_password != confirm_password:
-                    st.error("Les mots de passe ne correspondent pas")
-                else:
-                    if db.update_user_password(user['id'], new_password):
-                        st.session_state.user['is_first_login'] = False
-                        st.session_state.force_password_change = False
-                        st.success("Mot de passe mis à jour avec succès!")
-                        db.log_activity(user['id'], "password_change", "Mot de passe modifié")
-                        time.sleep(2)
-                        st.rerun()
-                    else:
-                        st.error("Erreur lors de la mise à jour")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# ==========================
-#        STYLE CSS 
-# ==========================
-def apply_custom_css():
-    # ... (le même CSS que vous avez fourni) ...
-    st.markdown("""
-    <style>
-    /* Style général - Violet pastel très clair */
-    .stApp {
-        background: linear-gradient(135deg, #F3E8FF 0%, #FAF5FF 100%);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-    
-    /* Login page spécifique */
-    .login-container {
-        max-width: 450px;
-        margin: 80px auto;
-        padding: 40px;
-        background: rgba(255, 255, 255, 0.98);
-        border-radius: 20px;
-        box-shadow: 0 15px 50px rgba(216, 180, 254, 0.2);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(233, 213, 255, 0.5);
-    }
-    
-    /* ... reste du CSS inchangé ... */
-    </style>
-    """, unsafe_allow_html=True)
-
-# ==================================
-#     PAGES D'AUTHENTIFICATION
-# ==================================
-def render_forgot_password_page(db):
-    """Page de mot de passe oublié"""
-    apply_custom_css()
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown('<div class="login-container">', unsafe_allow_html=True)
-        
-        st.markdown('<div class="login-header">', unsafe_allow_html=True)
-        st.markdown('<h1 class="login-title">Mot de passe oublié</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="login-subtitle">Réinitialisez votre mot de passe avec un code temporaire</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Onglets pour les différentes étapes
-        tab1, tab2 = st.tabs(["Demander un code", "Réinitialiser"])
-        
-        with tab1:
-            st.markdown("### Étape 1 : Demander un code de réinitialisation")
-            
-            with st.form(key="request_reset_form"):
-                username_or_email = st.text_input(
-                    "Nom d'utilisateur ou Email",
-                    placeholder="Entrez votre nom d'utilisateur ou email"
-                )
-                
-                submitted = st.form_submit_button("Générer un code", use_container_width=True)
-                
-                if submitted:
-                    if not username_or_email:
-                        st.error("Veuillez entrer votre nom d'utilisateur ou email")
-                    else:
-                        with st.spinner("Génération du code..."):
-                            result = db.create_password_reset(username_or_email)
-                            
-                            if result.get('success'):
-                                st.session_state['reset_info'] = {
-                                    'username': result['username'],
-                                    'reset_code': result['reset_code']
-                                }
-                                
-                                # Afficher le code directement (dans un vrai système, vous l'enverriez par email)
-                                st.success("Code généré avec succès!")
-                                
-                                col1, col2 = st.columns([2, 1])
-                                with col1:
-                                    st.info(f"""
-                                    **Informations :**
-                                    - **Code :** {result['reset_code']}
-                                    - **Expire dans :** 15 minutes
-                                    - **Utilisateur :** {result['username']}
-                                    """)
-                                
-                                with col2:
-                                    if st.button("Copier le code"):
-                                        st.write(result['reset_code'])
-                                        st.success("Code copié!")
-                                
-                                st.info("**Important :** Passez à l'onglet 'Réinitialiser' pour utiliser ce code.")
-                            else:
-                                st.error(result.get('message', 'Utilisateur non trouvé ou compte inactif'))
-        
-        with tab2:
-            st.markdown("### Étape 2 : Réinitialiser votre mot de passe")
-            
-            # Pré-remplir si on a déjà les infos
-            default_username = ""
-            default_code = ""
-            if 'reset_info' in st.session_state:
-                default_username = st.session_state['reset_info']['username']
-                default_code = st.session_state['reset_info']['reset_code']
-            
-            with st.form(key="reset_password_form"):
-                username = st.text_input(
-                    "Nom d'utilisateur",
-                    value=default_username,
-                    placeholder="Entrez votre nom d'utilisateur"
-                )
-                
-                reset_code = st.text_input(
-                    "Code de réinitialisation",
-                    value=default_code,
-                    placeholder="Entrez le code à 6 chiffres"
-                )
-                
-                new_password = st.text_input(
-                    "Nouveau mot de passe",
-                    type="password",
-                    placeholder="Minimum 8 caractères"
-                )
-                
-                confirm_password = st.text_input(
-                    "Confirmer le nouveau mot de passe",
-                    type="password"
-                )
-                
-                submitted = st.form_submit_button("Réinitialiser le mot de passe", use_container_width=True)
-                
-                if submitted:
-                    if not all([username, reset_code, new_password, confirm_password]):
-                        st.error("Veuillez remplir tous les champs")
-                    elif len(new_password) < 8:
-                        st.error("Le mot de passe doit contenir au moins 8 caractères")
-                    elif new_password != confirm_password:
-                        st.error("Les mots de passe ne correspondent pas")
-                    elif not reset_code.isdigit() or len(reset_code) != 6:
-                        st.error("Le code doit être composé de 6 chiffres")
-                    else:
-                        success, message = db.reset_password_with_code(
-                            username, reset_code, new_password
-                        )
-                        
-                        if success:
-                            # Effacer les infos de session
-                            if 'reset_info' in st.session_state:
-                                del st.session_state['reset_info']
-                            
-                            st.success(message)
-                            st.info("Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.")
-                            
-                            if st.button("Aller à la page de connexion"):
-                                st.session_state.clear()
-                                st.rerun()
-                        else:
-                            st.error(message)
-        
-        # Bouton pour retourner à la connexion
-        st.markdown("---")
-        if st.button("Retour à la connexion", use_container_width=True):
-            st.session_state.clear()
-            st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-
-def render_login_page(db):
-    apply_custom_css()
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown('<div class="login-container">', unsafe_allow_html=True)
-        
-        # En-tête
-        st.markdown('<div class="login-header">', unsafe_allow_html=True)
-        st.markdown('<h1 class="login-title">AIM Analytics</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="login-subtitle">Plateforme d\'analyse intelligente et marketing</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Formulaire de connexion
-        with st.form("login_form"):
-            username = st.text_input("Nom d'utilisateur", placeholder="Entrez votre nom d'utilisateur")
-            password = st.text_input("Mot de passe", type="password", placeholder="Entrez votre mot de passe")
-            
-            submitted = st.form_submit_button("Se connecter", use_container_width=True)
-            
-            if submitted:
-                if not username or not password:
-                    st.error("Veuillez remplir tous les champs")
-                else:
-                    user = db.authenticate_user(username, password)
-                    if user:
-                        # Assurer que toutes les clés nécessaires existent
-                        user.setdefault('full_name', user.get('username', 'Utilisateur'))
-                        user.setdefault('role', 'user')
-                        user.setdefault('is_first_login', False)
-                        
-                        st.session_state.user = user
-                        db.log_activity(user['id'], "login", f"Connexion de {username}")
-                        
-                        if user.get('is_first_login', False):
-                            st.session_state.force_password_change = True
-                            st.success("Connexion réussie! Vous devez changer votre mot de passe.")
-                        else:
-                            st.success("Connexion réussie!")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("Identifiants incorrects")
-        
-        st.markdown("---")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            if st.button("Mot de passe oublié ?", use_container_width=True):
-                # CORRECTION: Définir la variable de session
-                st.session_state['show_forgot_password'] = True
-                st.rerun()
+        # SUPPRIMÉ: Section identifiants de démonstration
         
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1427,15 +2186,14 @@ def render_user_management_enhanced(user, db):
                 new_email = st.text_input("Email *")
             
             with col2:
-                # SUPPRIMER "support" DE LA LISTE DES RÔLES
                 new_role = st.selectbox(
                     "Rôle *",
-                    ["admin", "data_analyst", "marketing"],  # SUPPRIMÉ: "support"
+                    ["admin", "data_analyst", "marketing", "support"],
                     format_func=lambda x: {
                         "admin": "Administrateur",
                         "data_analyst": "Analyste de données",
-                        "marketing": "Marketing"
-                        # SUPPRIMÉ: "support": "Support"
+                        "marketing": "Marketing",
+                        "support": "Support"
                     }.get(x, x)
                 )
                 new_password = st.text_input("Mot de passe *", type="password")
@@ -1524,7 +2282,7 @@ def render_user_management_enhanced(user, db):
                     'admin': 'Admin',
                     'data_analyst': 'Analyste',
                     'marketing': 'Marketing',
-                    'support': 'Support'  # Gardé pour l'affichage des utilisateurs existants
+                    'support': 'Support'
                 }.get(x, x)
             )
         
@@ -1543,110 +2301,8 @@ def render_user_management_enhanced(user, db):
         st.dataframe(display_df, use_container_width=True, height=400)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # SECTION SUPPRESSION D'UTILISATEUR - NOUVELLE FONCTIONNALITÉ
-        st.subheader("Supprimer un utilisateur")
-        st.markdown('<div class="alert-danger">', unsafe_allow_html=True)
-        st.markdown("""
-        **Attention :** Cette action est irréversible !
-        - Toutes les données associées à l'utilisateur seront supprimées
-        - Les sessions seront invalidées
-        - Les logs d'activité seront conservés (pour audit)
-        """)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Sélection de l'utilisateur à supprimer
-        if len(filtered_df) > 0:
-            user_to_delete = st.selectbox(
-                "Sélectionner un utilisateur à supprimer :",
-                filtered_df['username'].tolist(),
-                key="user_delete_select"
-            )
-            
-            if user_to_delete:
-                user_data = filtered_df[filtered_df['username'] == user_to_delete].iloc[0]
-                
-                # Affichage des informations de l'utilisateur
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.info(f"**Nom complet :** {user_data.get('full_name', 'N/A')}")
-                    st.info(f"**Email :** {user_data.get('email', 'N/A')}")
-                with col2:
-                    st.info(f"**Rôle :** {display_df[display_df['username'] == user_to_delete]['role'].iloc[0]}")
-                    created_at = user_data.get('created_at', 'N/A')
-                    if hasattr(created_at, 'strftime'):
-                        st.info(f"**Créé le :** {created_at.strftime('%d/%m/%Y %H:%M')}")
-                    else:
-                        st.info(f"**Créé le :** {created_at}")
-                
-                # Protection contre la suppression du compte admin principal
-                if user_data['username'] == 'admin':
-                    st.error("**Impossible de supprimer le compte administrateur principal !**")
-                elif user_data['id'] == user['id']:
-                    st.error("**Vous ne pouvez pas supprimer votre propre compte !**")
-                else:
-                    # Confirmation sécurisée
-                    st.markdown("### Confirmation de suppression")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        confirmation_text = st.text_input(
-                            f"Tapez 'SUPPRIMER {user_to_delete}' pour confirmer :",
-                            key="delete_confirmation"
-                        )
-                    
-                    with col2:
-                        st.markdown(" ")
-                        st.markdown(" ")
-                        delete_button = st.button(
-                            "Supprimer définitivement",
-                            type="primary",
-                            use_container_width=True,
-                            disabled=confirmation_text != f'SUPPRIMER {user_to_delete}'
-                        )
-                    
-                    if delete_button:
-                        try:
-                            # Méthode pour supprimer l'utilisateur de la base de données
-                            conn = db.get_connection()
-                            if conn:
-                                cursor = conn.cursor()
-                                
-                                # CONVERTIR L'ID EN TYPE NATIF PYTHON
-                                user_id = int(user_data['id'])
-                                
-                                # Supprimer les données associées (selon les contraintes de clé étrangère)
-                                cursor.execute("DELETE FROM user_sessions WHERE user_id = %s", (user_id,))
-                                cursor.execute("DELETE FROM activity_logs WHERE user_id = %s", (user_id,))
-                                cursor.execute("DELETE FROM data_uploads WHERE user_id = %s", (user_id,))
-                                
-                                # CORRECTION : dashboard_metrics n'a pas de colonne user_id
-                                # On peut soit ignorer cette table, soit la nettoyer différemment
-                                # Pour l'instant, on laisse cette table intacte
-                                
-                                cursor.execute("DELETE FROM marketing_data WHERE user_id = %s", (user_id,))
-                                cursor.execute("DELETE FROM support_tickets WHERE created_by = %s", (user_id,))
-                                
-                                # Supprimer l'utilisateur
-                                cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
-                                
-                                conn.commit()
-                                cursor.close()
-                                db.return_connection(conn)
-                                
-                                # Log l'activité
-                                db.log_activity(user['id'], "user_deletion", 
-                                               f"Suppression de l'utilisateur {user_to_delete} (ID: {user_id})")
-                                
-                                st.success(f"Utilisateur '{user_to_delete}' supprimé avec succès!")
-                                st.rerun()
-                            else:
-                                st.error("Erreur de connexion à la base de données")
-                        
-                        except Exception as e:
-                            st.error(f"Erreur lors de la suppression : {str(e)}")
-        
-        # Actions rapides (section existante)
-        st.subheader("Autres actions")
+        # Actions rapides
+        st.subheader("Actions rapides")
         col1, col2 = st.columns(2)
         
         with col1:
@@ -1669,9 +2325,7 @@ def render_user_management_enhanced(user, db):
                     
                     if st.button("Mettre à jour le statut", key="update_status_btn"):
                         is_active = new_status == "Actif"
-                        # CONVERTIR L'ID EN TYPE NATIF PYTHON
-                        user_id = int(user_data['id'])
-                        success = db.update_user_status(user_id, is_active)
+                        success = db.update_user_status(user_data['id'], is_active)
                         if success:
                             db.log_activity(user['id'], "user_status_change", 
                                            f"Statut {selected_username} changé à {new_status}")
@@ -2514,7 +3168,7 @@ def render_sentiment_analysis(user, db):
     st.subheader("Analyse des Sentiments & Détection des Faux Avis")
     
     # =============================================
-    #          SECTION EXPLICATION 
+    # SECTION EXPLICATION - AJOUTÉE
     # =============================================
     with st.expander("Comment fonctionne l'analyse ?", expanded=True):
         st.markdown("""
@@ -2547,6 +3201,10 @@ def render_sentiment_analysis(user, db):
             texte = blob.translate(to='en')  # Traduction en anglais
         ```
         """)
+    
+    # =============================================
+    # RESTE DU CODE EXISTANT
+    # =============================================
     
     # Vérifier si TextBlob est disponible
     if not TEXTBLOB_AVAILABLE:
@@ -2986,6 +3644,10 @@ def render_sentiment_analysis(user, db):
                 mime="text/csv",
                 use_container_width=True
             )
+        
+        # =============================================
+        # AJOUTER UNE SECTION CONCLUSION
+        # =============================================
         st.markdown("---")
         st.markdown("### Interprétation des résultats")
         
@@ -4816,6 +5478,342 @@ def _generate_dynamic_ai_recommendations(data_insights, sentiment_insights, fake
     })
     
     return recommendations
+
+# =============================
+#       DASHBOARD SUPPORT
+# =============================
+def dashboard_support(user, db):
+    """Dashboard du support client avec gestion des tickets"""
+    apply_custom_css()
+    
+    user_full_name = user.get('full_name', user.get('username', 'Agent Support'))
+    user_role = user.get('role', 'support')
+    
+    # En-tête principal
+    st.markdown(f"""
+    <div class="main-header">
+        <h1 style="margin-bottom: 0.5rem; font-size: 2.4em;">Dashboard Support Client</h1>
+        <p style="opacity: 0.95; font-size: 1.1em;">
+            Bienvenue {user_full_name} • Gestion des tickets et support client
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.sidebar:
+        # En-tête sidebar
+        st.markdown('<div class="sidebar-header">', unsafe_allow_html=True)
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            initials = user_full_name[0].upper() if user_full_name else 'S'
+            st.markdown(f'<div style="width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #667eea; font-size: 1.5em; font-weight: bold;">{initials}</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"**{user_full_name}**")
+            st.markdown(f"<span class='role-badge role-support'>Support</span>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Navigation
+        pages = ["Tableau de bord", "Gestion des tickets", "Créer un ticket", "Profil"]
+        selected_page = st.radio(
+            "Navigation",
+            pages,
+            label_visibility="collapsed",
+            key="support_nav"
+        )
+        
+        st.markdown("---")
+        
+        # Boutons d'action
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Rafraîchir", use_container_width=True):
+                st.rerun()
+        with col2:
+            if st.button("Déconnexion", use_container_width=True, type="primary"):
+                db.log_activity(user['id'], "logout", "Déconnexion support")
+                st.session_state.clear()
+                st.rerun()
+    
+    # Contenu principal
+    if selected_page == "Tableau de bord":
+        render_support_dashboard(user, db)
+    elif selected_page == "Gestion des tickets":
+        render_ticket_management(user, db)
+    elif selected_page == "Créer un ticket":
+        render_create_ticket(user, db)
+    elif selected_page == "Profil":
+        render_user_profile_enhanced(user, db)
+
+def render_support_dashboard(user, db):
+    """Tableau de bord du support avec métriques"""
+    st.subheader("Tableau de Bord Support")
+    
+    # Récupérer les métriques
+    metrics = db.get_support_metrics(user['id'])
+    
+    # KPIs principaux
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
+        st.markdown('<div class="kpi-label">TICKETS OUVERT</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-value">{metrics.get("open_tickets", 0)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color: #e74c3c; font-size: 0.9em;">{metrics.get("urgent_tickets", 0)} urgents</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
+        st.markdown('<div class="kpi-label">RÉSOLUS AJD</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-value">{metrics.get("resolved_today", 0)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="color: #27ae60; font-size: 0.9em;">{metrics.get("resolution_rate", 0)}%</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
+        st.markdown('<div class="kpi-label">TEMPS RÉPONSE</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-value">{metrics.get("avg_response_time", 0)}h</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color: #3498db; font-size: 0.9em;">Moyenne</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
+        st.markdown('<div class="kpi-label">SATISFACTION</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="kpi-value">{metrics.get("satisfaction_rate", 0)}%</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color: #9b59b6; font-size: 0.9em;">Clients satisfaits</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Graphiques
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Tendance des tickets (7 jours)")
+        ticket_trends = metrics.get('ticket_trends', [])
+        
+        if ticket_trends:
+            dates = [row[0] for row in ticket_trends]
+            counts = [row[1] for row in ticket_trends]
+            
+            fig = px.line(
+                x=dates, y=counts,
+                title="",
+                markers=True,
+                labels={'x': 'Date', 'y': 'Nombre de tickets'}
+            )
+            fig.update_traces(line_color='#667eea', line_width=3)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Aucune donnée de tendance disponible")
+    
+    with col2:
+        st.subheader("Répartition par catégorie")
+        tickets_by_category = metrics.get('tickets_by_category', [])
+        
+        if tickets_by_category:
+            categories = [row[0] for row in tickets_by_category]
+            counts = [row[1] for row in tickets_by_category]
+            
+            fig = px.pie(
+                values=counts,
+                names=categories,
+                title="",
+                hole=0.4,
+                color_discrete_sequence=px.colors.qualitative.Set3
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Aucune donnée de catégorie disponible")
+    
+    # Tickets urgents
+    st.markdown("---")
+    st.subheader("Tickets Urgents Requérant Attention")
+    
+    urgent_tickets = metrics.get('urgent_tickets_list', [])
+    
+    if urgent_tickets:
+        for ticket in urgent_tickets[:5]:  # Limiter à 5 tickets
+            with st.expander(f"Ticket #{ticket['id']}: {ticket['subject']}", expanded=False):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.write(f"**Client:** {ticket['client_name']}")
+                with col2:
+                    st.write(f"**Créé:** {ticket['created_at']}")
+                with col3:
+                    st.write(f"**Priorité:** {ticket['priority']}")
+                
+                if st.button(f"Prendre en charge le ticket #{ticket['id']}", key=f"take_ticket_{ticket['id']}"):
+                    if db.update_ticket_status(ticket['id'], 'En cours', user['id']):
+                        st.success(f"Ticket #{ticket['id']} pris en charge!")
+                        st.rerun()
+    else:
+        st.success("Aucun ticket urgent pour le moment!")
+
+def render_ticket_management(user, db):
+    """Gestion des tickets"""
+    st.subheader("Gestion des Tickets")
+    
+    # Filtres
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        status_filter = st.multiselect(
+            "Statut:",
+            ["Ouvert", "En cours", "Résolu", "Fermé"],
+            default=["Ouvert", "En cours"]
+        )
+    
+    with col2:
+        priority_filter = st.multiselect(
+            "Priorité:",
+            ["Basse", "Moyenne", "Haute", "Urgente"],
+            default=["Urgente", "Haute"]
+        )
+    
+    with col3:
+        category_filter = st.multiselect(
+            "Catégorie:",
+            ["Problème technique", "Support utilisateur", "Question facturation", "Bug", "Amélioration"],
+            default=[]
+        )
+    
+    # Récupérer les tickets
+    tickets = db.get_tickets(
+        statuses=status_filter if status_filter else None,
+        priorities=priority_filter if priority_filter else None,
+        categories=category_filter if category_filter else None,
+        limit=50
+    )
+    
+    if tickets:
+        st.info(f"**{len(tickets)}** ticket(s) trouvé(s)")
+        
+        # Afficher les tickets
+        for ticket in tickets:
+            # Déterminer la couleur en fonction de la priorité
+            priority_color = {
+                "Basse": "#36B37E",
+                "Moyenne": "#FFAB00",
+                "Haute": "#FF5630",
+                "Urgente": "#DC2626"
+            }.get(ticket['priority'], "#6B7280")
+            
+            # Déterminer l'icône en fonction du statut
+            status_icon = {
+                "Ouvert": "⭕",
+                "En cours": "🔄",
+                "Résolu": "✅",
+                "Fermé": "🔒"
+            }.get(ticket['status'], "📝")
+            
+            with st.expander(f"{status_icon} Ticket #{ticket['id']}: {ticket['subject']}", expanded=False):
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.write(f"**Client:** {ticket['client_name']}")
+                    st.write(f"**Catégorie:** {ticket['category']}")
+                
+                with col2:
+                    st.write(f"**Priorité:** <span style='color: {priority_color}; font-weight: bold;'>{ticket['priority']}</span>", unsafe_allow_html=True)
+                    st.write(f"**Statut:** {ticket['status']}")
+                
+                with col3:
+                    created_at = ticket['created_at']
+                    if isinstance(created_at, str):
+                        st.write(f"**Créé:** {created_at}")
+                    else:
+                        st.write(f"**Créé:** {created_at.strftime('%d/%m/%Y %H:%M')}")
+                    st.write(f"**Assigné à:** {ticket.get('assigned_to', 'Non assigné')}")
+                
+                # Description
+                st.write("**Description:**")
+                st.write(ticket['description'])
+                
+                # Actions
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    if ticket['status'] != "En cours":
+                        if st.button("Prendre en charge", key=f"take_{ticket['id']}"):
+                            if db.update_ticket_status(ticket['id'], "En cours", user['id']):
+                                st.success("Ticket pris en charge!")
+                                st.rerun()
+                
+                with col2:
+                    if ticket['status'] != "Résolu":
+                        if st.button("Marquer comme résolu", key=f"resolve_{ticket['id']}"):
+                            if db.resolve_ticket(ticket['id'], user['id']):
+                                st.success("Ticket marqué comme résolu!")
+                                st.rerun()
+                
+                with col3:
+                    new_status = st.selectbox(
+                        "Changer statut:",
+                        ["Ouvert", "En cours", "Résolu", "Fermé"],
+                        index=["Ouvert", "En cours", "Résolu", "Fermé"].index(ticket['status']) if ticket['status'] in ["Ouvert", "En cours", "Résolu", "Fermé"] else 0,
+                        key=f"status_{ticket['id']}"
+                    )
+                
+                with col4:
+                    if st.button("Appliquer", key=f"apply_{ticket['id']}"):
+                        if db.update_ticket_status(ticket['id'], new_status, user['id']):
+                            st.success("Statut mis à jour!")
+                            st.rerun()
+    else:
+        st.info("Aucun ticket trouvé avec les filtres actuels")
+
+def render_create_ticket(user, db):
+    """Création d'un nouveau ticket"""
+    st.subheader("Créer un Nouveau Ticket")
+    
+    with st.form(key="create_ticket_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            subject = st.text_input("Sujet *", help="Description concise du problème")
+            client_name = st.text_input("Nom du client *")
+            client_email = st.text_input("Email du client")
+            category = st.selectbox(
+                "Catégorie *",
+                ["Problème technique", "Support utilisateur", "Question facturation", "Bug", "Amélioration", "Autre"]
+            )
+        
+        with col2:
+            description = st.text_area("Description détaillée *", height=150, 
+                                      help="Décrivez le problème en détails")
+            priority = st.selectbox(
+                "Priorité *",
+                ["Basse", "Moyenne", "Haute", "Urgente"]
+            )
+            assigned_to = st.selectbox(
+                "Assigner à",
+                ["Moi-même", "Équipe support", "Équipe technique", "Équipe facturation"]
+            )
+        
+        submitted = st.form_submit_button("Créer le ticket", use_container_width=True)
+        
+        if submitted:
+            if not all([subject, client_name, description]):
+                st.error("Veuillez remplir tous les champs obligatoires (*)")
+            else:
+                ticket_data = {
+                    'subject': subject,
+                    'description': description,
+                    'category': category,
+                    'priority': priority,
+                    'client_name': client_name,
+                    'client_email': client_email,
+                    'assigned_to': assigned_to,
+                    'created_by': user['id']
+                }
+                
+                if db.create_ticket(ticket_data):
+                    st.success("Ticket créé avec succès!")
+                    
+                    # Réinitialiser le formulaire
+                    st.rerun()
+                else:
+                    st.error("Erreur lors de la création du ticket")
+
 # =============================
 #          MAIN APP
 # =============================
@@ -4827,16 +5825,10 @@ def main():
     
     # Vérifier l'état de l'authentification
     if 'user' not in st.session_state:
-        # Vérifier si on doit afficher la page de réinitialisation
-        # CORRECTION: Vérifier la variable de session
-        if st.session_state.get('show_forgot_password'):
-            # Appeler la fonction indépendante
-            render_forgot_password_page(db)
-        else:
-            # Page de connexion
-            render_login_page(db)
+        # Page de connexion
+        render_login_page(db)
     
-    elif st.session_state.get('force_password_change'):
+    elif 'force_password_change' in st.session_state and st.session_state.force_password_change:
         # Page de changement de mot de passe obligatoire
         render_password_change_page(st.session_state.user, db)
     
@@ -4852,6 +5844,8 @@ def main():
                 dashboard_data_analyst(user, db)
             elif user_role == 'marketing':
                 dashboard_marketing(user, db)
+            elif user_role == 'support':
+                dashboard_support(user, db)
             else:
                 # Rôle par défaut - Dashboard de base
                 st.title(f"Bienvenue {user.get('full_name', 'Utilisateur')}")
@@ -4866,6 +5860,7 @@ def main():
         except Exception as e:
             st.error(f"Une erreur est survenue : {str(e)}")
             st.info("Veuillez rafraîchir la page ou vous reconnecter.")
+
 # Point d'entrée
 if __name__ == "__main__":
     main()
