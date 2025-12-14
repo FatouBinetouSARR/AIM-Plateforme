@@ -74,59 +74,109 @@ class DatabaseManager:
     def __init__(self):
         # ...
     
-    def render_login_page(db):
-    apply_custom_css()
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        def render_login_page(db):
+        apply_custom_css()
         
-        # En-tête
-        st.markdown('<div class="login-header">', unsafe_allow_html=True)
-        st.markdown('<h1 class="login-title">AIM Analytics</h1>', unsafe_allow_html=True)
-        st.markdown('<p class="login-subtitle">Plateforme d\'analyse intelligente et marketing</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Formulaire de connexion
-        with st.form("login_form"):
-            username = st.text_input("Nom d'utilisateur", placeholder="Entrez votre nom d'utilisateur")
-            password = st.text_input("Mot de passe", type="password", placeholder="Entrez votre mot de passe")
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown('<div class="login-container">', unsafe_allow_html=True)
             
-            submitted = st.form_submit_button("Se connecter", use_container_width=True)
+            # En-tête
+            st.markdown('<div class="login-header">', unsafe_allow_html=True)
+            st.markdown('<h1 class="login-title">AIM Analytics</h1>', unsafe_allow_html=True)
+            st.markdown('<p class="login-subtitle">Plateforme d\'analyse intelligente et marketing</p>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
             
-            if submitted:
-                if not username or not password:
-                    st.error("Veuillez remplir tous les champs")
-                else:
-                    user = db.authenticate_user(username, password)
-                    if user:
-                        # Assurer que toutes les clés nécessaires existent
-                        user.setdefault('full_name', user.get('username', 'Utilisateur'))
-                        user.setdefault('role', 'user')
-                        user.setdefault('is_first_login', False)
-                        
-                        st.session_state.user = user
-                        db.log_activity(user['id'], "login", f"Connexion de {username}")
-                        
-                        if user.get('is_first_login', False):
-                            st.session_state.force_password_change = True
-                            st.success("Connexion réussie! Vous devez changer votre mot de passe.")
-                        else:
-                            st.success("Connexion réussie!")
-                        time.sleep(1)
-                        st.rerun()
+            # Formulaire de connexion
+            with st.form("login_form"):
+                username = st.text_input("Nom d'utilisateur", placeholder="Entrez votre nom d'utilisateur")
+                password = st.text_input("Mot de passe", type="password", placeholder="Entrez votre mot de passe")
+                
+                submitted = st.form_submit_button("Se connecter", use_container_width=True)
+                
+                if submitted:
+                    if not username or not password:
+                        st.error("Veuillez remplir tous les champs")
                     else:
-                        st.error("Identifiants incorrects")
-        
-        st.markdown("---")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            if st.button("Mot de passe oublié ?", use_container_width=True):
-                # CORRECTION: Définir la variable de session
-                st.session_state['show_forgot_password'] = True
-                st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+                        user = db.authenticate_user(username, password)
+                        if user:
+                            # Assurer que toutes les clés nécessaires existent
+                            user.setdefault('full_name', user.get('username', 'Utilisateur'))
+                            user.setdefault('role', 'user')
+                            user.setdefault('is_first_login', False)
+                            
+                            st.session_state.user = user
+                            db.log_activity(user['id'], "login", f"Connexion de {username}")
+                            
+                            if user.get('is_first_login', False):
+                                st.session_state.force_password_change = True
+                                st.success("Connexion réussie! Vous devez changer votre mot de passe.")
+                            else:
+                                st.success("Connexion réussie!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error("Identifiants incorrects")
+            
+            st.markdown("---")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                if st.button("Mot de passe oublié ?", use_container_width=True):
+                    # CORRECTION: Définir la variable de session
+                    st.session_state['show_forgot_password'] = True
+                    st.rerun()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    def create_password_reset(self, username_or_email):
+        """Crée une demande de réinitialisation de mot de passe"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            # Vérifier si l'utilisateur existe
+            cursor.execute("""
+                SELECT id, username, email FROM users 
+                WHERE username = ? OR email = ?
+            """, (username_or_email, username_or_email))
+            
+            user = cursor.fetchone()
+            
+            if user:
+                user_id, username, email = user
+                
+                # Générer un token de réinitialisation
+                import secrets
+                import datetime
+                
+                reset_token = secrets.token_urlsafe(32)
+                expiry_time = datetime.datetime.now() + datetime.timedelta(hours=1)
+                
+                # Insérer ou mettre à jour le token
+                cursor.execute("""
+                    INSERT OR REPLACE INTO password_resets 
+                    (user_id, reset_token, expiry_time) 
+                    VALUES (?, ?, ?)
+                """, (user_id, reset_token, expiry_time))
+                
+                conn.commit()
+                
+                # Retourner les informations pour l'envoi d'email
+                return {
+                    'success': True,
+                    'username': username,
+                    'email': email,
+                    'reset_token': reset_token
+                }
+            else:
+                return {'success': False, 'message': 'Utilisateur non trouvé'}
+                
+        except Exception as e:
+            print(f"Erreur dans create_password_reset: {e}")
+            return {'success': False, 'message': str(e)}
+        finally:
+            if 'conn' in locals():
+                conn.close()
 # ==========================
 #        STYLE CSS 
 # ==========================
