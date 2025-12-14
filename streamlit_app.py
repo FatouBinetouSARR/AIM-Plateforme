@@ -2301,7 +2301,7 @@ def dashboard_data_analyst(user, db):
         
         # Navigation - AJOUT DE LA PAGE "PROFIL"
         st.markdown("---")
-        pages = ["Vue d'ensemble", "Analyse EDA", "Modèles ML", "Analyse Sentiments", "Gestion Données", "Profil"]
+        pages = ["Vue d'ensemble", "Analyse EDA", "Modèles ML", "Analyse Sentiments", "Gesti", "Profil"]
         selected_page = st.radio(
             "Navigation",
             pages,
@@ -2331,8 +2331,6 @@ def dashboard_data_analyst(user, db):
         render_ml_models(user, db)
     elif selected_page == "Analyse Sentiments":
         render_sentiment_analysis(user, db)
-    elif selected_page == "Gestion Données":
-        render_data_management(user, db)
     elif selected_page == "Profil":
         render_user_profile_enhanced(user, db) 
 
@@ -6185,95 +6183,7 @@ def render_classification_models(user, df):
                 else:
                     st.success(f"**Prédiction :** {class_names[prediction]}")
 
-def render_data_management(user, db):
-    """Gestion des données pour analystes"""
-    st.subheader("Gestion des données")
-    
-    # Section d'upload
-    st.markdown("### Uploader des données")
-    
-    with st.form(key="data_upload_form"):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            data_name = st.text_input("Nom du dataset *", help="Nom descriptif pour identifier le dataset")
-            data_type = st.selectbox(
-                "Type de données *",
-                ["marketing", "finance", "clients", "produits", "autres"],
-                key="data_type_select"
-            )
-        
-        with col2:
-            data_source = st.text_input("Source des données", help="Origine des données")
-            data_description = st.text_area("Description", help="Description détaillée du dataset")
-        
-        uploaded_file = st.file_uploader(
-            "Fichier de données *",
-            type=['csv', 'xlsx', 'xls'],
-            key="data_upload_file"
-        )
-        
-        submitted = st.form_submit_button("Uploader le dataset", use_container_width=True)
-        
-        if submitted:
-            if not data_name or not uploaded_file:
-                st.error("Veuillez remplir tous les champs obligatoires (*)")
-            else:
-                try:
-                    # Simuler l'upload
-                    file_size = len(uploaded_file.getvalue())
-                    
-                    # Log l'activité
-                    db.log_activity(user['id'], "data_upload", f"Upload dataset: {data_name}")
-                    
-                    st.success(f"Dataset '{data_name}' uploadé avec succès!")
-                    st.info(f"Taille du fichier : {file_size / 1024:.2f} KB")
-                    
-                except Exception as e:
-                    st.error(f"Erreur lors de l'upload : {str(e)}")
-    
-    st.markdown("---")
-    
-    # Liste des datasets
-    st.markdown("### Datasets disponibles")
-    
-    # Simuler des datasets (dans un vrai cas, récupérer de la base de données)
-    sample_datasets = [
-        {"nom": "Données Marketing Q3", "type": "marketing", "lignes": 15000, "colonnes": 12, "date": "2024-10-15"},
-        {"nom": "Données Clients", "type": "clients", "lignes": 5000, "colonnes": 8, "date": "2024-10-10"},
-        {"nom": "Analyses Financières", "type": "finance", "lignes": 3000, "colonnes": 15, "date": "2024-10-05"},
-        {"nom": "Performances Produits", "type": "produits", "lignes": 8000, "colonnes": 10, "date": "2024-09-28"},
-    ]
-    
-    if sample_datasets:
-        df_datasets = pd.DataFrame(sample_datasets)
-        st.dataframe(df_datasets, use_container_width=True)
-        
-        # Actions sur les datasets
-        st.markdown("### Actions")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("Rafraîchir la liste", use_container_width=True):
-                st.rerun()
-        
-        with col2:
-            if st.button("Exporter la liste", use_container_width=True):
-                csv = df_datasets.to_csv(index=False)
-                st.download_button(
-                    label="Télécharger CSV",
-                    data=csv,
-                    file_name=f"datasets_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-        
-        with col3:
-            if st.button("Nettoyer les données", use_container_width=True):
-                st.info("Fonctionnalité de nettoyage de données à venir!")
-    else:
-        st.info("Aucun dataset disponible")
+info("Aucun dataset disponible")
 
 def render_reports(user, db):
     """Génération de rapports (Section désactivée)"""
