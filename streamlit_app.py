@@ -15,10 +15,12 @@ from datetime import datetime, timedelta
 import time
 import io
 import re
+import sqilte3
 from langdetect import detect 
 from collections import Counter
 import warnings
 import urllib.parse
+import secrets
 warnings.filterwarnings('ignore')
 
 # Gestion des imports optionnels
@@ -66,6 +68,12 @@ class Config:
 # =======================================
 #      GESTION DE LA BASE DE DONNÉES
 # =======================================
+import streamlit as st
+import sqlite3
+import time
+import datetime
+import secrets
+
 @st.cache_resource
 def get_database_manager():
     return DatabaseManager()
@@ -191,9 +199,6 @@ class DatabaseManager:
                 user_id, username, email = user
                 
                 # Générer un token et un code de réinitialisation
-                import secrets
-                import datetime
-                
                 reset_token = secrets.token_urlsafe(32)
                 reset_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
                 expiry_time = datetime.datetime.now() + datetime.timedelta(minutes=15)
@@ -311,6 +316,636 @@ class DatabaseManager:
             
         except Exception as e:
             print(f"Erreur dans log_activity: {e}")
+
+# ==========================
+#        STYLE CSS 
+# ==========================
+def apply_custom_css():
+    st.markdown("""
+    <style>
+    /* Style général - Violet pastel très clair */
+    .stApp {
+        background: linear-gradient(135deg, #F3E8FF 0%, #FAF5FF 100%);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    /* Login page spécifique */
+    .login-container {
+        max-width: 450px;
+        margin: 80px auto;
+        padding: 40px;
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 20px;
+        box-shadow: 0 15px 50px rgba(216, 180, 254, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(233, 213, 255, 0.5);
+    }
+    
+    .login-header {
+        text-align: center;
+        margin-bottom: 40px;
+    }
+    
+    .login-title {
+        font-size: 2.8em;
+        font-weight: 800;
+        background: linear-gradient(135deg, #C084FC 0%, #D8B4FE 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+        text-shadow: 0 2px 4px rgba(192, 132, 252, 0.1);
+    }
+    
+    .login-subtitle {
+        color: #A855F7;
+        font-size: 1.2em;
+        margin-bottom: 30px;
+        opacity: 0.8;
+    }
+    
+    /* Input fields - Très doux */
+    .stTextInput > div > div > input {
+        background: rgba(255, 255, 255, 0.95);
+        border: 2px solid #EDE9FE;
+        border-radius: 12px;
+        padding: 16px;
+        font-size: 16px;
+        transition: all 0.3s ease;
+        color: #7C3AED;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #C084FC;
+        box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.1);
+        outline: none;
+    }
+    
+    .stTextInput > div > div > input::placeholder {
+        color: #C4B5FD;
+        opacity: 0.7;
+    }
+    
+    /* Boutons - Violet pastel */
+    .stButton > button {
+        width: 100%;
+        background: linear-gradient(135deg, #D8B4FE 0%, #E9D5FF 100%);
+        color: #7C3AED;
+        border: 1px solid #DDD6FE;
+        padding: 18px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 10px;
+        box-shadow: 0 4px 15px rgba(216, 180, 254, 0.15);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(192, 132, 252, 0.2);
+        background: linear-gradient(135deg, #C084FC 0%, #D8B4FE 100%);
+        color: white;
+        border-color: #C084FC;
+    }
+    
+    /* Dashboard styles */
+    .main-header {
+        background: linear-gradient(135deg, #E9D5FF 0%, #F3E8FF 100%);
+        padding: 2.5rem;
+        border-radius: 20px;
+        color: #7C3AED;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 25px rgba(216, 180, 254, 0.15);
+        border: 1px solid rgba(233, 213, 255, 0.5);
+    }
+    
+    .kpi-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9));
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(216, 180, 254, 0.1);
+        transition: all 0.3s ease;
+        border-left: 4px solid #D8B4FE;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(237, 233, 254, 0.3);
+    }
+    
+    .kpi-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 30px rgba(192, 132, 252, 0.15);
+        border-left: 4px solid #C084FC;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(250, 245, 255, 0.95));
+    }
+    
+    .kpi-value {
+        font-size: 2.5em;
+        font-weight: 800;
+        color: #8B5CF6;
+        margin: 0.5rem 0;
+        text-shadow: 0 2px 4px rgba(139, 92, 246, 0.1);
+    }
+    
+    .kpi-label {
+        font-size: 0.9em;
+        color: #A78BFA;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    /* Sidebar */
+    .sidebar-header {
+        background: linear-gradient(135deg, #E9D5FF 0%, #F3E8FF 100%);
+        padding: 1.5rem;
+        color: #7C3AED;
+        margin: -1rem -1rem 1rem -1rem;
+        border-radius: 0 0 20px 20px;
+        border-bottom: 1px solid rgba(233, 213, 255, 0.5);
+        box-shadow: 0 4px 12px rgba(216, 180, 254, 0.1);
+    }
+    
+    /* Tableaux */
+    .data-table {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9));
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 5px 20px rgba(216, 180, 254, 0.1);
+        border: 1px solid rgba(237, 233, 254, 0.3);
+    }
+    
+    /* Alertes avec couleurs violettes pastel */
+    .alert-success {
+        background: linear-gradient(135deg, rgba(216, 180, 254, 0.1), rgba(233, 213, 255, 0.1));
+        border-left: 4px solid #A78BFA;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 10px 0;
+        color: #7C3AED;
+        border: 1px solid rgba(237, 233, 254, 0.3);
+    }
+    
+    .alert-warning {
+        background: linear-gradient(135deg, rgba(253, 224, 71, 0.1), rgba(254, 240, 138, 0.1));
+        border-left: 4px solid #FACC15;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 10px 0;
+        color: #CA8A04;
+        border: 1px solid rgba(254, 240, 138, 0.3);
+    }
+    
+    .alert-danger {
+        background: linear-gradient(135deg, rgba(252, 165, 165, 0.1), rgba(254, 202, 202, 0.1));
+        border-left: 4px solid #F87171;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 10px 0;
+        color: #DC2626;
+        border: 1px solid rgba(254, 202, 202, 0.3);
+    }
+    
+    /* Badges - Nuances de violet pastel */
+    .role-badge {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.75em;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    
+    .role-admin {
+        background: linear-gradient(135deg, #E9D5FF, #F3E8FF);
+        color: #8B5CF6;
+        border-color: rgba(139, 92, 246, 0.2);
+    }
+    
+    .role-analyst {
+        background: linear-gradient(135deg, #D8B4FE, #E9D5FF);
+        color: #7C3AED;
+        border-color: rgba(124, 58, 237, 0.2);
+    }
+    
+    .role-marketing {
+        background: linear-gradient(135deg, #F3E8FF, #FAF5FF);
+        color: #A855F7;
+        border-color: rgba(168, 85, 247, 0.2);
+    }
+    
+    .role-support {
+        background: linear-gradient(135deg, #C4B5FD, #DDD6FE);
+        color: #6D28D9;
+        border-color: rgba(109, 40, 217, 0.2);
+    }
+    
+    /* Radio buttons et selects */
+    .stRadio > div {
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 12px;
+        padding: 10px;
+        border: 1px solid rgba(237, 233, 254, 0.5);
+    }
+    
+    .stSelectbox > div > div > div {
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 10px;
+        border: 1px solid rgba(237, 233, 254, 0.5);
+    }
+    
+    /* Scrollbar personnalisée */
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: rgba(233, 213, 255, 0.2);
+        border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #D8B4FE, #E9D5FF);
+        border-radius: 3px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, #C084FC, #D8B4FE);
+    }
+    
+    /* Séparateurs */
+    hr {
+        border: none;
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(216, 180, 254, 0.3), transparent);
+        margin: 2rem 0;
+    }
+    
+    /* Checkboxes */
+    .stCheckbox > div {
+        color: #7C3AED;
+    }
+    
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background: linear-gradient(135deg, rgba(233, 213, 255, 0.3), rgba(250, 245, 255, 0.3));
+        border-radius: 10px;
+        color: #7C3AED;
+        font-weight: 600;
+        border: 1px solid rgba(237, 233, 254, 0.3);
+    }
+    
+    .streamlit-expanderHeader:hover {
+        background: linear-gradient(135deg, rgba(216, 180, 254, 0.4), rgba(233, 213, 255, 0.4));
+    }
+    
+    /* Metrics */
+    .stMetric {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(250, 245, 255, 0.8));
+        border-radius: 12px;
+        padding: 15px;
+        border-left: 3px solid #D8B4FE;
+        border: 1px solid rgba(237, 233, 254, 0.3);
+        box-shadow: 0 4px 12px rgba(216, 180, 254, 0.08);
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.8), rgba(250, 245, 255, 0.8));
+        border-radius: 12px;
+        padding: 5px;
+        border: 1px solid rgba(237, 233, 254, 0.3);
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        color: #A78BFA;
+        font-weight: 500;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #D8B4FE, #E9D5FF);
+        color: #7C3AED !important;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(216, 180, 254, 0.2);
+    }
+    
+    /* File uploader */
+    .stFileUploader > div > div {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9));
+        border: 2px dashed #DDD6FE;
+        border-radius: 12px;
+    }
+    
+    /* Progress bars */
+    .stProgress > div > div > div {
+        background: linear-gradient(90deg, #D8B4FE, #E9D5FF);
+    }
+    
+    /* Markdown text */
+    .stMarkdown h1 {
+        color: #7C3AED;
+        border-bottom: 2px solid rgba(216, 180, 254, 0.3);
+        padding-bottom: 10px;
+    }
+    
+    .stMarkdown h2 {
+        color: #8B5CF6;
+    }
+    
+    .stMarkdown h3 {
+        color: #A78BFA;
+    }
+    
+    /* Code blocks */
+    .stCodeBlock {
+        background: rgba(250, 245, 255, 0.5) !important;
+        border: 1px solid rgba(237, 233, 254, 0.5);
+        border-radius: 10px;
+    }
+    
+    /* Tooltips */
+    [data-testid="stTooltip"] {
+        background: linear-gradient(135deg, #E9D5FF, #F3E8FF) !important;
+        color: #7C3AED !important;
+        border: 1px solid rgba(237, 233, 254, 0.5);
+        box-shadow: 0 4px 12px rgba(216, 180, 254, 0.15);
+    }
+    
+    /* Dataframe styling */
+    .dataframe {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9)) !important;
+    }
+    
+    .dataframe thead {
+        background: linear-gradient(135deg, rgba(233, 213, 255, 0.3), rgba(250, 245, 255, 0.3)) !important;
+        color: #7C3AED !important;
+    }
+    
+    /* Plotly chart background */
+    .js-plotly-plot {
+        background: rgba(255, 255, 255, 0.7) !important;
+        border-radius: 15px;
+        padding: 15px;
+    }
+    
+    /* Sidebar background */
+    section[data-testid="stSidebar"] > div {
+        background: linear-gradient(135deg, #FAF5FF 0%, #FFFFFF 100%);
+        border-right: 1px solid rgba(237, 233, 254, 0.5);
+    }
+    
+    /* Focus states */
+    *:focus {
+        outline: 2px solid rgba(192, 132, 252, 0.3) !important;
+        outline-offset: 2px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ==================================
+#     PAGES D'AUTHENTIFICATION
+# ==================================
+def render_forgot_password_page(db):
+    """Page de mot de passe oublié"""
+    apply_custom_css()
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        
+        st.markdown('<div class="login-header">', unsafe_allow_html=True)
+        st.markdown('<h1 class="login-title">Mot de passe oublié</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="login-subtitle">Réinitialisez votre mot de passe avec un code temporaire</p>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Onglets pour les différentes étapes
+        tab1, tab2 = st.tabs(["Demander un code", "Réinitialiser"])
+        
+        with tab1:
+            st.markdown("### Étape 1 : Demander un code de réinitialisation")
+            
+            with st.form(key="request_reset_form"):
+                username_or_email = st.text_input(
+                    "Nom d'utilisateur ou Email",
+                    placeholder="Entrez votre nom d'utilisateur ou email"
+                )
+                
+                submitted = st.form_submit_button("Générer un code", use_container_width=True)
+                
+                if submitted:
+                    if not username_or_email:
+                        st.error("Veuillez entrer votre nom d'utilisateur ou email")
+                    else:
+                        with st.spinner("Génération du code..."):
+                            result = db.create_password_reset(username_or_email)
+                            
+                            if result.get('success'):
+                                st.session_state['reset_info'] = {
+                                    'username': result['username'],
+                                    'reset_code': result['reset_code']
+                                }
+                                
+                                # Afficher le code directement (dans un vrai système, vous l'enverriez par email)
+                                st.success("Code généré avec succès!")
+                                
+                                col1, col2 = st.columns([2, 1])
+                                with col1:
+                                    st.info(f"""
+                                    **Informations :**
+                                    - **Code :** {result['reset_code']}
+                                    - **Expire dans :** 15 minutes
+                                    - **Utilisateur :** {result['username']}
+                                    """)
+                                
+                                with col2:
+                                    if st.button("Copier le code"):
+                                        st.write(result['reset_code'])
+                                        st.success("Code copié!")
+                                
+                                st.info("**Important :** Passez à l'onglet 'Réinitialiser' pour utiliser ce code.")
+                            else:
+                                st.error(result.get('message', 'Utilisateur non trouvé ou compte inactif'))
+        
+        with tab2:
+            st.markdown("### Étape 2 : Réinitialiser votre mot de passe")
+            
+            # Pré-remplir si on a déjà les infos
+            default_username = ""
+            default_code = ""
+            if 'reset_info' in st.session_state:
+                default_username = st.session_state['reset_info']['username']
+                default_code = st.session_state['reset_info']['reset_code']
+            
+            with st.form(key="reset_password_form"):
+                username = st.text_input(
+                    "Nom d'utilisateur",
+                    value=default_username,
+                    placeholder="Entrez votre nom d'utilisateur"
+                )
+                
+                reset_code = st.text_input(
+                    "Code de réinitialisation",
+                    value=default_code,
+                    placeholder="Entrez le code à 6 chiffres"
+                )
+                
+                new_password = st.text_input(
+                    "Nouveau mot de passe",
+                    type="password",
+                    placeholder="Minimum 8 caractères"
+                )
+                
+                confirm_password = st.text_input(
+                    "Confirmer le nouveau mot de passe",
+                    type="password"
+                )
+                
+                submitted = st.form_submit_button("Réinitialiser le mot de passe", use_container_width=True)
+                
+                if submitted:
+                    if not all([username, reset_code, new_password, confirm_password]):
+                        st.error("Veuillez remplir tous les champs")
+                    elif len(new_password) < 8:
+                        st.error("Le mot de passe doit contenir au moins 8 caractères")
+                    elif new_password != confirm_password:
+                        st.error("Les mots de passe ne correspondent pas")
+                    elif not reset_code.isdigit() or len(reset_code) != 6:
+                        st.error("Le code doit être composé de 6 chiffres")
+                    else:
+                        success, message = db.reset_password_with_code(
+                            username, reset_code, new_password
+                        )
+                        
+                        if success:
+                            # Effacer les infos de session
+                            if 'reset_info' in st.session_state:
+                                del st.session_state['reset_info']
+                            
+                            st.success(message)
+                            st.info("Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.")
+                            
+                            if st.button("Aller à la page de connexion"):
+                                st.session_state.clear()
+                                st.rerun()
+                        else:
+                            st.error(message)
+        
+        # Bouton pour retourner à la connexion
+        st.markdown("---")
+        if st.button("Retour à la connexion", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def render_login_page(db):
+    apply_custom_css()
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        
+        # En-tête
+        st.markdown('<div class="login-header">', unsafe_allow_html=True)
+        st.markdown('<h1 class="login-title">AIM Analytics</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="login-subtitle">Plateforme d\'analyse intelligente et marketing</p>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Formulaire de connexion
+        with st.form("login_form"):
+            username = st.text_input("Nom d'utilisateur", placeholder="Entrez votre nom d'utilisateur")
+            password = st.text_input("Mot de passe", type="password", placeholder="Entrez votre mot de passe")
+            
+            submitted = st.form_submit_button("Se connecter", use_container_width=True)
+            
+            if submitted:
+                if not username or not password:
+                    st.error("Veuillez remplir tous les champs")
+                else:
+                    user = db.authenticate_user(username, password)
+                    if user:
+                        # Assurer que toutes les clés nécessaires existent
+                        user.setdefault('full_name', user.get('username', 'Utilisateur'))
+                        user.setdefault('role', 'user')
+                        user.setdefault('is_first_login', False)
+                        
+                        st.session_state.user = user
+                        db.log_activity(user['id'], "login", f"Connexion de {username}")
+                        
+                        if user.get('is_first_login', False):
+                            st.session_state.force_password_change = True
+                            st.success("Connexion réussie! Vous devez changer votre mot de passe.")
+                        else:
+                            st.success("Connexion réussie!")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Identifiants incorrects")
+        
+        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.button("Mot de passe oublié ?", use_container_width=True):
+                # CORRECTION: Définir la variable de session
+                st.session_state['show_forgot_password'] = True
+                st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+def render_password_change_page(user, db):
+    """Page de changement de mot de passe obligatoire"""
+    apply_custom_css()
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        
+        # Utiliser get() pour éviter KeyError
+        user_full_name = user.get('full_name', user.get('username', 'Utilisateur'))
+        
+        st.markdown('<div class="login-header">', unsafe_allow_html=True)
+        st.markdown('<div style="font-size: 4em; color: #667eea; margin-bottom: 20px;"></div>', unsafe_allow_html=True)
+        st.markdown('<h2 style="color: #2c3e50;">Changement de mot de passe requis</h2>', unsafe_allow_html=True)
+        st.markdown(f'<p style="color: #666;">Bonjour <strong>{user_full_name}</strong>, pour des raisons de sécurité, vous devez modifier votre mot de passe.</p>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Formulaire de changement
+        with st.form("password_change_form"):
+            new_password = st.text_input("Nouveau mot de passe", type="password", 
+                                         help="Minimum 8 caractères")
+            confirm_password = st.text_input("Confirmer le mot de passe", type="password")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                submit = st.form_submit_button("Enregistrer", use_container_width=True)
+            with col2:
+                logout = st.form_submit_button("Déconnexion", use_container_width=True)
+            
+            if logout:
+                st.session_state.clear()
+                st.rerun()
+            
+            if submit:
+                if not new_password or not confirm_password:
+                    st.error("Veuillez remplir tous les champs")
+                elif len(new_password) < 8:
+                    st.error("Le mot de passe doit contenir au moins 8 caractères")
+                elif new_password != confirm_password:
+                    st.error("Les mots de passe ne correspondent pas")
+                else:
+                    if db.update_user_password(user['id'], new_password):
+                        st.session_state.user['is_first_login'] = False
+                        st.session_state.force_password_change = False
+                        st.success("Mot de passe mis à jour avec succès!")
+                        db.log_activity(user['id'], "password_change", "Mot de passe modifié")
+                        time.sleep(2)
+                        st.rerun()
+                    else:
+                        st.error("Erreur lors de la mise à jour")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================
 #        STYLE CSS 
