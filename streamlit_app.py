@@ -67,576 +67,66 @@ class Config:
 #      GESTION DE LA BASE DE DONNÉES
 # =======================================
 @st.cache_resource
-def# =======================================
-#      GESTION DE LA BASE DE DONNÉES (COMPLÉTÉ)
-# =======================================
-@st.cache_resource
 def get_database_manager():
     return DatabaseManager()
 
 class DatabaseManager:
     def __init__(self):
-        self.connection_pool = None
-        self.init_connection_pool()
+        # ...
     
-    def init_connection_pool(self):
-        """Initialiser le pool de connexions à la base de données"""
-        try:
-            # Récupérer les paramètres de connexion depuis les variables d'environnement
-            db_params = {
-                'dbname': os.environ.get('DB_NAME', 'aim_database'),
-                'user': os.environ.get('DB_USER', 'postgres'),
-                'password': os.environ.get('DB_PASSWORD', ''),
-                'host': os.environ.get('DB_HOST', 'localhost'),
-                'port': os.environ.get('DB_PORT', '5432')
-            }
-            
-            self.connection_pool = psycopg2.pool.SimpleConnectionPool(
-                Config.DB_POOL_MIN,
-                Config.DB_POOL_MAX,
-                **db_params
-            )
-            print("Pool de connexions initialisé avec succès")
-            
-        except Exception as e:
-            print(f"Erreur d'initialisation du pool: {e}")
-            self.connection_pool = None
+    def render_login_page(db):
+    apply_custom_css()
     
-    def get_connection(self):
-        """Obtenir une connexion du pool"""
-        if self.connection_pool:
-            try:
-                return self.connection_pool.getconn()
-            except:
-                return None
-        return None
-    
-    def return_connection(self, conn):
-        """Retourner une connexion au pool"""
-        if self.connection_pool and conn:
-            try:
-                self.connection_pool.putconn(conn)
-            except:
-                pass
-    
-    def create_password_reset(self, username_or_email):
-        """Créer une demande de réinitialisation de mot de passe"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                
-                # Vérifier si l'utilisateur existe
-                cursor.execute("""
-                    SELECT id, username, email, is_active 
-                    FROM users 
-                    WHERE username = %s OR email = %s
-                """, (username_or_email, username_or_email))
-                
-                user = cursor.fetchone()
-                
-                if not user or not user[3]:  # is_active
-                    return None
-                
-                user_id, username, email, _ = user
-                
-                # Générer un code de réinitialisation
-                reset_code = str(np.random.randint(100000, 999999))
-                expires_at = datetime.now() + timedelta(minutes=15)
-                
-                # Insérer ou mettre à jour le code
-                cursor.execute("""
-                    INSERT INTO password_resets (user_id, reset_code, expires_at, used)
-                    VALUES (%s, %s, %s, FALSE)
-                    ON CONFLICT (user_id) 
-                    DO UPDATE SET 
-                        reset_code = EXCLUDED.reset_code,
-                        expires_at = EXCLUDED.expires_at,
-                        used = FALSE,
-                        created_at = NOW()
-                """, (user_id, reset_code, expires_at))
-                
-                conn.commit()
-                cursor.close()
-                self.return_connection(conn)
-                
-                return {
-                    'username': username,
-                    'reset_code': reset_code,
-                    'expires_at': expires_at
-                }
-        except Exception as e:
-            print(f"Erreur création reset: {e}")
-            return None
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
-        return None
-    
-    def validate_reset_code(self, username, reset_code):
-        """Valider un code de réinitialisation"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    SELECT pr.id, pr.expires_at, pr.used
-                    FROM password_resets pr
-                    JOIN users u ON pr.user_id = u.id
-                    WHERE u.username = %s 
-                    AND pr.reset_code = %s
-                """, (username, reset_code))
-                
-                reset_data = cursor.fetchone()
-                cursor.close()
-                self.return_connection(conn)
-                
-                if reset_data:
-                    reset_id, expires_at, used = reset_data
-                    
-                    # Vérifier si le code est toujours valide
-                    if not used and expires_at > datetime.now():
-                        return True
-                
-                return False
-        except Exception as e:
-            print(f"Erreur validation code: {e}")
-            return False
-    
-    def use_reset_code(self, username, reset_code):
-        """Marquer un code de réinitialisation comme utilisé"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    UPDATE password_resets pr
-                    SET used = TRUE
-                    FROM users u
-                    WHERE pr.user_id = u.id
-                    AND u.username = %s
-                    AND pr.reset_code = %s
-                """, (username, reset_code))
-                
-                conn.commit()
-                cursor.close()
-                self.return_connection(conn)
-                
-                return True
-        except Exception as e:
-            print(f"Erreur utilisation code: {e}")
-            return False
-    
-    def reset_password_with_code(self, username, reset_code, new_password):
-        """Réinitialiser le mot de passe avec un code"""
-        try:
-            # Valider le code d'abord
-            if not self.validate_reset_code(username, reset_code):
-                return False, "Code invalide ou expiré"
-            
-            # Hasher le nouveau mot de passe
-            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                
-                # Mettre à jour le mot de passe
-                cursor.execute("""
-                    UPDATE users 
-                    SET password_hash = %s, 
-                        is_first_login = FALSE,
-                        last_password_change = NOW()
-                    WHERE username = %s
-                """, (hashed_password, username))
-                
-                # Marquer le code comme utilisé
-                cursor.execute("""
-                    UPDATE password_resets pr
-                    SET used = TRUE
-                    FROM users u
-                    WHERE pr.user_id = u.id
-                    AND u.username = %s
-                """, (username,))
-                
-                conn.commit()
-                cursor.close()
-                self.return_connection(conn)
-                
-                # Utiliser le code
-                self.use_reset_code(username, reset_code)
-                
-                return True, "Mot de passe réinitialisé avec succès"
-                
-        except Exception as e:
-            print(f"Erreur reset password: {e}")
-            return False, f"Erreur technique: {str(e)}"
+        # En-tête
+        st.markdown('<div class="login-header">', unsafe_allow_html=True)
+        st.markdown('<h1 class="login-title">AIM Analytics</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="login-subtitle">Plateforme d\'analyse intelligente et marketing</p>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
-        return False, "Erreur inconnue"
-    
-    def authenticate_user(self, username, password):
-        """Authentifier un utilisateur"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor(cursor_factory=RealDictCursor)
-                
-                cursor.execute("""
-                    SELECT id, username, password_hash, full_name, email, 
-                           role, department, is_active, is_first_login, last_login
-                    FROM users 
-                    WHERE username = %s
-                """, (username,))
-                
-                user = cursor.fetchone()
-                cursor.close()
-                self.return_connection(conn)
-                
-                if user and user['is_active']:
-                    # Vérifier le mot de passe
-                    if bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
-                        # Mettre à jour la dernière connexion
-                        self.update_last_login(user['id'])
+        # Formulaire de connexion
+        with st.form("login_form"):
+            username = st.text_input("Nom d'utilisateur", placeholder="Entrez votre nom d'utilisateur")
+            password = st.text_input("Mot de passe", type="password", placeholder="Entrez votre mot de passe")
+            
+            submitted = st.form_submit_button("Se connecter", use_container_width=True)
+            
+            if submitted:
+                if not username or not password:
+                    st.error("Veuillez remplir tous les champs")
+                else:
+                    user = db.authenticate_user(username, password)
+                    if user:
+                        # Assurer que toutes les clés nécessaires existent
+                        user.setdefault('full_name', user.get('username', 'Utilisateur'))
+                        user.setdefault('role', 'user')
+                        user.setdefault('is_first_login', False)
                         
-                        # Retourner les infos utilisateur (sans le hash)
-                        user_info = dict(user)
-                        user_info.pop('password_hash', None)
-                        return user_info
+                        st.session_state.user = user
+                        db.log_activity(user['id'], "login", f"Connexion de {username}")
                         
-        except Exception as e:
-            print(f"Erreur authentification: {e}")
-        
-        return None
-    
-    def update_last_login(self, user_id):
-        """Mettre à jour la dernière connexion"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE users SET last_login = NOW() WHERE id = %s",
-                    (user_id,)
-                )
-                conn.commit()
-                cursor.close()
-                self.return_connection(conn)
-                return True
-        except Exception as e:
-            print(f"Erreur update last login: {e}")
-        return False
-    
-    def log_activity(self, user_id, activity_type, details):
-        """Logger une activité utilisateur"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO activity_logs (user_id, activity_type, details)
-                    VALUES (%s, %s, %s)
-                """, (user_id, activity_type, details))
-                conn.commit()
-                cursor.close()
-                self.return_connection(conn)
-                return True
-        except Exception as e:
-            print(f"Erreur log activity: {e}")
-        return False
-    
-    def get_system_stats(self):
-        """Obtenir les statistiques système"""
-        stats = {
-            'total_users': 0,
-            'active_users': 0,
-            'today_logins': 0,
-            'total_uploads': 0,
-            'today_activities': 0,
-            'total_data_size_mb': 0,
-            'active_users_today': 0,
-            'first_login_users': 0,
-            'users_by_role': {},
-            'weekly_activity': []
-        }
-        
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                
-                # Compter les utilisateurs
-                cursor.execute("SELECT COUNT(*) FROM users")
-                stats['total_users'] = cursor.fetchone()[0]
-                
-                cursor.execute("SELECT COUNT(*) FROM users WHERE is_active = TRUE")
-                stats['active_users'] = cursor.fetchone()[0]
-                
-                # Logins aujourd'hui
-                cursor.execute("""
-                    SELECT COUNT(DISTINCT user_id) 
-                    FROM activity_logs 
-                    WHERE activity_type = 'login' 
-                    AND DATE(created_at) = CURRENT_DATE
-                """)
-                stats['today_logins'] = cursor.fetchone()[0]
-                
-                # Utilisateurs actifs aujourd'hui
-                cursor.execute("""
-                    SELECT COUNT(DISTINCT user_id) 
-                    FROM activity_logs 
-                    WHERE DATE(created_at) = CURRENT_DATE
-                """)
-                stats['active_users_today'] = cursor.fetchone()[0]
-                
-                # Utilisateurs première connexion
-                cursor.execute("SELECT COUNT(*) FROM users WHERE is_first_login = TRUE")
-                stats['first_login_users'] = cursor.fetchone()[0]
-                
-                # Répartition par rôle
-                cursor.execute("""
-                    SELECT role, COUNT(*) 
-                    FROM users 
-                    WHERE is_active = TRUE
-                    GROUP BY role
-                """)
-                users_by_role = cursor.fetchall()
-                stats['users_by_role'] = {role: count for role, count in users_by_role}
-                
-                # Activité hebdomadaire
-                cursor.execute("""
-                    SELECT DATE(created_at), COUNT(*)
-                    FROM activity_logs
-                    WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
-                    GROUP BY DATE(created_at)
-                    ORDER BY DATE(created_at)
-                """)
-                stats['weekly_activity'] = cursor.fetchall()
-                
-                cursor.close()
-                self.return_connection(conn)
-                
-        except Exception as e:
-            print(f"Erreur get system stats: {e}")
-        
-        return stats
-    
-    def get_all_users(self):
-        """Récupérer tous les utilisateurs"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor(cursor_factory=RealDictCursor)
-                cursor.execute("""
-                    SELECT id, username, email, full_name, role, department,
-                           is_active, is_first_login, created_at, last_login
-                    FROM users
-                    ORDER BY created_at DESC
-                """)
-                users = cursor.fetchall()
-                cursor.close()
-                self.return_connection(conn)
-                return users
-        except Exception as e:
-            print(f"Erreur get all users: {e}")
-        return []
-    
-    def update_user_status(self, user_id, is_active):
-        """Mettre à jour le statut d'un utilisateur"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "UPDATE users SET is_active = %s WHERE id = %s",
-                    (is_active, user_id)
-                )
-                conn.commit()
-                cursor.close()
-                self.return_connection(conn)
-                return True
-        except Exception as e:
-            print(f"Erreur update user status: {e}")
-        return False
-    
-    def update_user_profile(self, user_id, **kwargs):
-        """Mettre à jour le profil utilisateur"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                
-                updates = []
-                values = []
-                
-                for key, value in kwargs.items():
-                    if key == 'password':
-                        # Hasher le nouveau mot de passe
-                        hashed_password = bcrypt.hashpw(value.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                        updates.append("password_hash = %s")
-                        values.append(hashed_password)
-                        updates.append("is_first_login = FALSE")
-                        updates.append("last_password_change = NOW()")
+                        if user.get('is_first_login', False):
+                            st.session_state.force_password_change = True
+                            st.success("Connexion réussie! Vous devez changer votre mot de passe.")
+                        else:
+                            st.success("Connexion réussie!")
+                        time.sleep(1)
+                        st.rerun()
                     else:
-                        updates.append(f"{key} = %s")
-                        values.append(value)
-                
-                if updates:
-                    values.append(user_id)
-                    query = f"UPDATE users SET {', '.join(updates)} WHERE id = %s"
-                    cursor.execute(query, tuple(values))
-                    conn.commit()
-                
-                cursor.close()
-                self.return_connection(conn)
-                return True
-        except Exception as e:
-            print(f"Erreur update user profile: {e}")
-        return False
-    
-    def update_user_password(self, user_id, new_password):
-        """Mettre à jour le mot de passe d'un utilisateur"""
-        return self.update_user_profile(user_id, password=new_password)
-    
-    def create_new_user(self, username, password, full_name, email, role, department=None):
-        """Créer un nouvel utilisateur"""
-        try:
-            # Vérifier si l'utilisateur existe déjà
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                
-                cursor.execute("SELECT COUNT(*) FROM users WHERE username = %s OR email = %s", 
-                             (username, email))
-                if cursor.fetchone()[0] > 0:
-                    cursor.close()
-                    return False, "Nom d'utilisateur ou email déjà utilisé"
-                
-                # Hasher le mot de passe
-                hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                
-                # Insérer le nouvel utilisateur
-                cursor.execute("""
-                    INSERT INTO users (username, password_hash, full_name, email, role, department)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (username, hashed_password, full_name, email, role, department))
-                
-                conn.commit()
-                cursor.close()
-                self.return_connection(conn)
-                
-                return True, "Utilisateur créé avec succès"
-                
-        except Exception as e:
-            print(f"Erreur création utilisateur: {e}")
-            return False, f"Erreur technique: {str(e)}"
+                        st.error("Identifiants incorrects")
         
-        return False, "Erreur inconnue"
-    
-    def reset_user_password(self, user_id, new_password):
-        """Réinitialiser le mot de passe d'un utilisateur (admin)"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                
-                # Hasher le nouveau mot de passe
-                hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                
-                cursor.execute("""
-                    UPDATE users 
-                    SET password_hash = %s, 
-                        is_first_login = TRUE,
-                        last_password_change = NOW()
-                    WHERE id = %s
-                """, (hashed_password, user_id))
-                
-                conn.commit()
-                cursor.close()
-                self.return_connection(conn)
-                
-                return True
-        except Exception as e:
-            print(f"Erreur reset user password: {e}")
+        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.button("Mot de passe oublié ?", use_container_width=True):
+                # CORRECTION: Définir la variable de session
+                st.session_state['show_forgot_password'] = True
+                st.rerun()
         
-        return False
-    
-    def get_activity_logs(self, limit=100):
-        """Récupérer les logs d'activité"""
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor(cursor_factory=RealDictCursor)
-                cursor.execute("""
-                    SELECT al.id, al.user_id, u.username, al.activity_type, 
-                           al.details, al.created_at
-                    FROM activity_logs al
-                    JOIN users u ON al.user_id = u.id
-                    ORDER BY al.created_at DESC
-                    LIMIT %s
-                """, (limit,))
-                logs = cursor.fetchall()
-                cursor.close()
-                self.return_connection(conn)
-                return logs
-        except Exception as e:
-            print(f"Erreur get activity logs: {e}")
-        return []
-    
-    def get_analyst_metrics(self):
-        """Obtenir les métriques pour les analystes"""
-        metrics = {
-            'datasets': 0,
-            'records': 0,
-            'columns': 0,
-            'data_types': 0,
-            'data_distribution': [],
-            'upload_activity': [],
-            'avg_records': 0,
-            'avg_columns': 0,
-            'avg_size_kb': 0
-        }
-        
-        try:
-            conn = self.get_connection()
-            if conn:
-                cursor = conn.cursor()
-                
-                # Simuler des métriques pour l'exemple
-                # Dans une application réelle, vous récupéreriez ces données de votre base
-                
-                # Exemple de distribution par type
-                metrics['data_distribution'] = [
-                    ('int64', 5),
-                    ('float64', 3),
-                    ('object', 8),
-                    ('datetime64', 2)
-                ]
-                
-                # Activité d'upload simulée
-                metrics['upload_activity'] = [
-                    ('2024-10-01', 12, 15000),
-                    ('2024-10-02', 8, 12000),
-                    ('2024-10-03', 15, 25000),
-                    ('2024-10-04', 10, 18000),
-                    ('2024-10-05', 14, 22000)
-                ]
-                
-                cursor.close()
-                self.return_connection(conn)
-                
-        except Exception as e:
-            print(f"Erreur get analyst metrics: {e}")
-        
-        # Valeurs par défaut si la base n'est pas disponible
-        metrics['datasets'] = 15
-        metrics['records'] = 125000
-        metrics['columns'] = 85
-        metrics['data_types'] = 6
-        metrics['avg_records'] = 8333
-        metrics['avg_columns'] = 12
-        metrics['avg_size_kb'] = 450
-        
-        return metrics
+        st.markdown('</div>', unsafe_allow_html=True)
 # ==========================
 #        STYLE CSS 
 # ==========================
@@ -1209,6 +699,7 @@ def render_login_page(db):
         col1, col2 = st.columns([3, 1])
         with col1:
             if st.button("Mot de passe oublié ?", use_container_width=True):
+                # CORRECTION: Définir la variable de session
                 st.session_state['show_forgot_password'] = True
                 st.rerun()
         
@@ -4876,14 +4367,15 @@ def main():
     # Vérifier l'état de l'authentification
     if 'user' not in st.session_state:
         # Vérifier si on doit afficher la page de réinitialisation
-        if 'show_forgot_password' in st.session_state and st.session_state.show_forgot_password:
+        # CORRECTION: Vérifier la variable de session
+        if st.session_state.get('show_forgot_password'):
             # Appeler la fonction indépendante
             render_forgot_password_page(db)
         else:
             # Page de connexion
             render_login_page(db)
     
-    elif 'force_password_change' in st.session_state and st.session_state.force_password_change:
+    elif st.session_state.get('force_password_change'):
         # Page de changement de mot de passe obligatoire
         render_password_change_page(st.session_state.user, db)
     
@@ -4913,8 +4405,6 @@ def main():
         except Exception as e:
             st.error(f"Une erreur est survenue : {str(e)}")
             st.info("Veuillez rafraîchir la page ou vous reconnecter.")
-
-
 # Point d'entrée
 if __name__ == "__main__":
     main()
