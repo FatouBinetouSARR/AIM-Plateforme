@@ -2233,9 +2233,111 @@ def render_user_profile_enhanced(user, db):
 # ==================================
 #       DASHBOARD DATA ANALYSTE
 # ==================================
-# ==================================
-#   FONCTIONS POUR DATA ANALYST
-# ==================================
+# =============================
+#       DASHBOARD DATA ANALYST
+# =============================
+def dashboard_data_analyst(user, db):
+    """Dashboard principal pour les analystes de données"""
+    apply_custom_css()
+    
+    user_full_name = user.get('full_name', user.get('username', 'Analyste de données'))
+    user_role = user.get('role', 'data_analyst')
+    
+    # En-tête principal
+    st.markdown(f"""
+    <div class="main-header">
+        <h1 style="margin-bottom: 0.5rem; font-size: 2.4em;">Dashboard Analyste de Données</h1>
+        <p style="opacity: 0.95; font-size: 1.1em;">
+            Bienvenue {user_full_name} • Plateforme d'analyse avancée des données
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    with st.sidebar:
+        # En-tête sidebar
+        st.markdown('<div class="sidebar-header">', unsafe_allow_html=True)
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            initials = user_full_name[0].upper() if user_full_name else 'A'
+            st.markdown(f'<div style="width: 50px; height: 50px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #667eea; font-size: 1.5em; font-weight: bold;">{initials}</div>', unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"**{user_full_name}**")
+            st.markdown(f"<span class='role-badge role-data_analyst'>Analyste</span>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Import des données
+        st.markdown("### Import des données")
+        
+        uploaded_file = st.file_uploader(
+            "Importer un fichier de données",
+            type=['csv', 'xlsx', 'xls', 'json'],
+            key="data_analyst_upload"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                # Détecter le type de fichier et le lire
+                if uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
+                elif uploaded_file.name.endswith(('.xlsx', '.xls')):
+                    df = pd.read_excel(uploaded_file)
+                elif uploaded_file.name.endswith('.json'):
+                    df = pd.read_json(uploaded_file)
+                else:
+                    st.error("Format de fichier non supporté")
+                    df = None
+                
+                if df is not None:
+                    # Stocker les données dans la session
+                    st.session_state['uploaded_data'] = df
+                    st.session_state['uploaded_filename'] = uploaded_file.name
+                    st.session_state['uploaded_file_size'] = len(uploaded_file.getvalue())
+                    
+                    st.success(f"{uploaded_file.name} importé avec succès!")
+                    st.info(f"{df.shape[0]} lignes × {df.shape[1]} colonnes")
+                    
+                    # Log l'activité
+                    db.log_activity(user['id'], "data_upload", 
+                                   f"Import fichier: {uploaded_file.name} ({df.shape[0]}x{df.shape[1]})")
+            except Exception as e:
+                st.error(f"Erreur lors de l'import: {str(e)}")
+        
+        # Navigation - AJOUT DE LA PAGE "PROFIL"
+        st.markdown("---")
+        pages = ["Vue d'ensemble", "Analyse EDA", "Modèles ML", "Analyse Sentiments", "Gestion Données", "Profil"]
+        selected_page = st.radio(
+            "Navigation",
+            pages,
+            label_visibility="collapsed",
+            key="data_analyst_nav"
+        )
+        
+        st.markdown("---")
+        
+        # Boutons d'action
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Rafraîchir", use_container_width=True):
+                st.rerun()
+        with col2:
+            if st.button("Déconnexion", use_container_width=True, type="primary"):
+                db.log_activity(user['id'], "logout", "Déconnexion analyste")
+                st.session_state.clear()
+                st.rerun()
+    
+    # Contenu principal basé sur la page sélectionnée
+    if selected_page == "Vue d'ensemble":
+        render_analyst_overview(user, db)
+    elif selected_page == "Analyse EDA":
+        render_eda_analysis(user, db)
+    elif selected_page == "Modèles ML":
+        render_ml_models(user, db)
+    elif selected_page == "Analyse Sentiments":
+        render_sentiment_analysis(user, db)
+    elif selected_page == "Gestion Données":
+        render_data_management(user, db)
+    elif selected_page == "Profil":
+        render_user_profile_enhanced(user, db)  # Utilise la même fonction de profil que l'admin
 
 def render_ml_models(user, db):
     """Page dédiée aux modèles de machine learning"""
