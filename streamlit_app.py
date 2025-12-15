@@ -712,50 +712,59 @@ class DatabaseManager:
     
             
    
-            
+    @staticmethod        
     def _calculate_marketing_metrics_from_data(df):
         """Calcule les métriques marketing à partir d'un DataFrame"""
         metrics = {}
-        
-        # Compter les campagnes uniques (basé sur la première colonne catégorielle)
+
+        # Colonnes catégorielles
         categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
         if categorical_cols:
             metrics['total_campaigns'] = df[categorical_cols[0]].nunique()
-        
-        # Chercher des colonnes communes de métriques marketing
-        impression_cols = [col for col in df.columns if 'impression' in col.lower()]
-        click_cols = [col for col in df.columns if 'clic' in col.lower() or 'click' in col.lower()]
-        conversion_cols = [col for col in df.columns if 'conversion' in col.lower()]
-        spend_cols = [col for col in df.columns if 'dépense' in col.lower() or 'spend' in col.lower() or 'cost' in col.lower()]
-        revenue_cols = [col for col in df.columns if 'revenu' in col.lower() or 'revenue' in col.lower()]
-        
-        # Calculer les sommes si les colonnes existent
+    
+        # Détection colonnes marketing
+        impression_cols = [c for c in df.columns if 'impression' in c.lower()]
+        click_cols = [c for c in df.columns if 'clic' in c.lower() or 'click' in c.lower()]
+        conversion_cols = [c for c in df.columns if 'conversion' in c.lower()]
+        spend_cols = [c for c in df.columns if 'spend' in c.lower() or 'cost' in c.lower()]
+        revenue_cols = [c for c in df.columns if 'revenue' in c.lower()]
+    
+        # 🔐 Fonction utilitaire SAFE
+        def safe_sum(column):
+            return pd.to_numeric(df[column], errors='coerce').fillna(0).sum()
+    
         if impression_cols:
-            metrics['total_impressions'] = df[impression_cols[0]].sum()
-        
+            metrics['total_impressions'] = safe_sum(impression_cols[0])
+    
         if click_cols:
-            metrics['total_clicks'] = df[click_cols[0]].sum()
-        
+            metrics['total_clicks'] = safe_sum(click_cols[0])
+    
         if conversion_cols:
-            metrics['total_conversions'] = df[conversion_cols[0]].sum()
-        
+            metrics['total_conversions'] = safe_sum(conversion_cols[0])
+    
         if spend_cols:
-            metrics['total_spend'] = df[spend_cols[0]].sum()
-        
+            metrics['total_spend'] = safe_sum(spend_cols[0])
+    
         if revenue_cols:
-            metrics['total_revenue'] = df[revenue_cols[0]].sum()
-        
-        # Calculer les taux
-        if 'total_impressions' in metrics and 'total_clicks' in metrics and metrics['total_impressions'] > 0:
-            metrics['ctr'] = (metrics['total_clicks'] / metrics['total_impressions']) * 100
-        
-        if 'total_clicks' in metrics and 'total_conversions' in metrics and metrics['total_clicks'] > 0:
-            metrics['conversion_rate'] = (metrics['total_conversions'] / metrics['total_clicks']) * 100
-        
-        if 'total_spend' in metrics and 'total_revenue' in metrics and metrics['total_spend'] > 0:
-            metrics['roi'] = ((metrics['total_revenue'] - metrics['total_spend']) / metrics['total_spend']) * 100
-        
-        return metrics        
+            metrics['total_revenue'] = safe_sum(revenue_cols[0])
+    
+        # Taux
+        if metrics.get('total_impressions', 0) > 0:
+            metrics['ctr'] = round(
+                (metrics.get('total_clicks', 0) / metrics['total_impressions']) * 100, 2
+            )
+    
+        if metrics.get('total_clicks', 0) > 0:
+            metrics['conversion_rate'] = round(
+                (metrics.get('total_conversions', 0) / metrics['total_clicks']) * 100, 2
+            )
+    
+        if metrics.get('total_spend', 0) > 0:
+            metrics['roi'] = round(
+                ((metrics.get('total_revenue', 0) - metrics['total_spend']) / metrics['total_spend']) * 100, 2
+            )
+    
+        return metricss        
 
     def create_new_user(self, username, password, full_name, email, role, department=None):
         """Crée un nouvel utilisateur"""
