@@ -6329,9 +6329,11 @@ def dashboard_marketing(user, db):
             try:
                 if marketing_file.name.endswith('.csv'):
                     marketing_df = pd.read_csv(marketing_file)
+                    for col in df.columns:
+                        marketing_df[col] = pd.to_numeric(df[col], errors='ignore')
                 else:
                     marketing_df = pd.read_excel(marketing_file)
-                
+                    marketing_df[col] = pd.to_numeric(df[col], errors='ignore')
                 # Stocker les données
                 st.session_state['marketing_data'] = marketing_df
                 st.session_state['marketing_filename'] = marketing_file.name
