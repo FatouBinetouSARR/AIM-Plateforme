@@ -51,9 +51,9 @@ class Config:
     }
     
     SENTIMENT_COLORS = {
-        'positif': '#FFABAB',
-        'négatif': '#FF2B2B',
-        'neutre': '#0068C9',
+        'positif': '#55C592',
+        'négatif': '#FA5771',
+        'neutre': '#F1C24D',
         'sarcastique': '#83C9FF'
     }
     
