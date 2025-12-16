@@ -6715,6 +6715,12 @@ def render_sentiment_analysis_marketing(user, db):
                     all_sentiments.extend(results['sentiments'])
                 
                 sentiment_counts = pd.Series(all_sentiments).value_counts()
+                total_sentiments = sentiment_counts.sum()
+                positif_pct = round((sentiment_counts.get('positif', 0) / total_sentiments) * 100, 2)
+                negatif_pct = round((sentiment_counts.get('négatif', 0) / total_sentiments) * 100, 2)
+                neutre_pct  = round((sentiment_counts.get('neutre', 0) / total_sentiments) * 100, 2)
+                erreur_pct  = round((sentiment_counts.get('erreur', 0) / total_sentiments) * 100, 2)
+
                 
                 fig1 = px.pie(
                     values=sentiment_counts.values,
@@ -6732,15 +6738,38 @@ def render_sentiment_analysis_marketing(user, db):
                 st.plotly_chart(fig1, use_container_width=True)
                 
                 # Interprétation 1
-                st.markdown("""
-                #### **Interprétation:**
-                - **Positifs (vert)**: Opinions favorables détectées
-                - **Négatifs (rouge)**: Points d'amélioration identifiés
-                - **Neutres (jaune)**: Contenu factuel ou peu émotionnel
-                - **Erreurs (violet)**: Textes non analysables
+                st.markdown("#### Interprétation marketing")
+
+                st.markdown(f"""
+                <div style="background:#FFFFFF;padding:20px;border-radius:10px;border:1px solid #E2E8F0">
                 
-                **Objectif**: Maximiser le vert, minimiser le rouge, comprendre le jaune.
-                """)
+                🟡 <strong>Sentiments neutres ({neutre_pct} %)</strong><br>
+                La majorité des contenus analysés sont informatifs ou peu émotionnels.  
+                Cela indique un <strong>faible niveau d’engagement affectif</strong> des audiences.
+                
+                <br><br>
+                
+                🟢 <strong>Sentiments positifs ({positif_pct} %)</strong><br>
+                Une part limitée des textes exprime une perception favorable.  
+                Il existe un <strong>potentiel d’optimisation</strong> pour renforcer l’adhésion et la satisfaction.
+                
+                <br><br>
+                
+                🔴 <strong>Sentiments négatifs ({negatif_pct} %)</strong><br>
+                Les retours négatifs sont <strong>marginaux</strong>, ce qui suggère l’absence de signaux d’alerte majeurs.
+                
+                """, unsafe_allow_html=True)
+                
+                # Message conditionnel intelligent
+                if neutre_pct > 80:
+                    st.info(" Engagement émotionnel faible : une stratégie de contenu plus interactive est recommandée.")
+                
+                if negatif_pct > 10:
+                    st.warning(" Proportion notable de sentiments négatifs : des actions correctives sont à envisager.")
+                
+                if positif_pct > 30:
+                    st.success(" Bonne perception globale : capitaliser sur les leviers actuels.")
+
                 
                 # VISUALISATION 2: Polarité par colonne
                 st.markdown("---")
