@@ -51,10 +51,10 @@ class Config:
     }
     
     SENTIMENT_COLORS = {
-        'positif': '#36B37E',
-        'négatif': '#FF5630',
-        'neutre': '#FFAB00',
-        'sarcastique': '#6554C0'
+        'positif': '#FFABAB',
+        'négatif': '#FF2B2B',
+        'neutre': '#0068C9',
+        'sarcastique': '#83C9FF'
     }
     
     MAX_FILE_SIZE_MB = 100
