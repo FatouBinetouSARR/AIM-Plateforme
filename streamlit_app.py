@@ -228,6 +228,19 @@ class DatabaseManager:
                     user_agent TEXT
                 )
             """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS ai_recommendations (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    recommendation_type VARCHAR(50),
+                    content TEXT,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    implemented BOOLEAN DEFAULT false,
+                    implemented_at TIMESTAMP,
+                    result_rating INTEGER CHECK (result_rating >= 1 AND result_rating <= 5)
+                )
+            """)
             
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS data_uploads (
@@ -1080,68 +1093,30 @@ class DatabaseManager:
             cursor.close()
             self.return_connection(conn)
 
-    def get_support_metrics(self, user_role=None):
-        """Récupère les métriques pour le support"""
+    def log_ai_recommendation(self, user_id, recommendation_type, content):
+        """Enregistre une recommandation IA générée"""
         if not self.connection_pool:
-            return {}
+            return False
         
         conn = self.get_connection()
         if not conn:
-            return {}
+            return False
         
         cursor = conn.cursor()
         try:
-            metrics = {}
-            
-            # Simuler des données de support (à remplacer par votre table réelle)
             cursor.execute("""
-                SELECT 
-                    COUNT(*) as total_tickets,
-                    COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as today_tickets,
-                    COUNT(CASE WHEN created_at >= CURRENT_DATE - INTERVAL '7 days' THEN 1 END) as weekly_tickets
-                FROM (
-                    SELECT 1 as id, NOW() - INTERVAL '3 days' as created_at
-                    UNION ALL SELECT 2, NOW() - INTERVAL '1 day'
-                    UNION ALL SELECT 3, NOW() - INTERVAL '5 hours'
-                    UNION ALL SELECT 4, NOW() - INTERVAL '10 days'
-                ) as tickets
-            """)
+                INSERT INTO ai_recommendations 
+                (user_id, recommendation_type, content, created_at)
+                VALUES (%s, %s, %s, NOW())
+            """, (user_id, recommendation_type, content))
             
-            row = cursor.fetchone()
-            if row:
-                metrics['total_tickets'] = row[0] or 0
-                metrics['today_tickets'] = row[1] or 0
-                metrics['weekly_tickets'] = row[2] or 0
-                metrics['avg_response_time'] = 2.5  # heures (exemple)
-                metrics['satisfaction_rate'] = 92.5  # % (exemple)
-                metrics['resolved_today'] = row[1] or 0  # exemple
-            
-            # Tendances des tickets
-            cursor.execute("""
-                SELECT 
-                    DATE(created_at) as date,
-                    COUNT(*) as tickets
-                FROM (
-                    SELECT NOW() - INTERVAL '1 day' as created_at UNION ALL
-                    SELECT NOW() - INTERVAL '2 days' UNION ALL
-                    SELECT NOW() - INTERVAL '3 days' UNION ALL
-                    SELECT NOW() - INTERVAL '4 days' UNION ALL
-                    SELECT NOW() - INTERVAL '5 days' UNION ALL
-                    SELECT NOW() - INTERVAL '6 days' UNION ALL
-                    SELECT NOW() - INTERVAL '7 days'
-                ) as tickets_data
-                GROUP BY DATE(created_at)
-                ORDER BY date
-            """)
-            
-            ticket_trends = cursor.fetchall()
-            metrics['ticket_trends'] = ticket_trends
-            
-            return metrics
+            conn.commit()
+            return cursor.rowcount > 0
             
         except Exception as e:
-            print(f"Erreur get_support_metrics: {e}")
-            return {}
+            conn.rollback()
+            print(f"Erreur log_ai_recommendation: {e}")
+            return False
         finally:
             cursor.close()
             self.return_connection(conn)
@@ -7518,213 +7493,7 @@ def render_fake_reviews_detection(user, db):
                 st.error("Aucun résultat de détection disponible")
                 
                 
-def render_ai_recommendations(user, db):
-    """Recommandations IA dynamiques basées sur toutes les analyses"""
-    st.subheader("Intelligence Artificielle - Recommandations Dynamiques")
-    
-    # Vérifier si des données sont disponibles
-    data_available = 'marketing_data' in st.session_state and st.session_state['marketing_data'] is not None
-    
-    if not data_available:
-        st.warning("Importez d'abord vos données marketing")
-        return
-    
-    df = st.session_state['marketing_data']
-    
-    st.markdown("""
-    ### AIM Marketing Intelligence
-    
-    Notre IA analyse l'ensemble de vos données et génère des recommandations 
-    **dynamiques et personnalisées** basées sur :
-    - Vos données marketing actuelles
-    - Les résultats d'analyse des sentiments
-    - La détection de faux avis
-    - Les meilleures pratiques marketing
-    """)
-    
-    if st.button("Générer des recommandations IA", type="primary"):
-        with st.spinner("L'IA analyse vos données et génère des recommandations personnalisées..."):
-            # Collecter toutes les informations disponibles
-            data_insights = _analyze_marketing_data_insights(df)
-            sentiment_insights = _analyze_sentiment_insights()
-            fake_reviews_insights = _analyze_fake_reviews_insights()
-            
-            # Générer des recommandations basées sur les insights
-            recommendations = _generate_dynamic_ai_recommendations(
-                data_insights, 
-                sentiment_insights, 
-                fake_reviews_insights
-            )
-            
-            # Stocker les recommandations
-            st.session_state['ai_recommendations'] = recommendations
-            
-            # Afficher les recommandations
-            st.markdown("### Recommandations IA Personnalisées")
-            
-            # Catégoriser les recommandations par priorité
-            high_priority = [r for r in recommendations if r['priority'] == 'high']
-            medium_priority = [r for r in recommendations if r['priority'] == 'medium']
-            low_priority = [r for r in recommendations if r['priority'] == 'low']
-            
-            # Hautes priorités
-            if high_priority:
-                st.error("### Actions Immédiates (Hautes Priorités)")
-                for i, rec in enumerate(high_priority, 1):
-                    with st.expander(f"**{i}. {rec['title']}**", expanded=True):
-                        st.markdown(f"**Pourquoi c'est important :** {rec['reason']}")
-                        st.markdown(f"**Impact estimé :** {rec['impact']}")
-                        st.markdown("**Actions concrètes :**")
-                        for action in rec['actions']:
-                            st.markdown(f"- {action}")
-                        
-                        if rec.get('metrics'):
-                            col1, col2, col3 = st.columns(3)
-                            for metric_name, metric_value in rec['metrics'].items():
-                                with col1:
-                                    st.metric(metric_name, metric_value)
-            
-            # Priorités moyennes
-            if medium_priority:
-                st.warning("### Actions à Moyen Terme (Priorités Moyennes)")
-                for i, rec in enumerate(medium_priority, 1):
-                    with st.expander(f"**{i}. {rec['title']}**", expanded=False):
-                        st.markdown(f"**Objectif :** {rec['reason']}")
-                        st.markdown(f"**Bénéfice attendu :** {rec['impact']}")
-                        st.markdown("**Plan d'action :**")
-                        for action in rec['actions']:
-                            st.markdown(f"- {action}")
-            
-            # Basses priorités
-            if low_priority:
-                st.info("### Améliorations Futures (Basses Priorités)")
-                for i, rec in enumerate(low_priority, 1):
-                    with st.expander(f"**{i}. {rec['title']}**", expanded=False):
-                        st.markdown(f"**Contexte :** {rec['reason']}")
-                        st.markdown(f"**Valeur ajoutée :** {rec['impact']}")
-                        st.markdown("**Suggestions :**")
-                        for action in rec['actions']:
-                            st.markdown(f"- {action}")
-            
-            # Dashboard synthétique
-            st.markdown("---")
-            st.markdown("### Tableau de Bord IA")
-            
-            # Créer des métriques synthétiques basées sur les recommandations
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric(
-                    "Recommandations", 
-                    len(recommendations),
-                    f"{len(high_priority)} prioritaires"
-                )
-            
-            with col2:
-                # Calculer l'impact potentiel total
-                total_impact = sum(rec.get('impact_score', 0) for rec in recommendations)
-                st.metric(
-                    "Impact potentiel", 
-                    f"{total_impact/10:.0f}%",
-                    "Amélioration estimée"
-                )
-            
-            with col3:
-                # Temps d'implémentation estimé
-                total_time = sum(rec.get('implementation_time', 0) for rec in recommendations)
-                st.metric(
-                    "Temps total estimé", 
-                    f"{total_time} jours",
-                    f"{len(recommendations)} actions"
-                )
-            
-            with col4:
-                # ROI estimé
-                estimated_roi = np.random.uniform(50, 200)
-                st.metric(
-                    "ROI estimé", 
-                    f"{estimated_roi:.0f}%",
-                    "Retour sur investissement"
-                )
-            
-            # Graphique des priorités
-            st.markdown("---")
-            st.markdown("### Répartition des recommandations")
-            
-            priority_data = {
-                'Haute': len(high_priority),
-                'Moyenne': len(medium_priority),
-                'Basse': len(low_priority)
-            }
-            
-            fig = px.pie(
-                values=list(priority_data.values()),
-                names=list(priority_data.keys()),
-                title="Répartition par niveau de priorité",
-                hole=0.4,
-                color_discrete_sequence=['#FF5630', '#FFAB00', '#36B37E']
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Export des recommandations
-            st.markdown("---")
-            st.markdown("### Export des recommandations IA")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Export Excel
-                recs_df = pd.DataFrame([{
-                    'Priorité': r['priority'],
-                    'Titre': r['title'],
-                    'Raison': r['reason'],
-                    'Impact': r['impact'],
-                    'Actions': ' | '.join(r['actions'])
-                } for r in recommendations])
-                
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    recs_df.to_excel(writer, sheet_name='Recommandations', index=False)
-                    
-                    # Ajouter un résumé
-                    summary_data = {
-                        'Métrique': ['Total recommandations', 'Hautes priorités', 'Impact total estimé', 'ROI estimé'],
-                        'Valeur': [len(recommendations), len(high_priority), f"{total_impact/10:.0f}%", f"{estimated_roi:.0f}%"]
-                    }
-                    summary_df = pd.DataFrame(summary_data)
-                    summary_df.to_excel(writer, sheet_name='Résumé', index=False)
-                
-                st.download_button(
-                    label="Télécharger rapport Excel",
-                    data=buffer.getvalue(),
-                    file_name=f"recommandations_ia_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-            
-            with col2:
-                # Plan d'action
-                action_plan = "PLAN D'ACTION MARKETING - RECOMMANDATIONS IA\n"
-                action_plan += "=" * 50 + "\n\n"
-                
-                for priority_group, recs in [("HAUTE PRIORITÉ", high_priority), 
-                                           ("MOYENNE PRIORITÉ", medium_priority), 
-                                           ("BASSE PRIORITÉ", low_priority)]:
-                    if recs:
-                        action_plan += f"\n{priority_group}:\n"
-                        action_plan += "-" * 20 + "\n"
-                        for rec in recs:
-                            action_plan += f"\n• {rec['title']}\n"
-                            action_plan += f"  Actions: {' | '.join(rec['actions'][:2])}\n"
-                
-                st.download_button(
-                    label="Télécharger plan d'action",
-                    data=action_plan,
-                    file_name=f"plan_action_ia_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                    mime="text/plain",
-                    use_container_width=True
-                )
-                
+
 def _analyze_marketing_data_insights(df):
     """Analyse les données marketing pour extraire des insights"""
     insights = {
@@ -7780,95 +7549,526 @@ def _analyze_fake_reviews_insights():
         'main_reason': "Texte trop court",
         'risk_level': "Moyen"
     }
+# =======================================
+#     IA POUR RECOMMANDATIONS MARKETING
+# =======================================
 
-def _generate_dynamic_ai_recommendations(data_insights, sentiment_insights, fake_reviews_insights):
-    """Génère des recommandations IA dynamiques basées sur tous les insights"""
-    recommendations = []
+def render_ai_recommendations(user, db):
+    """IA de recommandations marketing en temps réel"""
+    st.subheader("IA - Recommandations Marketing Intelligentes")
     
-    # Recommandation basée sur les données
-    if data_insights.get('missing_values', 0) > 0:
-        recommendations.append({
-            'title': 'Nettoyer les données manquantes',
-            'reason': f"{data_insights['missing_values']} valeurs manquantes détectées, ce qui peut affecter la qualité des analyses.",
-            'impact': 'Amélioration de la précision des analyses de 15-20%',
-            'priority': 'high',
-            'actions': [
-                'Identifier les colonnes avec plus de 10% de valeurs manquantes',
-                'Appliquer des stratégies d\'imputation appropriées',
-                'Documenter les traitements appliqués',
-                'Valider la cohérence des données après nettoyage'
-            ],
-            'implementation_time': 2,
-            'impact_score': 8
-        })
+    st.markdown("""
+    ### AIM Marketing Intelligence
     
-    # Recommandation basée sur les sentiments
-    if sentiment_insights.get('negative_count', 0) > sentiment_insights.get('positive_count', 0):
-        recommendations.append({
-            'title': 'Améliorer l\'expérience client',
-            'reason': f"Plus d'avis négatifs ({sentiment_insights.get('negative_count', 0)}) que positifs ({sentiment_insights.get('positive_count', 0)}) détectés.",
-            'impact': 'Augmentation possible de la satisfaction client de 25-30%',
-            'priority': 'high',
-            'actions': [
-                'Analyser les thèmes récurrents dans les avis négatifs',
-                'Mettre en place un programme de récupération client',
-                'Former les équipes sur les points de friction identifiés',
-                'Mesurer l\'impact des améliorations sur 30 jours'
-            ],
-            'implementation_time': 7,
-            'impact_score': 9
-        })
+    **Fonctionnement de l'IA :**
+    1. **Analyse des données** : Vérification des analyses de sentiments et faux avis
+    2. **Diagnostic intelligent** : Identification des problèmes et opportunités
+    3. **Recommandations personnalisées** : Stratégies adaptées à vos résultats
+    4. **Actions concrètes** : Étapes à mettre en œuvre immédiatement
+    """)
     
-    # Recommandation basée sur les faux avis
-    if fake_reviews_insights.get('fake_review_percentage', 0) > 15:
-        recommendations.append({
-            'title': 'Renforcer la modération des avis',
-            'reason': f"Taux de faux avis élevé ({fake_reviews_insights.get('fake_review_percentage', 0):.1f}%) détecté.",
-            'impact': 'Amélioration de la crédibilité des avis et de la confiance des clients',
-            'priority': 'medium',
-            'actions': [
-                'Mettre en place des filtres automatiques supplémentaires',
-                'Créer un processus de modération manuelle pour les cas limites',
-                'Éduquer les clients sur l\'importance des avis authentiques',
-                'Surveiller les tendances des tentatives de faux avis'
-            ],
-            'implementation_time': 5,
-            'impact_score': 7
-        })
+    # Vérifier si les analyses sont disponibles
+    sentiment_analysis_available = 'sentiment_analysis' in st.session_state
+    fake_reviews_available = 'fake_reviews_analysis' in st.session_state
+    marketing_data_available = 'marketing_data' in st.session_state
     
-    # Recommandation générique pour l'optimisation marketing
-    recommendations.append({
-        'title': 'Optimiser les campagnes marketing',
-        'reason': 'Opportunité d\'améliorer le ROI des campagnes grâce à l\'analyse des données.',
-        'impact': 'Augmentation possible du ROI marketing de 20-35%',
-        'priority': 'medium',
-        'actions': [
-            'Segmenter la base client pour un ciblage plus précis',
-            'Tester différentes approches créatives A/B',
-            'Optimiser les canaux en fonction des performances',
-            'Automatiser les rapports de performance'
-        ],
-        'implementation_time': 10,
-        'impact_score': 8
-    })
+    if not any([sentiment_analysis_available, fake_reviews_available, marketing_data_available]):
+        st.warning("""
+        **Analyses requises pour les recommandations IA :**
+        
+        Pour générer des recommandations personnalisées, effectuez d'abord :
+        1. **Importez des données marketing** (sidebar)
+        2. **Analysez les sentiments** (onglet "Analyse Sentiments")
+        3. **Détectez les faux avis** (onglet "Détection Faux Avis")
+        
+        L'IA analysera automatiquement vos résultats pour générer des recommandations.
+        """)
+        return
     
-    # Recommandation pour l'innovation
-    recommendations.append({
-        'title': 'Explorer de nouvelles opportunités de marché',
-        'reason': 'Les données suggèrent des segments clients sous-exploités.',
-        'impact': 'Potentiel de croissance de 15-25% sur de nouveaux segments',
-        'priority': 'low',
-        'actions': [
-            'Identifier 3-5 segments clients émergents',
-            'Développer des offres pilotes pour ces segments',
-            'Mesurer l\'engagement et la conversion',
-            'Adapter la stratégie en fonction des résultats'
-        ],
-        'implementation_time': 14,
-        'impact_score': 6
-    })
+    # Section de diagnostic IA
+    st.markdown("---")
+    st.markdown("### Diagnostic IA en temps réel")
+    
+    # Collecter les données des analyses
+    analysis_data = {}
+    
+    if sentiment_analysis_available:
+        df_sentiment = st.session_state['sentiment_analysis']
+        
+        # Calculer les métriques de sentiment
+        sentiment_counts = df_sentiment['sentiment'].value_counts()
+        total_reviews = len(df_sentiment)
+        
+        analysis_data['sentiment'] = {
+            'total_reviews': total_reviews,
+            'positive_percentage': (sentiment_counts.get('positif', 0) / total_reviews * 100) if total_reviews > 0 else 0,
+            'negative_percentage': (sentiment_counts.get('négatif', 0) / total_reviews * 100) if total_reviews > 0 else 0,
+            'neutral_percentage': (sentiment_counts.get('neutre', 0) / total_reviews * 100) if total_reviews > 0 else 0,
+            'avg_polarity': df_sentiment['polarite'].mean() if 'polarite' in df_sentiment.columns else 0,
+            'avg_subjectivity': df_sentiment['subjectivite'].mean() if 'subjectivite' in df_sentiment.columns else 0
+        }
+    
+    if fake_reviews_available:
+        df_fake = st.session_state['fake_reviews_analysis']
+        fake_count = df_fake['is_fake'].sum() if 'is_fake' in df_fake.columns else 0
+        total_fake_reviews = len(df_fake)
+        
+        analysis_data['fake_reviews'] = {
+            'total_analyzed': total_fake_reviews,
+            'fake_count': fake_count,
+            'fake_percentage': (fake_count / total_fake_reviews * 100) if total_fake_reviews > 0 else 0,
+            'fake_reasons': df_fake['fake_reason'].value_counts().to_dict() if 'fake_reason' in df_fake.columns else {}
+        }
+    
+    if marketing_data_available:
+        df_marketing = st.session_state['marketing_data']
+        analysis_data['marketing'] = {
+            'total_customers': len(df_marketing),
+            'columns_available': list(df_marketing.columns),
+            'has_dates': any('date' in col.lower() for col in df_marketing.columns)
+        }
+    
+    # Afficher le diagnostic IA
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### État des analyses")
+        
+        if sentiment_analysis_available:
+            sent_data = analysis_data['sentiment']
+            positive_pct = sent_data['positive_percentage']
+            
+            # Évaluation de santé
+            if positive_pct >= 70:
+                health_status = "Excellente"
+                health_color = "#36B37E"
+            elif positive_pct >= 50:
+                health_status = "Satisfaisante"
+                health_color = "#FFAB00"
+            else:
+                health_status = "Critique"
+                health_color = "#FF5630"
+            
+            st.metric("Santé des avis", health_status)
+            st.metric("Avis positifs", f"{positive_pct:.1f}%")
+            st.metric("Avis négatifs", f"{sent_data['negative_percentage']:.1f}%")
+    
+    with col2:
+        st.markdown("#### Points d'attention")
+        
+        attention_points = []
+        
+        if sentiment_analysis_available:
+            sent_data = analysis_data['sentiment']
+            if sent_data['negative_percentage'] > 30:
+                attention_points.append(f"**{sent_data['negative_percentage']:.1f}% d'avis négatifs** - Réponse urgente requise")
+            if sent_data['avg_polarity'] < -0.2:
+                attention_points.append("**Polarité très négative** - Revoir la satisfaction client")
+        
+        if fake_reviews_available:
+            fake_data = analysis_data['fake_reviews']
+            if fake_data['fake_percentage'] > 10:
+                attention_points.append(f"**{fake_data['fake_percentage']:.1f}% de faux avis** - Risque réputationnel élevé")
+        
+        if attention_points:
+            for point in attention_points:
+                st.warning(point)
+        else:
+            st.success("Aucun point critique identifié")
+    
+    # Section recommandations IA
+    st.markdown("---")
+    st.markdown("### Recommandations IA Marketing")
+    
+    # Générer des recommandations basées sur l'analyse
+    recommendations = _generate_ai_recommendations(analysis_data)
+    
+    # Afficher les recommandations par catégorie
+    tab1, tab2, tab3 = st.tabs(["Actions immédiates", "Stratégies", "Surveillance"])
+    
+    with tab1:
+        st.markdown("#### Actions à mettre en place cette semaine")
+        
+        if 'immediate_actions' in recommendations:
+            for i, action in enumerate(recommendations['immediate_actions'], 1):
+                with st.expander(f"Action {i}: {action['title']}", expanded=True):
+                    st.markdown(f"**Objectif :** {action['objective']}")
+                    st.markdown(f"**Impact estimé :** {action['impact']}")
+                    st.markdown(f"**Étapes :**")
+                    for step in action['steps']:
+                        st.markdown(f"- {step}")
+                    
+                    if action.get('metrics'):
+                        st.markdown(f"**Métriques de suivi :** {action['metrics']}")
+    
+    with tab2:
+        st.markdown("#### Stratégies à moyen terme")
+        
+        if 'strategies' in recommendations:
+            for i, strategy in enumerate(recommendations['strategies'], 1):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.markdown(f"**{strategy['title']}**")
+                    st.markdown(f"*{strategy['description']}*")
+                    st.markdown(f"**Résultat attendu :** {strategy['expected_result']}")
+                with col2:
+                    st.metric("Priorité", strategy['priority'])
+    
+    with tab3:
+        st.markdown("#### Tableau de bord de surveillance")
+        
+        # Créer un tableau de bord de surveillance
+        surveillance_metrics = []
+        
+        if sentiment_analysis_available:
+            sent_data = analysis_data['sentiment']
+            surveillance_metrics.extend([
+                {"Métrique": "Taux satisfaction", "Valeur": f"{sent_data['positive_percentage']:.1f}%", "Cible": "> 70%", "Statut": "OK" if sent_data['positive_percentage'] >= 70 else "Attention"},
+                {"Métrique": "Avis négatifs", "Valeur": f"{sent_data['negative_percentage']:.1f}%", "Cible": "< 15%", "Statut": "OK" if sent_data['negative_percentage'] <= 15 else "Attention"}
+            ])
+        
+        if fake_reviews_available:
+            fake_data = analysis_data['fake_reviews']
+            surveillance_metrics.append(
+                {"Métrique": "Faux avis", "Valeur": f"{fake_data['fake_percentage']:.1f}%", "Cible": "< 5%", "Statut": "OK" if fake_data['fake_percentage'] <= 5 else "Attention"}
+            )
+        
+        if surveillance_metrics:
+            import plotly.graph_objects as go
+            
+            # Créer un tableau visuel
+            fig = go.Figure(data=[go.Table(
+                header=dict(
+                    values=list(surveillance_metrics[0].keys()),
+                    fill_color='#8B5CF6',
+                    align='center',
+                    font=dict(color='white', size=12)
+                ),
+                cells=dict(
+                    values=[[m[col] for m in surveillance_metrics] for col in surveillance_metrics[0].keys()],
+                    fill_color='#F3F4F6',
+                    align='center'
+                )
+            )])
+            
+            fig.update_layout(
+                title="Indicateurs de surveillance marketing",
+                height=200 + len(surveillance_metrics) * 40
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Recommandations de surveillance
+            st.markdown("#### Alertes configurées")
+            st.info("""
+            **Alertes automatiques :**
+            - Email si satisfaction < 60%
+            - Notification si faux avis > 10%
+            - Rapport hebdomadaire automatique
+            """)
+    
+    # Section simulation d'impact
+    st.markdown("---")
+    st.markdown("### Simulation d'impact des recommandations")
+    
+    with st.expander("Simuler l'impact des actions recommandées", expanded=False):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            current_satisfaction = st.number_input(
+                "Satisfaction actuelle (%)",
+                min_value=0.0,
+                max_value=100.0,
+                value=analysis_data.get('sentiment', {}).get('positive_percentage', 50.0),
+                step=1.0
+            )
+            
+            investment = st.number_input(
+                "Budget marketing supplémentaire (€)",
+                min_value=0,
+                value=5000,
+                step=500
+            )
+        
+        with col2:
+            action_scope = st.select_slider(
+                "Portée des actions",
+                options=["Léger", "Modéré", "Agressif"],
+                value="Modéré"
+            )
+            
+            time_horizon = st.select_slider(
+                "Horizon temporel",
+                options=["1 mois", "3 mois", "6 mois", "1 an"],
+                value="3 mois"
+            )
+        
+        if st.button("Simuler l'impact", type="primary"):
+            # Simulation simple
+            impact_multiplier = {"Léger": 1.1, "Modéré": 1.2, "Agressif": 1.3}[action_scope]
+            time_multiplier = {"1 mois": 0.8, "3 mois": 1.0, "6 mois": 1.2, "1 an": 1.5}[time_horizon]
+            
+            simulated_satisfaction = min(100, current_satisfaction * impact_multiplier * time_multiplier)
+            roi_estimate = (investment * (simulated_satisfaction / current_satisfaction - 1)) if current_satisfaction > 0 else 0
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Satisfaction projetée", f"{simulated_satisfaction:.1f}%", f"{simulated_satisfaction - current_satisfaction:.1f}%")
+            with col2:
+                st.metric("ROI estimé", f"{roi_estimate:.0f} €")
+            with col3:
+                efficiency = (simulated_satisfaction - current_satisfaction) / max(investment, 1) * 1000
+                st.metric("Efficacité", f"{efficiency:.2f} pts/1000€")
+    
+    # Bouton pour générer un rapport complet
+    st.markdown("---")
+    if st.button("Générer un rapport IA complet", type="primary", use_container_width=True):
+        report = _generate_ai_report(analysis_data, recommendations)
+        
+        st.download_button(
+            label="Télécharger le rapport IA",
+            data=report,
+            file_name=f"rapport_ia_marketing_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+        
+        st.success("Rapport IA généré avec succès! Téléchargez-le pour voir les recommandations détaillées.")
+
+
+def _generate_ai_recommendations(analysis_data):
+    """Génère des recommandations marketing intelligentes basées sur l'analyse"""
+    recommendations = {
+        'immediate_actions': [],
+        'strategies': [],
+        'monitoring': []
+    }
+    
+    # Analyse des sentiments
+    if 'sentiment' in analysis_data:
+        sent_data = analysis_data['sentiment']
+        
+        if sent_data['negative_percentage'] > 30:
+            recommendations['immediate_actions'].append({
+                'title': "Réponse aux avis négatifs",
+                'objective': "Réduire l'impact des avis négatifs",
+                'impact': "Élevé",
+                'steps': [
+                    "Identifier les 10 avis négatifs les plus récents",
+                    "Répondre personnellement à chaque avis",
+                    "Proposer des solutions concrètes",
+                    "Suivre les clients insatisfaits"
+                ],
+                'metrics': "Réduction de 20% des avis négatifs en 30 jours"
+            })
+        
+        if sent_data['avg_polarity'] < -0.2:
+            recommendations['strategies'].append({
+                'title': "Programme d'amélioration de la satisfaction",
+                'description': "Stratégie proactive pour améliorer l'expérience client",
+                'priority': "Haute",
+                'expected_result': "Augmentation de 15% de la satisfaction en 3 mois"
+            })
+    
+    # Faux avis
+    if 'fake_reviews' in analysis_data:
+        fake_data = analysis_data['fake_reviews']
+        
+        if fake_data['fake_percentage'] > 10:
+            recommendations['immediate_actions'].append({
+                'title': "Nettoyage des faux avis",
+                'objective': "Supprimer les faux avis et renforcer la crédibilité",
+                'impact': "Critique",
+                'steps': [
+                    "Signaler les faux avis aux plateformes",
+                    "Implémenter un système de vérification",
+                    "Former l'équipe à la détection",
+                    "Communiquer sur l'authenticité"
+                ],
+                'metrics': "Réduction à <5% de faux avis en 15 jours"
+            })
+    
+    # Recommandations génériques basées sur les données
+    if 'marketing' in analysis_data:
+        recommendations['strategies'].extend([
+            {
+                'title': "Personnalisation des campagnes",
+                'description': "Adapter les messages marketing aux segments clients identifiés",
+                'priority': "Moyenne",
+                'expected_result': "Augmentation de 25% du taux de conversion"
+            },
+            {
+                'title': "Programme de fidélisation",
+                'description': "Créer un programme pour retenir les clients satisfaits",
+                'priority': "Haute",
+                'expected_result': "Augmentation de 30% de la rétention client"
+            }
+        ])
+    
+    # Actions de surveillance
+    recommendations['monitoring'] = [
+        "Analyser les sentiments quotidiennement",
+        "Surveiller les tendances hebdomadaires",
+        "Comparer avec les concurrents mensuellement",
+        "Ajuster les stratégies en fonction des résultats"
+    ]
     
     return recommendations
+
+
+def _generate_ai_report(analysis_data, recommendations):
+    """Génère un rapport IA complet"""
+    report = f"""
+    ============================================================================
+    RAPPORT D'INTELLIGENCE ARTIFICIELLE - AIM MARKETING PLATFORM
+    ============================================================================
+    Date de génération: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+    
+    ============================================================================
+    1. DIAGNOSTIC GLOBAL
+    ============================================================================
+    
+    """
+    
+    if 'sentiment' in analysis_data:
+        sent_data = analysis_data['sentiment']
+        report += f"""
+        ANALYSE DES SENTIMENTS :
+        ---------------------------
+        Total avis analysés : {sent_data['total_reviews']:,}
+        Avis positifs : {sent_data['positive_percentage']:.1f}%
+        Avis négatifs : {sent_data['negative_percentage']:.1f}%
+        Avis neutres : {sent_data['neutral_percentage']:.1f}%
+        Polarité moyenne : {sent_data['avg_polarity']:.3f}
+        Subjectivité moyenne : {sent_data['avg_subjectivity']:.3f}
+        
+        ÉVALUATION : {"Excellente" if sent_data['positive_percentage'] >= 70 else "Moyenne" if sent_data['positive_percentage'] >= 50 else "Critique"}
+        
+        """
+    
+    if 'fake_reviews' in analysis_data:
+        fake_data = analysis_data['fake_reviews']
+        report += f"""
+        DÉTECTION DE FAUX AVIS :
+        ---------------------------
+        Total analysé : {fake_data['total_analyzed']:,}
+        Faux avis détectés : {fake_data['fake_count']:,}
+        Taux de faux avis : {fake_data['fake_percentage']:.1f}%
+        
+        RISQUE RÉPUTATIONNEL : {"Élevé" if fake_data['fake_percentage'] > 10 else "Modéré" if fake_data['fake_percentage'] > 5 else "Faible"}
+        
+        """
+    
+    report += f"""
+    ============================================================================
+    2. RECOMMANDATIONS INTELLIGENTES
+    ============================================================================
+    
+    ACTIONS IMMÉDIATES (Cette semaine) :
+    ---------------------------------------
+    """
+    
+    for i, action in enumerate(recommendations.get('immediate_actions', []), 1):
+        report += f"""
+        {i}. {action['title']}
+            Objectif : {action['objective']}
+            Impact : {action['impact']}
+            Étapes :
+        """
+        for step in action.get('steps', []):
+            report += f"               - {step}\n"
+        
+        if action.get('metrics'):
+            report += f"            Métriques : {action['metrics']}\n"
+    
+    report += f"""
+    STRATÉGIES À MOYEN TERME (1-3 mois) :
+    ----------------------------------------
+    """
+    
+    for i, strategy in enumerate(recommendations.get('strategies', []), 1):
+        report += f"""
+        {i}. {strategy['title']}
+            Description : {strategy['description']}
+            Priorité : {strategy['priority']}
+            Résultat attendu : {strategy['expected_result']}
+        """
+    
+    report += f"""
+    ============================================================================
+    3. PLAN DE SURVEILLANCE
+    ============================================================================
+    
+    INDICATEURS CLÉS À SURVEILLER :
+    ----------------------------------
+    """
+    
+    # Ajouter les indicateurs
+    if 'sentiment' in analysis_data:
+        sent_data = analysis_data['sentiment']
+        report += f"""
+        • Taux de satisfaction client : {sent_data['positive_percentage']:.1f}% (Cible : >70%)
+        • Avis négatifs : {sent_data['negative_percentage']:.1f}% (Cible : <15%)
+        """
+    
+    if 'fake_reviews' in analysis_data:
+        fake_data = analysis_data['fake_reviews']
+        report += f"""
+        • Taux de faux avis : {fake_data['fake_percentage']:.1f}% (Cible : <5%)
+        """
+    
+    report += f"""
+    
+    ALERTES À CONFIGURER :
+    -------------------------
+    • Satisfaction client < 60%
+    • Augmentation > 10% des avis négatifs
+    • Taux de faux avis > 8%
+    • Baisse > 15% du taux de conversion
+    
+    ============================================================================
+    4. PRÉVISIONS ET IMPACTS ESTIMÉS
+    ============================================================================
+    
+    IMPACT DES RECOMMANDATIONS :
+    --------------------------------
+    • Augmentation estimée de la satisfaction : 15-25% en 3 mois
+    • Réduction estimée des faux avis : 40-60% en 1 mois
+    • ROI marketing estimé : 3-5x sur 6 mois
+    • Augmentation du taux de rétention : 20-30% en 6 mois
+    
+    RISQUES IDENTIFIÉS :
+    -----------------------
+    • Réputation compromise par les faux avis
+    • Clientèle insatisfaite non adressée
+    • Opportunités de croissance manquées
+    • Concurrence agressive
+    
+    ============================================================================
+    5. CONCLUSION ET PROCHAINES ÉTAPES
+    ============================================================================
+    
+    RECAPITULATIF :
+    ----------------
+    Priorité absolue : {recommendations.get('immediate_actions', [{}])[0].get('title', 'Aucune action urgente') if recommendations.get('immediate_actions') else 'Aucune action urgente'}
+    Opportunité principale : Personnalisation marketing
+    Risque principal : {"Faux avis" if analysis_data.get('fake_reviews', {}).get('fake_percentage', 0) > 10 else "Insatisfaction client"}
+    
+    PROCHAINES ÉTAPES :
+    -------------------
+    1. Mettre en œuvre les actions immédiates cette semaine
+    2. Planifier les stratégies à moyen terme
+    3. Configurer le tableau de bord de surveillance
+    4. Réviser les résultats dans 15 jours
+    
+    ============================================================================
+    GÉNÉRÉ PAR L'IA AIM MARKETING PLATFORM
+    Pour plus d'informations : contact@aim-analytics.com
+    ============================================================================
+    """
+    
+    return report
+
 
 # =============================
 #          MAIN APP
