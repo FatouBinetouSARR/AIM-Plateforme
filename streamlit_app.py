@@ -5281,29 +5281,6 @@ def render_analyst_overview(user, db):
         st.markdown('<div style="color: #e74c3c; font-size: 0.9em;">Par dataset</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     
-    with col4:
-        # Calculer la croissance (simulée pour les données importées)
-        if data_available:
-            weekly_growth = "N/A"  # Pas de données historiques pour fichiers importés
-            growth_color = "#3498db"
-        else:
-            upload_activity = metrics.get('upload_activity', [])
-            weekly_growth = "N/A"
-            growth_color = "#3498db"
-            if len(upload_activity) >= 2:
-                recent = upload_activity[-1][1] if len(upload_activity) > 0 else 0
-                previous = upload_activity[-2][1] if len(upload_activity) > 1 else 0
-                if previous > 0:
-                    growth = ((recent - previous) / previous) * 100
-                    weekly_growth = f"{growth:+.1f}%"
-                    growth_color = "#27ae60" if growth > 0 else "#e74c3c"
-        
-        st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-        st.markdown('<div class="kpi-label">CROISSANCE</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-value" style="color: {growth_color};">{weekly_growth}</div>', unsafe_allow_html=True)
-        st.markdown('<div style="color: #3498db; font-size: 0.9em;">Semaine</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
     st.markdown("---")
     
     # Graphiques
