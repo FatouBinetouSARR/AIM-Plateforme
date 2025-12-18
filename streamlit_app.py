@@ -2412,7 +2412,7 @@ def dashboard_data_analyst(user, db):
         
         # Navigation - AJOUT DE LA PAGE "PROFIL"
         st.markdown("---")
-        pages = ["Vue d'ensemble", "Analyse EDA", "Modèles ML", "Analyse Sentiments", "Profil"]
+        pages = ["Vue d'ensemble", "Analyse EDA", "Modèles ML", "Analyse Sentiments  et détection faux avis, "Profil"]
         selected_page = st.radio(
             "Navigation",
             pages,
