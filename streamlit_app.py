@@ -311,8 +311,92 @@ class DatabaseManager:
             cursor.close()
             self.return_connection(conn)
 
-    # SUPPRIMÉ: _init_default_users() - Pas d'utilisateurs de démo
-
+    
+    def can_delete_user(self, user_id, current_admin_id):
+        """Vérifie si un utilisateur peut être supprimé"""
+        if not self.connection_pool:
+            return False, "Base de données non disponible"
+        
+        conn = self.get_connection()
+        if not conn:
+            return False, "Erreur de connexion"
+        
+        cursor = conn.cursor()
+        try:
+            # Convertir les IDs en types Python natifs
+            user_id_int = int(user_id)
+            current_admin_id_int = int(current_admin_id)
+            
+            # Vérifier si l'utilisateur existe
+            cursor.execute("SELECT id, role FROM users WHERE id = %s", (user_id_int,))
+            user_result = cursor.fetchone()
+            
+            if not user_result:
+                return False, "Utilisateur non trouvé"
+            
+            # Ne pas permettre de se supprimer soi-même
+            if user_id_int == current_admin_id_int:
+                return False, "Vous ne pouvez pas vous supprimer vous-même"
+            
+            user_id_db, user_role = user_result
+            
+            # Vérifier si c'est le dernier administrateur
+            if user_role == 'admin':
+                cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != %s", (user_id_int,))
+                other_admins = cursor.fetchone()[0]
+                
+                if other_admins == 0:
+                    return False, "Impossible de supprimer le dernier administrateur"
+            
+            return True, "Utilisateur peut être supprimé"
+            
+        except Exception as e:
+            print(f"Erreur can_delete_user: {e}")
+            return False, f"Erreur de vérification: {str(e)}"
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+            
+    def delete_user(self, user_id):
+        """Supprime un utilisateur de la base de données"""
+        if not self.connection_pool:
+            return False, "Base de données non disponible"
+        
+        conn = self.get_connection()
+        if not conn:
+            return False, "Erreur de connexion"
+        
+        cursor = conn.cursor()
+        try:
+            # Convertir user_id en type Python natif (int)
+            user_id_int = int(user_id)
+            
+            # Vérifier si c'est le dernier administrateur
+            cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != %s", (user_id_int,))
+            other_admins = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT role FROM users WHERE id = %s", (user_id_int,))
+            user_role_result = cursor.fetchone()
+            user_role = user_role_result[0] if user_role_result else None
+            
+            # Empêcher la suppression du dernier admin
+            if user_role == 'admin' and other_admins == 0:
+                return False, "Impossible de supprimer le dernier administrateur"
+            
+            # Supprimer l'utilisateur
+            cursor.execute("DELETE FROM users WHERE id = %s", (user_id_int,))
+            conn.commit()
+            
+            return True, "Utilisateur supprimé avec succès"
+            
+        except Exception as e:
+            conn.rollback()
+            print(f"Erreur delete_user: {e}")
+            return False, f"Erreur lors de la suppression: {str(e)}"
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+        
     def authenticate_user(self, username, password):
         """Authentifie un utilisateur avec bcrypt"""
         if not self.connection_pool:
@@ -817,90 +901,7 @@ class DatabaseManager:
             cursor.close()
             self.return_connection(conn)
 
-    def can_delete_user(self, user_id, current_admin_id):
-        """Vérifie si un utilisateur peut être supprimé"""
-        if not self.connection_pool:
-            return False, "Base de données non disponible"
-        
-        conn = self.get_connection()
-        if not conn:
-            return False, "Erreur de connexion"
-        
-        cursor = conn.cursor()
-        try:
-            # Convertir les IDs en types Python natifs
-            user_id_int = int(user_id)
-            current_admin_id_int = int(current_admin_id)
-            
-            # Vérifier si l'utilisateur existe
-            cursor.execute("SELECT id, role FROM users WHERE id = %s", (user_id_int,))
-            user_result = cursor.fetchone()
-            
-            if not user_result:
-                return False, "Utilisateur non trouvé"
-            
-            # Ne pas permettre de se supprimer soi-même
-            if user_id_int == current_admin_id_int:
-                return False, "Vous ne pouvez pas vous supprimer vous-même"
-            
-            user_id_db, user_role = user_result
-            
-            # Vérifier si c'est le dernier administrateur
-            if user_role == 'admin':
-                cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != %s", (user_id_int,))
-                other_admins = cursor.fetchone()[0]
-                
-                if other_admins == 0:
-                    return False, "Impossible de supprimer le dernier administrateur"
-            
-            return True, "Utilisateur peut être supprimé"
-            
-        except Exception as e:
-            print(f"Erreur can_delete_user: {e}")
-            return False, f"Erreur de vérification: {str(e)}"
-        finally:
-            cursor.close()
-            self.return_connection(conn)
-
-def delete_user(self, user_id):
-    """Supprime un utilisateur de la base de données"""
-    if not self.connection_pool:
-        return False, "Base de données non disponible"
     
-    conn = self.get_connection()
-    if not conn:
-        return False, "Erreur de connexion"
-    
-    cursor = conn.cursor()
-    try:
-        # Convertir user_id en type Python natif (int)
-        user_id_int = int(user_id)
-        
-        # Vérifier si c'est le dernier administrateur
-        cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != %s", (user_id_int,))
-        other_admins = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT role FROM users WHERE id = %s", (user_id_int,))
-        user_role_result = cursor.fetchone()
-        user_role = user_role_result[0] if user_role_result else None
-        
-        # Empêcher la suppression du dernier admin
-        if user_role == 'admin' and other_admins == 0:
-            return False, "Impossible de supprimer le dernier administrateur"
-        
-        # Supprimer l'utilisateur
-        cursor.execute("DELETE FROM users WHERE id = %s", (user_id_int,))
-        conn.commit()
-        
-        return True, "Utilisateur supprimé avec succès"
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"Erreur delete_user: {e}")
-        return False, f"Erreur lors de la suppression: {str(e)}"
-    finally:
-        cursor.close()
-        self.return_connection(conn)
 
     def get_marketing_metrics(self, user_role=None, period='month'):
         """Récupère les métriques marketing dynamiques"""
