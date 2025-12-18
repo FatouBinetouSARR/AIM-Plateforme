@@ -4454,72 +4454,75 @@ def render_eda_analysis(user, db):
         st.markdown("#### Détection des anomalies")
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         
+        anomalies = None  # Initialiser la variable
+        
         if numeric_cols:
             selected_col = st.selectbox("Colonne numérique pour détection d'anomalies:", numeric_cols)
             
-            if selected_col:
-                # Calculer les seuils
-                Q1 = df[selected_col].quantile(0.25)
-                Q3 = df[selected_col].quantile(0.75)
-                IQR = Q3 - Q1
-                lower_bound = Q1 - 1.5 * IQR
-                upper_bound = Q3 + 1.5 * IQR
-                
-                # Identifier les anomalies
-                anomalies = df[(df[selected_col] < lower_bound) | (df[selected_col] > upper_bound)]
-                
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Anomalies détectées", len(anomalies))
-                with col2:
-                    st.metric("Pourcentage", f"{(len(anomalies)/len(df)*100):.2f}%")
-                with col3:
-                    st.metric("Borne inférieure", f"{lower_bound:.2f}")
-                with col4:
-                    st.metric("Borne supérieure", f"{upper_bound:.2f}")
-                
-if len(anomalies) > 0:
-    st.dataframe(anomalies[[selected_col]].head(10), use_container_width=True)
-    
-    # Fonction de callback pour la suppression
-    def remove_anomalies_callback():
-        if 'uploaded_data' in st.session_state:
-            df = st.session_state['uploaded_data']
-            initial_count = len(df)
-            
-            # Calculer à nouveau les bornes pour être sûr
-            Q1 = df[selected_col].quantile(0.25)
-            Q3 = df[selected_col].quantile(0.75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - 1.5 * IQR
-            upper_bound = Q3 + 1.5 * IQR
-            
-            # Filtrer
-            mask = (df[selected_col] >= lower_bound) & (df[selected_col] <= upper_bound)
-            df_cleaned = df[mask].copy()
-            
-            # Mettre à jour
-            st.session_state['uploaded_data'] = df_cleaned
-            st.session_state['anomalies_removed'] = True
-            st.session_state['anomalies_removed_count'] = initial_count - len(df_cleaned)
-    
-    # Bouton avec callback
-    if st.button("Supprimer toutes les anomalies", 
-                 key=f"remove_btn_{selected_col}",
-                 on_click=remove_anomalies_callback,
-                 type="primary"):
-                     # Le callback s'exécute avant, donc on peut juste afficher le message
-                     if 'anomalies_removed' in st.session_state and st.session_state['anomalies_removed']:
-                        removed_count = st.session_state.get('anomalies_removed_count', 0)
-                        st.success(f" {removed_count} anomalies supprimées !")
+            if selected_col and selected_col in df.columns:
+                try:
+                    # Calculer les seuils
+                    Q1 = df[selected_col].quantile(0.25)
+                    Q3 = df[selected_col].quantile(0.75)
+                    IQR = Q3 - Q1
+                    lower_bound = Q1 - 1.5 * IQR
+                    upper_bound = Q3 + 1.5 * IQR
+                    
+                    # Identifier les anomalies
+                    anomalies = df[(df[selected_col] < lower_bound) | (df[selected_col] > upper_bound)]
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Anomalies détectées", len(anomalies))
+                    with col2:
+                        st.metric("Pourcentage", f"{(len(anomalies)/len(df)*100):.2f}%" if len(df) > 0 else "0%")
+                    with col3:
+                        st.metric("Borne inférieure", f"{lower_bound:.2f}")
+                    with col4:
+                        st.metric("Borne supérieure", f"{upper_bound:.2f}")
+                    
+                    # Vérifier si anomalies est défini avant de l'utiliser
+                    if anomalies is not None and len(anomalies) > 0:
+                        st.dataframe(anomalies[[selected_col]].head(10), use_container_width=True)
                         
-                        # Nettoyer les flags
-                        del st.session_state['anomalies_removed']
-                        del st.session_state['anomalies_removed_count']
+                        # Visualisation Box Plot
+                        fig = px.box(df, y=selected_col, title=f"Box Plot de {selected_col}")
+                        st.plotly_chart(fig, use_container_width=True)
                         
-                        # Forcer le rechargement
-                        time.sleep(0.5)
-                        st.rerun()
+                        # Bouton pour supprimer les anomalies
+                        if st.button("Supprimer toutes les anomalies", 
+                                   key=f"remove_anomalies_{selected_col}",
+                                   type="primary"):
+                            
+                            # Créer une copie
+                            current_df = st.session_state.get('uploaded_data', df).copy()
+                            
+                            # Filtrer
+                            mask = (current_df[selected_col] >= lower_bound) & (current_df[selected_col] <= upper_bound)
+                            df_cleaned = current_df[mask].copy()
+                            
+                            # Mettre à jour
+                            st.session_state['uploaded_data'] = df_cleaned
+                            
+                            # Message de confirmation
+                            st.success(f" {len(current_df) - len(df_cleaned)} anomalies supprimées !")
+                            
+                            # Marquer pour rechargement
+                            st.session_state['needs_refresh'] = True
+                            
+                    elif anomalies is not None:
+                        st.success(" Aucune anomalie détectée dans cette colonne")
+                        
+                except Exception as e:
+                    st.error(f"Erreur dans l'analyse des anomalies: {str(e)}")
+        else:
+            st.info("Aucune colonne numérique pour la détection d'anomalies")
+        
+        # Gestion du rechargement après suppression
+        if st.session_state.get('needs_refresh', False):
+            del st.session_state['needs_refresh']
+            time.sleep(1)
+            st.rerun()
         
     # Détection des doublons
     st.markdown("#### Détection des doublons")
