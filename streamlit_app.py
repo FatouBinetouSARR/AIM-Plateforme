@@ -4328,61 +4328,6 @@ def render_eda_analysis(user, db):
     # Créer des onglets pour différentes analyses EDA
     tab1, tab2, tab3, tab4 = st.tabs(["Aperçu", "Nettoyage", "Visualisations", "Export"])
     
-    with tab1:
-        st.markdown("### Aperçu du dataset")
-        
-        # Afficher les 10 premières lignes
-        st.markdown("**10 premières lignes:**")
-        st.dataframe(df.head(10), use_container_width=True)
-        
-        # Informations générales
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Lignes", df.shape[0])
-        with col2:
-            st.metric("Colonnes", df.shape[1])
-        with col3:
-            missing_total = df.isnull().sum().sum()
-            st.metric("Valeurs manquantes", missing_total)
-        with col4:
-            duplicate_rows = df.duplicated().sum()
-            st.metric("Lignes dupliquées", duplicate_rows)
-        
-        # Types de données
-        st.markdown("### Types de données")
-        type_counts = df.dtypes.value_counts()
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            fig = px.pie(
-                values=type_counts.values,
-                names=[str(t) for t in type_counts.index],
-                title="Distribution des types de données",
-                hole=0.4
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Liste des colonnes par type
-            st.markdown("**Détail par colonne:**")
-            for dtype in df.dtypes.unique():
-                cols_of_type = df.select_dtypes(include=[dtype]).columns.tolist()
-                if cols_of_type:
-                    st.write(f"**{dtype}** ({len(cols_of_type)}):")
-                    for col in cols_of_type[:5]:  # Limiter à 5 colonnes par type
-                        st.write(f"  - {col}")
-                    if len(cols_of_type) > 5:
-                        st.write(f"  ... et {len(cols_of_type) - 5} autres")
-        
-        # Statistiques descriptives
-        st.markdown("### Statistiques descriptives")
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        
-        if numeric_cols:
-            st.dataframe(df[numeric_cols].describe(), use_container_width=True)
-        else:
-            st.info("Aucune colonne numérique pour les statistiques descriptives")
-    
     with tab2:
         st.markdown("### Nettoyage des données")
         
@@ -4421,17 +4366,19 @@ def render_eda_analysis(user, db):
             with col1:
                 if st.button("Supprimer les lignes", key="drop_rows"):
                     initial_count = len(df)
-                    df.dropna(subset=[treatment_col], inplace=True)
-                    st.session_state['uploaded_data'] = df
-                    st.success(f"{initial_count - len(df)} lignes supprimées")
+                    df_cleaned = df.dropna(subset=[treatment_col])
+                    st.session_state['uploaded_data'] = df_cleaned
+                    st.success(f"{initial_count - len(df_cleaned)} lignes supprimées")
+                    # Forcer le rechargement
                     st.rerun()
             
             with col2:
                 if st.button("Remplacer par moyenne", key="fill_mean"):
                     if df[treatment_col].dtype in [np.int64, np.float64]:
                         mean_val = df[treatment_col].mean()
-                        df[treatment_col].fillna(mean_val, inplace=True)
-                        st.session_state['uploaded_data'] = df
+                        df_filled = df.copy()
+                        df_filled[treatment_col] = df_filled[treatment_col].fillna(mean_val)
+                        st.session_state['uploaded_data'] = df_filled
                         st.success(f"Valeurs manquantes remplacées par {mean_val:.2f}")
                         st.rerun()
                     else:
@@ -4441,8 +4388,9 @@ def render_eda_analysis(user, db):
                 if st.button("Remplacer par mode", key="fill_mode"):
                     mode_val = df[treatment_col].mode()[0] if not df[treatment_col].mode().empty else None
                     if mode_val is not None:
-                        df[treatment_col].fillna(mode_val, inplace=True)
-                        st.session_state['uploaded_data'] = df
+                        df_filled = df.copy()
+                        df_filled[treatment_col] = df_filled[treatment_col].fillna(mode_val)
+                        st.session_state['uploaded_data'] = df_filled
                         st.success(f"Valeurs manquantes remplacées par '{mode_val}'")
                         st.rerun()
                     else:
@@ -4452,6 +4400,8 @@ def render_eda_analysis(user, db):
         
         # Détection des anomalies
         st.markdown("#### Détection des anomalies")
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
         if numeric_cols:
             selected_col = st.selectbox("Colonne numérique pour détection d'anomalies:", numeric_cols)
             
@@ -4483,12 +4433,18 @@ def render_eda_analysis(user, db):
                     fig = px.box(df, y=selected_col, title=f"Box Plot de {selected_col}")
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Options de traitement des anomalies
-                    if st.button("Supprimer toutes les anomalies"):
+                    # CORRECTION: Bouton pour supprimer les anomalies
+                    if st.button("Supprimer toutes les anomalies", key="remove_all_anomalies"):
                         initial_count = len(df)
-                        df = df[(df[selected_col] >= lower_bound) & (df[selected_col] <= upper_bound)]
-                        st.session_state['uploaded_data'] = df
-                        st.success(f"{initial_count - len(df)} anomalies supprimées")
+                        # Filtrer les anomalies
+                        df_cleaned = df[(df[selected_col] >= lower_bound) & (df[selected_col] <= upper_bound)].copy()
+                        st.session_state['uploaded_data'] = df_cleaned
+                        
+                        st.success(f"{initial_count - len(df_cleaned)} anomalies supprimées")
+                        st.info(f"Données nettoyées: {len(df_cleaned)} lignes restantes")
+                        
+                        # Forcer le rechargement immédiat
+                        time.sleep(1)
                         st.rerun()
                 else:
                     st.success("Aucune anomalie détectée dans cette colonne")
@@ -4504,142 +4460,14 @@ def render_eda_analysis(user, db):
             duplicates = df[df.duplicated(keep=False)]
             st.dataframe(duplicates.head(10), use_container_width=True)
             
-            if st.button("Supprimer tous les doublons"):
+            if st.button("Supprimer tous les doublons", key="remove_duplicates"):
                 initial_count = len(df)
-                df.drop_duplicates(inplace=True)
-                st.session_state['uploaded_data'] = df
-                st.success(f"{initial_count - len(df)} doublons supprimés")
+                df_cleaned = df.drop_duplicates().copy()
+                st.session_state['uploaded_data'] = df_cleaned
+                st.success(f"{initial_count - len(df_cleaned)} doublons supprimés")
                 st.rerun()
         else:
             st.success("Aucun doublon détecté")
-    
-    with tab3:
-        st.markdown("### Visualisations EDA")
-        
-        # Histogrammes pour chaque colonne numérique
-        if numeric_cols:
-            selected_numeric = st.selectbox("Sélectionner une colonne numérique:", numeric_cols)
-            
-            if selected_numeric:
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # Histogramme
-                    fig = px.histogram(
-                        df, 
-                        x=selected_numeric,
-                        title=f"Distribution de {selected_numeric}",
-                        nbins=30,
-                        color_discrete_sequence=['#667eea']
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                with col2:
-                    # Densité
-                    fig = px.density_contour(
-                        df,
-                        x=selected_numeric,
-                        title=f"Densité de {selected_numeric}",
-                        color_discrete_sequence=['#36B37E']
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-        
-        # Matrice de corrélation
-        if len(numeric_cols) >= 2:
-            st.markdown("#### Matrice de corrélation")
-            corr_matrix = df[numeric_cols].corr()
-            
-            fig = px.imshow(
-                corr_matrix,
-                title="Matrice de corrélation",
-                color_continuous_scale='RdBu',
-                zmin=-1, zmax=1,
-                labels=dict(color="Corrélation")
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Analyse des colonnes catégorielles
-        categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
-        if categorical_cols:
-            st.markdown("#### Analyse des colonnes catégorielles")
-            selected_cat = st.selectbox("Sélectionner une colonne catégorielle:", categorical_cols)
-            
-            if selected_cat:
-                value_counts = df[selected_cat].value_counts().head(20)
-                
-                fig = px.bar(
-                    x=value_counts.index,
-                    y=value_counts.values,
-                    title=f"Distribution de {selected_cat} (Top 20)",
-                    labels={'x': selected_cat, 'y': 'Nombre'},
-                    color=value_counts.values,
-                    color_continuous_scale='Viridis'
-                )
-                fig.update_layout(xaxis_tickangle=-45)
-                st.plotly_chart(fig, use_container_width=True)
-    
-    with tab4:
-        st.markdown("### Export des données nettoyées")
-        
-        # Aperçu des données après nettoyage
-        st.markdown("**Aperçu des données après nettoyage:**")
-        st.dataframe(df.head(10), use_container_width=True)
-        
-        # Statistiques de nettoyage
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Lignes finales", len(df))
-        with col2:
-            missing_final = df.isnull().sum().sum()
-            st.metric("Valeurs manquantes restantes", missing_final)
-        with col3:
-            st.metric("Colonnes", len(df.columns))
-        
-        # Options d'export
-        st.markdown("#### Options d'export")
-        
-        export_format = st.radio(
-            "Format d'export:",
-            ["CSV", "Excel"],
-            horizontal=True,
-            key="export_format"
-        )
-        
-        export_filename = st.text_input(
-            "Nom du fichier:",
-            value=f"donnees_nettoyees_{datetime.now().strftime('%Y%m%d_%H%M')}"
-        )
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if export_format == "CSV":
-                csv_data = df.to_csv(index=False)
-                st.download_button(
-                    label="Télécharger CSV",
-                    data=csv_data,
-                    file_name=f"{export_filename}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
-            else:
-                # Pour Excel, on crée un buffer
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    df.to_excel(writer, index=False, sheet_name='Donnees_Nettoyees')
-                
-                st.download_button(
-                    label="Télécharger Excel",
-                    data=buffer.getvalue(),
-                    file_name=f"{export_filename}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-        
-        with col2:
-            if st.button("Enregistrer dans la session", use_container_width=True):
-                st.session_state['cleaned_data'] = df
-                st.success("Données nettoyées enregistrées dans la session")
 
 
 def render_sentiment_analysis(user, db):
