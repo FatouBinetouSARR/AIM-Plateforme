@@ -5373,8 +5373,42 @@ def render_analyst_overview(user, db):
                 st.info("Aucune colonne numérique trouvée dans les données.")
                 
             # Aperçu des données
-            with st.expander("Aperçu du tableau de données", expanded=False):
-                st.dataframe(df.head(10), use_container_width=True)
+            with st.expander("Aperçu du tableau de données (10 premières lignes)", expanded=False):
+                # Afficher les informations sur le tableau
+                st.caption(f"Dimensions : {df.shape[0]} lignes × {df.shape[1]} colonnes")
+                
+                # Afficher un échantillon du tableau
+                if len(df.columns) <= 15:  # Si nombre raisonnable de colonnes
+                    st.dataframe(
+                        df.head(10),
+                        use_container_width=True,
+                        height=300
+                    )
+                else:  # Si trop de colonnes, afficher un sous-ensemble
+                    st.info(f"Affichage des 10 premières colonnes sur {len(df.columns)}")
+                    st.dataframe(
+                        df.iloc[:, :10].head(10),
+                        use_container_width=True,
+                        height=300,
+                        column_config={
+                            col: st.column_config.Column(
+                                width="small" if df[col].dtype == 'object' else "medium",
+                                help=f"Type: {df[col].dtype}"
+                            )
+                            for col in df.columns[:10]
+                        }
+                    )
+                    st.caption(f"... et {len(df.columns) - 10} colonnes supplémentaires")
+                
+                # Afficher les types de données
+                with st.expander("Types de données par colonne", expanded=False):
+                    type_info = pd.DataFrame({
+                        'Colonne': df.columns,
+                        'Type': df.dtypes.astype(str),
+                        'Valeurs manquantes': df.isnull().sum().values,
+                        'Valeurs uniques': [df[col].nunique() for col in df.columns]
+                    })
+                    st.dataframe(type_info, use_container_width=True, height=400)
         else:
             upload_activity = metrics.get('upload_activity', [])
             
