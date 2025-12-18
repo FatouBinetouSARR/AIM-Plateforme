@@ -7212,6 +7212,167 @@ def render_fake_reviews_detection(user, db):
             if detection_results:
                 results_df = pd.DataFrame(detection_results)
                 st.dataframe(results_df, use_container_width=True)
+
+                # ===========================================
+                # SECTION: IDENTIFICATION DES AUTEURS DES FAUX AVIS
+                # ===========================================
+                st.markdown("---")
+                st.markdown("### 3. Identification des auteurs de faux avis")
+                
+                # Chercher les colonnes d'auteur potentielles
+                possible_author_cols = []
+                for col in df.columns:
+                    col_lower = col.lower()
+                    if any(keyword in col_lower for keyword in ['author', 'user', 'name', 'client', 'utilisateur', 'auteur', 'writer', 'reviewer']):
+                        possible_author_cols.append(col)
+                
+                if possible_author_cols:
+                    # Sélectionner la colonne auteur
+                    author_col = st.selectbox(
+                        "Sélectionnez la colonne contenant les noms d'auteurs :",
+                        possible_author_cols,
+                        help="Cette colonne sera utilisée pour identifier les auteurs des faux avis"
+                    )
+                    
+                    if author_col:
+                        # Créer un DataFrame pour stocker les auteurs suspects
+                        suspicious_authors_data = []
+                        
+                        for text_col in text_cols:
+                            for idx, text in enumerate(df[text_col].dropna().head(200)):  # Limité à 200 par colonne
+                                text_str = str(text)
+                                is_fake = False
+                                reason = ""
+                                
+                                # Appliquer les mêmes règles de détection
+                                # Règle 1: Texte trop court
+                                if len(text_str) < 10:
+                                    is_fake = True
+                                    reason = "Texte trop court (<10 caractères)"
+                                
+                                # Règle 2: Répétition excessive
+                                elif len(text_str.split()) > 0:
+                                    words = text_str.split()
+                                    word_counts = Counter(words)
+                                    max_repeat = max(word_counts.values())
+                                    if max_repeat / len(words) > 0.3:
+                                        is_fake = True
+                                        reason = "Répétition excessive"
+                                
+                                # Règle 3: Texte générique
+                                else:
+                                    generic_phrases = [
+                                        'super', 'génial', 'excellent', 'parfait', 'top', 'meilleur',
+                                        'nul', 'horrible', 'déçu', 'décevant', 'mauvais'
+                                    ]
+                                    if any(phrase in text_str.lower() for phrase in generic_phrases) and len(text_str) < 20:
+                                        is_fake = True
+                                        reason = "Texte générique court"
+                                
+                                # Si c'est un faux avis et qu'on a un auteur, l'ajouter
+                                if is_fake and idx < len(df) and pd.notna(df.loc[idx, author_col]):
+                                    author = str(df.loc[idx, author_col])
+                                    
+                                    suspicious_authors_data.append({
+                                        'Auteur': author,
+                                        'Colonne texte': text_col,
+                                        'Texte': text_str[:50] + "..." if len(text_str) > 50 else text_str,
+                                        'Raison': reason,
+                                        'Longueur': len(text_str)
+                                    })
+                        
+                        # Créer le DataFrame des auteurs suspects
+                        if suspicious_authors_data:
+                            authors_df = pd.DataFrame(suspicious_authors_data)
+                            
+                            # Grouper par auteur pour analyse
+                            author_analysis = authors_df.groupby('Auteur').agg({
+                                'Colonne texte': 'count',
+                                'Raison': lambda x: x.mode()[0] if not x.mode().empty else "Divers",
+                                'Longueur': 'mean'
+                            }).rename(columns={'Colonne texte': 'Nombre de faux avis', 'Longueur': 'Longueur moyenne'})
+                            
+                            author_analysis = author_analysis.sort_values('Nombre de faux avis', ascending=False)
+                            
+                            # Afficher le tableau des auteurs
+                            st.markdown(f"**{len(author_analysis)} auteurs suspects identifiés**")
+                            
+                            # Tableau principal
+                            st.dataframe(
+                                author_analysis.reset_index(),
+                                use_container_width=True,
+                                height=400,
+                                column_config={
+                                    "Auteur": st.column_config.TextColumn("Auteur", width="medium"),
+                                    "Nombre de faux avis": st.column_config.NumberColumn("Faux avis", width="small"),
+                                    "Raison": st.column_config.TextColumn("Raison principale", width="medium"),
+                                    "Longueur moyenne": st.column_config.NumberColumn("Long. moyenne", width="small", format="%.0f")
+                                }
+                            )
+                            
+                            # Statistiques supplémentaires
+                            st.markdown("#### Statistiques des auteurs suspects")
+                            
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                most_active = author_analysis.iloc[0] if not author_analysis.empty else None
+                                if most_active is not None:
+                                    st.metric("Auteur le plus actif", 
+                                            f"{author_analysis.index[0]}",
+                                            f"{int(most_active['Nombre de faux avis'])} faux avis")
+                            
+                            with col2:
+                                avg_fake_per_author = author_analysis['Nombre de faux avis'].mean()
+                                st.metric("Moyenne par auteur", f"{avg_fake_per_author:.1f}")
+                            
+                            with col3:
+                                authors_multiple = len(author_analysis[author_analysis['Nombre de faux avis'] > 1])
+                                st.metric("Auteurs récidivistes", authors_multiple)
+                            
+                            # Visualisation : Top 10 des auteurs les plus suspects
+                            st.markdown("---")
+                            st.markdown("#### Top 10 des auteurs les plus suspects")
+                            
+                            top_authors = author_analysis.head(10)
+                            
+                            fig_authors = px.bar(
+                                top_authors.reset_index(),
+                                x='Auteur',
+                                y='Nombre de faux avis',
+                                color='Nombre de faux avis',
+                                title="Top 10 des auteurs avec le plus de faux avis",
+                                color_continuous_scale='Reds',
+                                labels={'Nombre de faux avis': 'Faux avis détectés'}
+                            )
+                            fig_authors.update_layout(xaxis_tickangle=-45)
+                            st.plotly_chart(fig_authors, use_container_width=True)
+                            
+                            # Export des auteurs suspects
+                            st.markdown("---")
+                            st.markdown("#### Export des auteurs suspects")
+                            
+                            csv_authors = authors_df.to_csv(index=False)
+                            st.download_button(
+                                label="Exporter la liste complète des auteurs suspects (CSV)",
+                                data=csv_authors,
+                                file_name=f"auteurs_suspects_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                mime="text/csv",
+                                use_container_width=True
+                            )
+                            
+                        else:
+                            st.info("Aucun auteur de faux avis identifié avec les colonnes actuelles.")
+                            
+                else:
+                    st.warning("""
+                    **Aucune colonne d'auteur détectée automatiquement**
+                    
+                    Pour identifier les auteurs de faux avis, votre dataset doit contenir une colonne avec :
+                    - "author", "user", "name", "client", "auteur", "reviewer" dans le nom de la colonne
+                    - Les noms des personnes ayant écrit les avis/commentaires
+                    
+                    **Conseil :** Renommez votre colonne d'auteur pour inclure l'un de ces mots-clés.
+                    """)
                 
                 # VISUALISATION 1: Taux de faux avis par colonne
                 st.markdown("---")
