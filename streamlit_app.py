@@ -2440,7 +2440,7 @@ def dashboard_data_analyst(user, db):
         render_eda_analysis(user, db)
     elif selected_page == "Modèles ML":
         render_ml_models(user, db)
-    elif selected_page == "Analyse Sentiments":
+    elif selected_page == "Analyse Sentiments et détection faux avis":
         render_sentiment_analysis(user, db)
     elif selected_page == "Profil":
         render_user_profile_enhanced(user, db) 
