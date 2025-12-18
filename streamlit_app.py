@@ -4311,33 +4311,33 @@ def render_eda_analysis(user, db):
     
     # Vérifier si des données ont été importées
     if 'uploaded_data' not in st.session_state or st.session_state['uploaded_data'] is None:
-        st.warning("**Aucune donnée importée**")
+        st.warning("Aucune donnée importée")
         st.markdown("""
         Pour effectuer une analyse exploratoire des données :
-        1. **Importez un fichier CSV ou Excel** depuis la sidebar à gauche
-        2. **Attendez que les données soient chargées**
-        3. **Revenez sur cette page** pour analyser vos données
+        1. Importez un fichier CSV ou Excel depuis la sidebar à gauche
+        2. Attendez que les données soient chargées
+        3. Revenez sur cette page pour analyser vos données
         """)
         return
     
     df = st.session_state['uploaded_data']
     filename = st.session_state.get('uploaded_filename', 'Fichier importé')
     
-    st.success(f"**Analyse EDA de:** {filename}")
+    st.success(f"Analyse EDA de: {filename}")
     
     # Créer des onglets pour différentes analyses EDA
-    tab1, tab2, tab3, tab4 = st.tabs(["Aperçu", "Nettoyage", "Export"])
+    tab1, tab2, tab3 = st.tabs(["Aperçu", "Nettoyage", "Export"])
     
     with tab1:
         st.markdown("### Aperçu des Données")
         
         # Informations générales
-        col1, col2, col3 = st.columns(3)
-        with col1:
+        cols = st.columns(3)
+        with cols[0]:
             st.metric("Lignes", df.shape[0])
-        with col2:
+        with cols[1]:
             st.metric("Colonnes", df.shape[1])
-        with col3:
+        with cols[2]:
             missing_total = df.isnull().sum().sum()
             st.metric("Valeurs manquantes", missing_total)
         
@@ -4345,18 +4345,18 @@ def render_eda_analysis(user, db):
         st.markdown("#### Prévisualisation des données")
         num_rows_preview = st.slider("Nombre de lignes à afficher", 5, 50, 10, key="preview_rows")
         
-        col1, col2 = st.columns(2)
-        with col1:
+        cols = st.columns(2)
+        with cols[0]:
             show_head = st.checkbox("Afficher les premières lignes", value=True, key="show_head")
-        with col2:
+        with cols[1]:
             show_tail = st.checkbox("Afficher les dernières lignes", key="show_tail")
         
         if show_head:
-            st.markdown(f"**Premières {num_rows_preview} lignes :**")
+            st.markdown(f"Premières {num_rows_preview} lignes :")
             st.dataframe(df.head(num_rows_preview), use_container_width=True)
         
         if show_tail:
-            st.markdown(f"**Dernières {num_rows_preview} lignes :**")
+            st.markdown(f"Dernières {num_rows_preview} lignes :")
             st.dataframe(df.tail(num_rows_preview), use_container_width=True)
         
         # Types de données
@@ -4399,24 +4399,12 @@ def render_eda_analysis(user, db):
         if len(missing_df) > 0:
             st.dataframe(missing_df, use_container_width=True)
             
-            # Visualisation des valeurs manquantes
-            fig = px.bar(
-                missing_df.head(20),
-                x='Colonne',
-                y='Pourcentage',
-                title="Colonnes avec valeurs manquantes (Top 20)",
-                color='Pourcentage',
-                color_continuous_scale='Viridis'
-            )
-            fig.update_layout(xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
-            
             # Options de traitement
             st.markdown("#### Traitement des valeurs manquantes")
             treatment_col = st.selectbox("Sélectionner une colonne à traiter:", missing_df['Colonne'].tolist())
             
-            col1, col2, col3 = st.columns(3)
-            with col1:
+            cols = st.columns(3)
+            with cols[0]:
                 if st.button("Supprimer les lignes", key="drop_rows"):
                     initial_count = len(df)
                     df_cleaned = df.dropna(subset=[treatment_col])
@@ -4424,7 +4412,7 @@ def render_eda_analysis(user, db):
                     st.success(f"{initial_count - len(df_cleaned)} lignes supprimées")
                     st.rerun()
             
-            with col2:
+            with cols[1]:
                 if st.button("Remplacer par moyenne", key="fill_mean"):
                     if df[treatment_col].dtype in [np.int64, np.float64]:
                         mean_val = df[treatment_col].mean()
@@ -4436,7 +4424,7 @@ def render_eda_analysis(user, db):
                     else:
                         st.error("Cette colonne n'est pas numérique")
             
-            with col3:
+            with cols[2]:
                 if st.button("Remplacer par mode", key="fill_mode"):
                     mode_val = df[treatment_col].mode()[0] if not df[treatment_col].mode().empty else None
                     if mode_val is not None:
@@ -4454,8 +4442,6 @@ def render_eda_analysis(user, db):
         st.markdown("#### Détection des anomalies")
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         
-        anomalies = None  # Initialiser la variable
-        
         if numeric_cols:
             selected_col = st.selectbox("Colonne numérique pour détection d'anomalies:", numeric_cols)
             
@@ -4471,29 +4457,32 @@ def render_eda_analysis(user, db):
                     # Identifier les anomalies
                     anomalies = df[(df[selected_col] < lower_bound) | (df[selected_col] > upper_bound)]
                     
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("Anomalies détectées", len(anomalies))
-                    with col2:
-                        st.metric("Pourcentage", f"{(len(anomalies)/len(df)*100):.2f}%" if len(df) > 0 else "0%")
-                    with col3:
-                        st.metric("Borne inférieure", f"{lower_bound:.2f}")
-                    with col4:
-                        st.metric("Borne supérieure", f"{upper_bound:.2f}")
+                    # CORRECTION : Utiliser une approche sécurisée pour les colonnes
+                    cols = st.columns(4)
+                    if len(cols) == 4:
+                        with cols[0]:
+                            st.metric("Anomalies détectées", len(anomalies))
+                        with cols[1]:
+                            percentage = (len(anomalies)/len(df)*100) if len(df) > 0 else 0
+                            st.metric("Pourcentage", f"{percentage:.2f}%")
+                        with cols[2]:
+                            st.metric("Borne inférieure", f"{lower_bound:.2f}")
+                        with cols[3]:
+                            st.metric("Borne supérieure", f"{upper_bound:.2f}")
+                    else:
+                        # Fallback avec 2 colonnes
+                        cols = st.columns(2)
+                        with cols[0]:
+                            st.metric("Anomalies détectées", len(anomalies))
+                        with cols[1]:
+                            percentage = (len(anomalies)/len(df)*100) if len(df) > 0 else 0
+                            st.metric("Pourcentage", f"{percentage:.2f}%")
                     
-                    # Vérifier si anomalies est défini avant de l'utiliser
-                    if anomalies is not None and len(anomalies) > 0:
+                    if len(anomalies) > 0:
                         st.dataframe(anomalies[[selected_col]].head(10), use_container_width=True)
                         
-                        # Visualisation Box Plot
-                        fig = px.box(df, y=selected_col, title=f"Box Plot de {selected_col}")
-                        st.plotly_chart(fig, use_container_width=True)
-                        
                         # Bouton pour supprimer les anomalies
-                        if st.button("Supprimer toutes les anomalies", 
-                                   key=f"remove_anomalies_{selected_col}",
-                                   type="primary"):
-                            
+                        if st.button("Supprimer toutes les anomalies", key=f"remove_anomalies_{selected_col}", type="primary"):
                             # Créer une copie
                             current_df = st.session_state.get('uploaded_data', df).copy()
                             
@@ -4505,40 +4494,34 @@ def render_eda_analysis(user, db):
                             st.session_state['uploaded_data'] = df_cleaned
                             
                             # Message de confirmation
-                            st.success(f" {len(current_df) - len(df_cleaned)} anomalies supprimées !")
+                            st.success(f"{len(current_df) - len(df_cleaned)} anomalies supprimées !")
                             
-                            # Marquer pour rechargement
-                            st.session_state['needs_refresh'] = True
-                            
-                    elif anomalies is not None:
-                        st.success(" Aucune anomalie détectée dans cette colonne")
+                            # Forcer le rechargement
+                            time.sleep(1)
+                            st.rerun()
+                    else:
+                        st.success("Aucune anomalie détectée dans cette colonne")
                         
                 except Exception as e:
                     st.error(f"Erreur dans l'analyse des anomalies: {str(e)}")
         else:
             st.info("Aucune colonne numérique pour la détection d'anomalies")
         
-        # Gestion du rechargement après suppression
-        if st.session_state.get('needs_refresh', False):
-            del st.session_state['needs_refresh']
-            time.sleep(1)
-            st.rerun()
-        
-    # Détection des doublons
-    st.markdown("#### Détection des doublons")
-    duplicate_count = df.duplicated().sum()
-        
-    if duplicate_count > 0:
-        st.warning(f"{duplicate_count} doublons détectés")
-        duplicates = df[df.duplicated(keep=False)]
-        st.dataframe(duplicates.head(10), use_container_width=True)
+        # Détection des doublons
+        st.markdown("#### Détection des doublons")
+        duplicate_count = df.duplicated().sum()
             
-        if st.button("Supprimer tous les doublons", key="remove_duplicates"):
-            initial_count = len(df)
-            df_cleaned = df.drop_duplicates().copy()
-            st.session_state['uploaded_data'] = df_cleaned
-            st.success(f"{initial_count - len(df_cleaned)} doublons supprimés")
-            st.rerun()
+        if duplicate_count > 0:
+            st.warning(f"{duplicate_count} doublons détectés")
+            duplicates = df[df.duplicated(keep=False)]
+            st.dataframe(duplicates.head(10), use_container_width=True)
+                
+            if st.button("Supprimer tous les doublons", key="remove_duplicates"):
+                initial_count = len(df)
+                df_cleaned = df.drop_duplicates().copy()
+                st.session_state['uploaded_data'] = df_cleaned
+                st.success(f"{initial_count - len(df_cleaned)} doublons supprimés")
+                st.rerun()
         else:
             st.success("Aucun doublon détecté")
     
@@ -4555,8 +4538,8 @@ def render_eda_analysis(user, db):
         # Filtres d'export
         st.markdown("#### Options d'export")
         
-        col1, col2 = st.columns(2)
-        with col1:
+        cols = st.columns(2)
+        with cols[0]:
             export_all = st.checkbox("Exporter toutes les colonnes", value=True, key="export_all")
             if not export_all:
                 selected_columns = st.multiselect(
@@ -4568,7 +4551,7 @@ def render_eda_analysis(user, db):
             else:
                 selected_columns = df.columns.tolist()
         
-        with col2:
+        with cols[1]:
             sample_size = st.slider(
                 "Nombre de lignes à exporter :",
                 min_value=1,
