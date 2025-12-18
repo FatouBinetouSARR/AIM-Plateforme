@@ -1717,7 +1717,7 @@ def render_user_management_enhanced(user, db):
                     ["data_analyst", "marketing"],
                     format_func=lambda x: {
                         "data_analyst": "Analyste de données",
-                        "marketing": "Marketing",
+                        "marketing": "Manager/Responsable Marketing",
                     }.get(x, x)
                 )
                 new_password = st.text_input("Mot de passe *", type="password")
