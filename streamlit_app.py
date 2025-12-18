@@ -150,44 +150,6 @@ class DatabaseManager:
             print(f"Erreur configuration DB: {e}")
             return None
     
-    
-    def delete_user(self, user_id):
-        """Supprime un utilisateur de la base de données"""
-        if not self.connection_pool:
-            return False, "Base de données non disponible"
-        
-        conn = self.get_connection()
-        if not conn:
-            return False, "Erreur de connexion"
-        
-        cursor = conn.cursor()
-        try:
-            # Vérifier si c'est le dernier administrateur
-            cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != %s", (user_id,))
-            other_admins = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
-            user_role = cursor.fetchone()[0] if cursor.rowcount > 0 else None
-            
-            # Empêcher la suppression du dernier admin
-            if user_role == 'admin' and other_admins == 0:
-                return False, "Impossible de supprimer le dernier administrateur"
-            
-            # Supprimer l'utilisateur
-            cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
-            conn.commit()
-            
-            return True, f"Utilisateur supprimé avec succès"
-            
-        except Exception as e:
-            conn.rollback()
-            return False, f"Erreur lors de la suppression: {str(e)}"
-        finally:
-            cursor.close()
-            self.return_connection(conn)
-    
-    
-    
     def _fix_render_url(self, url):
         """Corrige les URLs Render incomplètes"""
         if not url:
@@ -428,6 +390,8 @@ class DatabaseManager:
             cursor.close()
             self.return_connection(conn)
 
+    
+
     def reset_user_password(self, user_id, new_password="reset123"):
         """Réinitialise le mot de passe d'un utilisateur spécifique"""
         if not self.connection_pool:
@@ -611,8 +575,6 @@ class DatabaseManager:
             cursor.close()
             self.return_connection(conn)
 
-    
-
     def _get_default_stats(self):
         """Retourne des statistiques par défaut (seulement si DB non disponible)"""
         return {
@@ -708,10 +670,7 @@ class DatabaseManager:
         finally:
             cursor.close()
             self.return_connection(conn)
-    
-            
-   
-            
+  
     def _calculate_marketing_metrics_from_data(df):
         """Calcule les métriques marketing à partir d'un DataFrame"""
         metrics = {}
@@ -858,7 +817,91 @@ class DatabaseManager:
             cursor.close()
             self.return_connection(conn)
 
-    # NOUVELLES MÉTHODES POUR DASHBOARDS DYNAMIQUES
+    def can_delete_user(self, user_id, current_admin_id):
+        """Vérifie si un utilisateur peut être supprimé"""
+        if not self.connection_pool:
+            return False, "Base de données non disponible"
+        
+        conn = self.get_connection()
+        if not conn:
+            return False, "Erreur de connexion"
+        
+        cursor = conn.cursor()
+        try:
+            # Convertir les IDs en types Python natifs
+            user_id_int = int(user_id)
+            current_admin_id_int = int(current_admin_id)
+            
+            # Vérifier si l'utilisateur existe
+            cursor.execute("SELECT id, role FROM users WHERE id = %s", (user_id_int,))
+            user_result = cursor.fetchone()
+            
+            if not user_result:
+                return False, "Utilisateur non trouvé"
+            
+            # Ne pas permettre de se supprimer soi-même
+            if user_id_int == current_admin_id_int:
+                return False, "Vous ne pouvez pas vous supprimer vous-même"
+            
+            user_id_db, user_role = user_result
+            
+            # Vérifier si c'est le dernier administrateur
+            if user_role == 'admin':
+                cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != %s", (user_id_int,))
+                other_admins = cursor.fetchone()[0]
+                
+                if other_admins == 0:
+                    return False, "Impossible de supprimer le dernier administrateur"
+            
+            return True, "Utilisateur peut être supprimé"
+            
+        except Exception as e:
+            print(f"Erreur can_delete_user: {e}")
+            return False, f"Erreur de vérification: {str(e)}"
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
+def delete_user(self, user_id):
+    """Supprime un utilisateur de la base de données"""
+    if not self.connection_pool:
+        return False, "Base de données non disponible"
+    
+    conn = self.get_connection()
+    if not conn:
+        return False, "Erreur de connexion"
+    
+    cursor = conn.cursor()
+    try:
+        # Convertir user_id en type Python natif (int)
+        user_id_int = int(user_id)
+        
+        # Vérifier si c'est le dernier administrateur
+        cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != %s", (user_id_int,))
+        other_admins = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT role FROM users WHERE id = %s", (user_id_int,))
+        user_role_result = cursor.fetchone()
+        user_role = user_role_result[0] if user_role_result else None
+        
+        # Empêcher la suppression du dernier admin
+        if user_role == 'admin' and other_admins == 0:
+            return False, "Impossible de supprimer le dernier administrateur"
+        
+        # Supprimer l'utilisateur
+        cursor.execute("DELETE FROM users WHERE id = %s", (user_id_int,))
+        conn.commit()
+        
+        return True, "Utilisateur supprimé avec succès"
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Erreur delete_user: {e}")
+        return False, f"Erreur lors de la suppression: {str(e)}"
+    finally:
+        cursor.close()
+        self.return_connection(conn)
+
     def get_marketing_metrics(self, user_role=None, period='month'):
         """Récupère les métriques marketing dynamiques"""
         if not self.connection_pool:
@@ -1824,11 +1867,13 @@ def render_user_management_enhanced(user, db):
         st.dataframe(display_df, use_container_width=True, height=400)
         st.markdown('</div>', unsafe_allow_html=True)
         
+        # Actions rapides
         st.subheader("Actions rapides")
+        
         # Utiliser des onglets pour organiser les actions
         tab1, tab2 = st.tabs(["Modifier le statut", "Supprimer un utilisateur"])
+        
         with tab1:
-            # Code existant pour changer le statut
             if len(filtered_df) > 0:
                 selected_username_status = st.selectbox(
                     "Sélectionner un utilisateur pour modifier son statut",
@@ -1853,6 +1898,7 @@ def render_user_management_enhanced(user, db):
                             db.log_activity(user['id'], "user_status_change", 
                                            f"Statut {selected_username_status} changé à {new_status}")
                             st.success(f"Statut de {selected_username_status} mis à jour")
+                            time.sleep(1)
                             st.rerun()
                         else:
                             st.error("Erreur lors de la mise à jour")
@@ -1875,6 +1921,10 @@ def render_user_management_enhanced(user, db):
                     if selected_username_delete:
                         user_data_delete = available_users[available_users['username'] == selected_username_delete].iloc[0]
                         
+                        # Convertir l'ID en int natif
+                        user_id_to_delete = int(user_data_delete['id'])
+                        current_admin_id = int(user['id'])
+                        
                         # Afficher les informations de l'utilisateur
                         st.markdown("**Informations de l'utilisateur :**")
                         col1, col2 = st.columns(2)
@@ -1885,53 +1935,54 @@ def render_user_management_enhanced(user, db):
                             st.info(f"**Email :** {user_data_delete.get('email', 'N/A')}")
                             st.info(f"**Département :** {user_data_delete.get('department', 'N/A')}")
                         
-                        # Confirmation de suppression
-                        st.markdown("---")
-                        st.markdown("**Confirmation de suppression**")
+                        # Vérifier si l'utilisateur peut être supprimé
+                        can_delete, delete_message = db.can_delete_user(user_id_to_delete, current_admin_id)
                         
-                        # Double vérification
-                        confirm_text = st.text_input(
-                            f"Tapez 'SUPPRIMER {selected_username_delete}' pour confirmer",
-                            key="confirm_delete_text"
-                        )
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            if st.button("Supprimer définitivement", 
-                                        type="primary",
-                                        disabled=confirm_text != f"SUPPRIMER {selected_username_delete}",
-                                        use_container_width=True):
-                                
-                                # Vérifications supplémentaires
-                                if user_data_delete.get('role') == 'admin':
-                                    # Compter les autres admins
-                                    admin_users = filtered_df[filtered_df['role'] == 'admin']
-                                    if len(admin_users) <= 1:
-                                        st.error("Impossible de supprimer le dernier administrateur")
-                                        return
-                                
-                                # Procéder à la suppression
-                                success, message = db.delete_user(user_data_delete['id'])
-                                
-                                if success:
-                                    db.log_activity(user['id'], "user_deletion", 
-                                                   f"Suppression utilisateur {selected_username_delete}")
-                                    st.success(f"Utilisateur {selected_username_delete} supprimé avec succès")
-                                    time.sleep(2)
+                        if not can_delete:
+                            st.error(f"**Impossible de supprimer :** {delete_message}")
+                        else:
+                            # Confirmation de suppression
+                            st.markdown("---")
+                            st.markdown("**Confirmation de suppression**")
+                            
+                            # Double vérification
+                            confirm_text = st.text_input(
+                                f"Tapez 'SUPPRIMER {selected_username_delete}' pour confirmer",
+                                key="confirm_delete_text",
+                                placeholder=f"SUPPRIMER {selected_username_delete}"
+                            )
+                            
+                            col1, col2, col3 = st.columns([2, 1, 1])
+                            with col1:
+                                delete_disabled = confirm_text != f"SUPPRIMER {selected_username_delete}"
+                                if st.button("Supprimer définitivement", 
+                                            type="primary",
+                                            disabled=delete_disabled,
+                                            use_container_width=True):
+                                    
+                                    # Procéder à la suppression
+                                    success, message = db.delete_user(user_id_to_delete)
+                                    
+                                    if success:
+                                        db.log_activity(user['id'], "user_deletion", 
+                                                       f"Suppression utilisateur {selected_username_delete}")
+                                        st.success(f"Utilisateur {selected_username_delete} supprimé avec succès")
+                                        time.sleep(2)
+                                        st.rerun()
+                                    else:
+                                        st.error(f"Erreur : {message}")
+                            
+                            with col2:
+                                if st.button("Vérifier à nouveau", use_container_width=True):
                                     st.rerun()
-                                else:
-                                    st.error(f"Erreur : {message}")
-                        
-                        with col2:
-                            if st.button("Annuler", use_container_width=True):
-                                st.rerun()
+                            
+                            with col3:
+                                if st.button("Annuler", use_container_width=True):
+                                    st.rerun()
                 else:
                     st.info("Aucun autre utilisateur disponible pour la suppression")
             else:
                 st.info("Aucun utilisateur à supprimer")
-    
-    else:
-        st.info("Aucun utilisateur trouvé dans la base de données")
 
 def render_password_reset_page(user, db):
     """Page de réinitialisation des mots de passe"""
