@@ -4745,17 +4745,6 @@ def render_sentiment_analysis(user, db):
         - **Subjectivité faible** : < 0.1 (manque d'opinion personnelle)
         - **Répétition excessive** : un mot > 30% du texte
         - **Polarité extrême** avec texte court (si colonne note disponible)
-        
-        **3. Processus technique :**
-        ```python
-        # Exemple de code d'analyse
-        blob = TextBlob(texte)
-        polarite = blob.sentiment.polarity
-        subjectivite = blob.sentiment.subjectivity
-        
-        if detect(texte) != 'en':
-            texte = blob.translate(to='en')  # Traduction en anglais
-        ```
         """)
     
     # =============================================
