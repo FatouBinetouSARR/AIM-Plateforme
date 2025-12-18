@@ -4326,7 +4326,7 @@ def render_eda_analysis(user, db):
     st.success(f"**Analyse EDA de:** {filename}")
     
     # Créer des onglets pour différentes analyses EDA
-    tab1, tab2, tab3, tab4 = st.tabs(["Aperçu", "Nettoyage", "Visualisations", "Export"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Aperçu", "Nettoyage", "Export"])
     
     with tab1:
         st.markdown("### Aperçu des Données")
@@ -4478,25 +4478,48 @@ def render_eda_analysis(user, db):
                 with col4:
                     st.metric("Borne supérieure", f"{upper_bound:.2f}")
                 
-                if len(anomalies) > 0:
-                    st.dataframe(anomalies[[selected_col]].head(10), use_container_width=True)
-                    
-                    # Visualisation Box Plot
-                    fig = px.box(df, y=selected_col, title=f"Box Plot de {selected_col}")
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Bouton pour supprimer les anomalies
-                    if st.button("Supprimer toutes les anomalies", key="remove_all_anomalies"):
-                        initial_count = len(df)
-                        df_cleaned = df[(df[selected_col] >= lower_bound) & (df[selected_col] <= upper_bound)].copy()
-                        st.session_state['uploaded_data'] = df_cleaned
-                        st.success(f"{initial_count - len(df_cleaned)} anomalies supprimées")
-                        st.info(f"Données nettoyées: {len(df_cleaned)} lignes restantes")
+if len(anomalies) > 0:
+    st.dataframe(anomalies[[selected_col]].head(10), use_container_width=True)
+    
+    # Fonction de callback pour la suppression
+    def remove_anomalies_callback():
+        if 'uploaded_data' in st.session_state:
+            df = st.session_state['uploaded_data']
+            initial_count = len(df)
+            
+            # Calculer à nouveau les bornes pour être sûr
+            Q1 = df[selected_col].quantile(0.25)
+            Q3 = df[selected_col].quantile(0.75)
+            IQR = Q3 - Q1
+            lower_bound = Q1 - 1.5 * IQR
+            upper_bound = Q3 + 1.5 * IQR
+            
+            # Filtrer
+            mask = (df[selected_col] >= lower_bound) & (df[selected_col] <= upper_bound)
+            df_cleaned = df[mask].copy()
+            
+            # Mettre à jour
+            st.session_state['uploaded_data'] = df_cleaned
+            st.session_state['anomalies_removed'] = True
+            st.session_state['anomalies_removed_count'] = initial_count - len(df_cleaned)
+    
+    # Bouton avec callback
+    if st.button("Supprimer toutes les anomalies", 
+                 key=f"remove_btn_{selected_col}",
+                 on_click=remove_anomalies_callback,
+                 type="primary"):
+                     # Le callback s'exécute avant, donc on peut juste afficher le message
+                     if 'anomalies_removed' in st.session_state and st.session_state['anomalies_removed']:
+                        removed_count = st.session_state.get('anomalies_removed_count', 0)
+                        st.success(f" {removed_count} anomalies supprimées !")
+                        
+                        # Nettoyer les flags
+                        del st.session_state['anomalies_removed']
+                        del st.session_state['anomalies_removed_count']
+                        
+                        # Forcer le rechargement
+                        time.sleep(0.5)
                         st.rerun()
-                else:
-                    st.success("Aucune anomalie détectée dans cette colonne")
-        else:
-            st.info("Aucune colonne numérique pour la détection d'anomalies")
         
         # Détection des doublons
         st.markdown("#### Détection des doublons")
