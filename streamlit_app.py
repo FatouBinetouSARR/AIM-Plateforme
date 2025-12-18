@@ -614,6 +614,41 @@ class DatabaseManager:
             cursor.close()
             self.return_connection(conn)
 
+    def delete_user(self, user_id):
+        """Supprime un utilisateur de la base de données"""
+        if not self.connection_pool:
+            return False, "Base de données non disponible"
+        
+        conn = self.get_connection()
+        if not conn:
+            return False, "Erreur de connexion"
+        
+        cursor = conn.cursor()
+        try:
+            # Vérifier si c'est le dernier administrateur
+            cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != %s", (user_id,))
+            other_admins = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+            user_role = cursor.fetchone()[0] if cursor.rowcount > 0 else None
+            
+            # Empêcher la suppression du dernier admin
+            if user_role == 'admin' and other_admins == 0:
+                return False, "Impossible de supprimer le dernier administrateur"
+            
+            # Supprimer l'utilisateur
+            cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            conn.commit()
+            
+            return True, f"Utilisateur supprimé avec succès"
+            
+        except Exception as e:
+            conn.rollback()
+            return False, f"Erreur lors de la suppression: {str(e)}"
+        finally:
+            cursor.close()
+            self.return_connection(conn)
+
     def _get_default_stats(self):
         """Retourne des statistiques par défaut (seulement si DB non disponible)"""
         return {
@@ -1825,50 +1860,112 @@ def render_user_management_enhanced(user, db):
         st.dataframe(display_df, use_container_width=True, height=400)
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Actions rapides
         st.subheader("Actions rapides")
-        col1, col2 = st.columns(2)
-        
-        with col1:
+        # Utiliser des onglets pour organiser les actions
+        tab1, tab2 = st.tabs(["Modifier le statut", "Supprimer un utilisateur"])
+        with tab1:
+            # Code existant pour changer le statut
             if len(filtered_df) > 0:
-                selected_username = st.selectbox(
-                    "Sélectionner un utilisateur",
+                selected_username_status = st.selectbox(
+                    "Sélectionner un utilisateur pour modifier son statut",
                     filtered_df['username'].tolist(),
-                    key="user_select_action"
+                    key="user_select_status"
                 )
                 
-                if selected_username:
-                    user_data = filtered_df[filtered_df['username'] == selected_username].iloc[0]
+                if selected_username_status:
+                    user_data_status = filtered_df[filtered_df['username'] == selected_username_status].iloc[0]
                     
                     new_status = st.selectbox(
                         "Changer le statut",
                         ["Actif", "Inactif"],
-                        index=0 if user_data.get('is_active', True) else 1,
+                        index=0 if user_data_status.get('is_active', True) else 1,
                         key="status_change_select"
                     )
                     
                     if st.button("Mettre à jour le statut", key="update_status_btn"):
                         is_active = new_status == "Actif"
-                        success = db.update_user_status(user_data['id'], is_active)
+                        success = db.update_user_status(user_data_status['id'], is_active)
                         if success:
                             db.log_activity(user['id'], "user_status_change", 
-                                           f"Statut {selected_username} changé à {new_status}")
-                            st.success(f"Statut de {selected_username} mis à jour")
+                                           f"Statut {selected_username_status} changé à {new_status}")
+                            st.success(f"Statut de {selected_username_status} mis à jour")
                             st.rerun()
                         else:
                             st.error("Erreur lors de la mise à jour")
         
-        with col2:
-            st.markdown("**Exporter les données**")
-            if st.button("Exporter en CSV", key="export_users_csv"):
-                csv = filtered_df.to_csv(index=False)
-                st.download_button(
-                    label="Télécharger CSV",
-                    data=csv,
-                    file_name=f"utilisateurs_aim_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
+        with tab2:
+            st.markdown("### Supprimer un utilisateur")
+            st.warning("**ATTENTION :** Cette action est irréversible. Toutes les données associées à l'utilisateur seront supprimées.")
+            
+            if len(filtered_df) > 0:
+                # Liste des utilisateurs (exclure l'admin actuel)
+                available_users = filtered_df[filtered_df['id'] != user['id']].copy()
+                
+                if len(available_users) > 0:
+                    selected_username_delete = st.selectbox(
+                        "Sélectionner un utilisateur à supprimer",
+                        available_users['username'].tolist(),
+                        key="user_select_delete"
+                    )
+                    
+                    if selected_username_delete:
+                        user_data_delete = available_users[available_users['username'] == selected_username_delete].iloc[0]
+                        
+                        # Afficher les informations de l'utilisateur
+                        st.markdown("**Informations de l'utilisateur :**")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.info(f"**Nom :** {user_data_delete.get('full_name', 'N/A')}")
+                            st.info(f"**Rôle :** {user_data_delete.get('role', 'N/A').replace('_', ' ').title()}")
+                        with col2:
+                            st.info(f"**Email :** {user_data_delete.get('email', 'N/A')}")
+                            st.info(f"**Département :** {user_data_delete.get('department', 'N/A')}")
+                        
+                        # Confirmation de suppression
+                        st.markdown("---")
+                        st.markdown("**Confirmation de suppression**")
+                        
+                        # Double vérification
+                        confirm_text = st.text_input(
+                            f"Tapez 'SUPPRIMER {selected_username_delete}' pour confirmer",
+                            key="confirm_delete_text"
+                        )
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("Supprimer définitivement", 
+                                        type="primary",
+                                        disabled=confirm_text != f"SUPPRIMER {selected_username_delete}",
+                                        use_container_width=True):
+                                
+                                # Vérifications supplémentaires
+                                if user_data_delete.get('role') == 'admin':
+                                    # Compter les autres admins
+                                    admin_users = filtered_df[filtered_df['role'] == 'admin']
+                                    if len(admin_users) <= 1:
+                                        st.error("Impossible de supprimer le dernier administrateur")
+                                        return
+                                
+                                # Procéder à la suppression
+                                success, message = db.delete_user(user_data_delete['id'])
+                                
+                                if success:
+                                    db.log_activity(user['id'], "user_deletion", 
+                                                   f"Suppression utilisateur {selected_username_delete}")
+                                    st.success(f"Utilisateur {selected_username_delete} supprimé avec succès")
+                                    time.sleep(2)
+                                    st.rerun()
+                                else:
+                                    st.error(f"Erreur : {message}")
+                        
+                        with col2:
+                            if st.button("Annuler", use_container_width=True):
+                                st.rerun()
+                else:
+                    st.info("Aucun autre utilisateur disponible pour la suppression")
+            else:
+                st.info("Aucun utilisateur à supprimer")
+    
     else:
         st.info("Aucun utilisateur trouvé dans la base de données")
 
