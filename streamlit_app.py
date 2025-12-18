@@ -6911,55 +6911,120 @@ def render_sentiment_analysis_marketing(user, db):
                 neutre_pct  = round((sentiment_counts.get('neutre', 0) / total_sentiments) * 100, 2)
                 erreur_pct  = round((sentiment_counts.get('erreur', 0) / total_sentiments) * 100, 2)
                 
-                
                 fig1 = px.pie(
                     values=sentiment_counts.values,
                     names=sentiment_counts.index,
                     title="Répartition globale des sentiments",
-                    hole=0.4,
-                    color_discrete_map={
-                        'positif': '#36B37E',  # Vert pour positif
-                        'négatif': '#FF5630',  # Rouge pour négatif
-                        'neutre': '#FFAB00',   # JAUNE pour neutre (corrigé)
-                        'erreur': '#6554C0'    # Violet pour erreur
-                    }
+                    hole=0.4
                 )
                 fig1.update_traces(textposition='inside', textinfo='percent+label')
                 st.plotly_chart(fig1, use_container_width=True)
                 
-                # Interprétation 1
+                # Interprétation marketing
                 st.markdown("#### Interprétation marketing")
-
-                st.markdown(f"""
-                <div style="background:#FFFFFF;padding:20px;border-radius:10px;border:1px solid #E2E8F0">
                 
-                🟡 <strong>Sentiments neutres ({neutre_pct} %)</strong><br>
-                La majorité des contenus analysés sont informatifs ou peu émotionnels.  
-                Cela indique un <strong>faible niveau d’engagement affectif</strong> des audiences.
+                # Générer dynamiquement l'interprétation
+                interpretation_text = f"""
+                **Sentiments neutres ({neutre_pct}%)**
+                """
                 
-                <br><br>
-                
-                🟢 <strong>Sentiments positifs ({positif_pct} %)</strong><br>
-                Une part limitée des textes exprime une perception favorable.  
-                Il existe un <strong>potentiel d’optimisation</strong> pour renforcer l’adhésion et la satisfaction.
-                
-                <br><br>
-                
-                🔴 <strong>Sentiments négatifs ({negatif_pct} %)</strong><br>
-                Les retours négatifs sont <strong>marginaux</strong>, ce qui suggère l’absence de signaux d’alerte majeurs.
-                
-                """, unsafe_allow_html=True)
-                
-                # Message conditionnel intelligent
                 if neutre_pct > 80:
-                    st.info(" Engagement émotionnel faible : une stratégie de contenu plus interactive est recommandée.")
+                    interpretation_text += f"""
+                    Très forte dominance des contenus informatifs ou peu émotionnels.  
+                    Cela indique un engagement affectif très limité des audiences et un besoin de contenu plus engageant.
+                    """
+                elif neutre_pct > 60:
+                    interpretation_text += f"""
+                    Majorité significative de contenus peu émotionnels.  
+                    Cela révèle un engagement émotionnel modéré et une opportunité d'humaniser le contenu.
+                    """
+                else:
+                    interpretation_text += f"""
+                    Part notable mais non dominante des contenus informatifs.  
+                    L'audience montre déjà un certain niveau d'engagement au-delà du simple contenu factuel.
+                    """
                 
-                if negatif_pct > 10:
-                    st.warning(" Proportion notable de sentiments négatifs : des actions correctives sont à envisager.")
+                interpretation_text += f"""
+
+                **Sentiments positifs ({positif_pct}%)**
+                """
                 
                 if positif_pct > 30:
-                    st.success(" Bonne perception globale : capitaliser sur les leviers actuels.")
+                    interpretation_text += f"""
+                    Très bonne perception globale de votre contenu !  
+                    Votre audience est hautement satisfaite - capitalisez sur ces émotions positives.
+                    """
+                elif positif_pct > 15:
+                    interpretation_text += f"""
+                    Perception favorable notable.  
+                    Il existe une base solide d'adhésion à renforcer par des actions ciblées.
+                    """
+                elif positif_pct > 5:
+                    interpretation_text += f"""
+                    Proportion modeste de retours positifs.  
+                    Un potentiel significatif d'amélioration existe pour booster l'engagement positif.
+                    """
+                else:
+                    interpretation_text += f"""
+                    Très faible niveau de sentiment positif.  
+                    Une transformation profonde de la stratégie de contenu est nécessaire pour générer de l'enthousiasme.
+                    """
+                
+                interpretation_text += f"""
 
+                **Sentiments négatifs ({negatif_pct}%)**
+                """
+                
+                if negatif_pct > 20:
+                    interpretation_text += f"""
+                    Proportion alarmante de retours négatifs !  
+                    Action corrective urgente requise pour identifier et résoudre les sources de mécontentement.
+                    """
+                elif negatif_pct > 10:
+                    interpretation_text += f"""
+                    Part notable de sentiments négatifs.  
+                    Des mesures correctives proactives sont recommandées pour éviter l'escalade.
+                    """
+                elif negatif_pct > 5:
+                    interpretation_text += f"""
+                    Faible mais perceptible niveau de négativité.  
+                    Surveillez ces signaux pour prévenir tout risque avant qu'ils ne s'amplifient.
+                    """
+                else:
+                    interpretation_text += f"""
+                    Négativité marginale dans les retours.  
+                    Aucun signal d'alerte majeur détecté - la perception globale reste stable.
+                    """
+                
+                # Ajouter la section erreurs si pertinente
+                if erreur_pct > 5:
+                    interpretation_text += f"""
+
+                **Analyses en erreur ({erreur_pct}%)**
+                    Proportion notable d'analyses non abouties.  
+                    Vérifiez la qualité des données textuelles pour améliorer la fiabilité des résultats.
+                    """
+                
+                st.markdown(interpretation_text)
+                
+                # Messages conditionnels
+                if neutre_pct > 80:
+                    st.info("Priorité stratégique : L'engagement émotionnel est très faible. Une refonte de la stratégie de contenu vers plus d'interactivité et d'émotion est recommandée.")
+                elif neutre_pct > 60:
+                    st.info("Opportunité d'amélioration : L'engagement émotionnel peut être optimisé. Testez des formats de contenu plus engageants.")
+                
+                if negatif_pct > 10:
+                    st.warning("Attention requise : Proportion notable de sentiments négatifs. Des actions correctives sont à envisager rapidement.")
+                elif negatif_pct > 5:
+                    st.warning("Surveillance active : Quelques signaux négatifs détectés. Maintenez une veille attentive sur ces indicateurs.")
+                
+                if positif_pct > 30:
+                    st.success("Excellente performance : Perception très positive ! Capitalisez sur ces résultats pour renforcer la fidélité.")
+                elif positif_pct > 15:
+                    st.success("Bonne dynamique : Perception favorable. Développez les leviers qui génèrent cette positivité.")
+                
+                if erreur_pct > 5:
+                    st.error("Problème technique : Taux d'erreur élevé dans l'analyse. Vérifiez la qualité et la cohérence des données textuelles.")
                 
                 # VISUALISATION 2: Polarité par colonne
                 st.markdown("---")
@@ -6992,7 +7057,6 @@ def render_sentiment_analysis_marketing(user, db):
                         x='Colonne',
                         y='Polarité moyenne',
                         color='Polarité moyenne',
-                        color_continuous_scale='RdYlGn',
                         title="Score de sentiment moyen par colonne",
                         hover_data=['Textes analysés']
                     )
@@ -7000,23 +7064,28 @@ def render_sentiment_analysis_marketing(user, db):
                         xaxis_tickangle=-45,
                         coloraxis_colorbar=dict(title="Polarité")
                     )
-                    fig2.add_hline(y=0.1, line_dash="dash", line_color="green", annotation_text="Seuil positif")
-                    fig2.add_hline(y=-0.1, line_dash="dash", line_color="red", annotation_text="Seuil négatif")
+                    fig2.add_hline(y=0.1, line_dash="dash", annotation_text="Seuil positif")
+                    fig2.add_hline(y=-0.1, line_dash="dash", annotation_text="Seuil négatif")
                     
                     st.plotly_chart(fig2, use_container_width=True)
                     
                     # Interprétation 2
-                    best_col = viz_df.loc[viz_df['Polarité moyenne'].idxmax(), 'Colonne']
-                    worst_col = viz_df.loc[viz_df['Polarité moyenne'].idxmin(), 'Colonne']
+                    best_col_idx = viz_df['Polarité moyenne'].idxmax()
+                    worst_col_idx = viz_df['Polarité moyenne'].idxmin()
+                    
+                    best_col = viz_df.loc[best_col_idx, 'Colonne']
+                    best_score = viz_df.loc[best_col_idx, 'Polarité moyenne']
+                    worst_col = viz_df.loc[worst_col_idx, 'Colonne']
+                    worst_score = viz_df.loc[worst_col_idx, 'Polarité moyenne']
                     
                     st.markdown(f"""
-                    #### **Interprétation:**
-                    - **Colonne la plus positive**: {best_col}
-                    - **Colonne la plus négative**: {worst_col}
-                    - **Ligne verte**: Seuil au-dessus duquel le sentiment est considéré comme positif
-                    - **Ligne rouge**: Seuil en-dessous duquel le sentiment est considéré comme négatif
+                    **Interprétation:**
+                    - Meilleure performance : {best_col} (score: {best_score:.3f})
+                    - Performance à améliorer : {worst_col} (score: {worst_score:.3f})
+                    - Ligne verte : Seuil au-dessus duquel le sentiment est considéré comme positif
+                    - Ligne rouge : Seuil en-dessous duquel le sentiment est considéré comme négatif
                     
-                    **Recommandation**: Concentrez vos efforts d'amélioration sur la colonne **{worst_col}**.
+                    Recommandation : Concentrez vos efforts d'amélioration sur la colonne {worst_col} tout en capitalisant sur les bonnes pratiques de {best_col}.
                     """)
                 
                 # Bouton d'export
@@ -7060,8 +7129,7 @@ def render_sentiment_analysis_marketing(user, db):
                 st.error("Aucun résultat d'analyse disponible")
     
     elif 'sentiment_results' in st.session_state:
-        st.success("Analyse déjà effectuée. Cliquez sur le bouton pour ré-analyser si nécessaire.")
-            
+        st.success("Analyse déjà effectuée. Cliquez sur le bouton pour ré-analyser si nécessaire.")            
             
 def render_fake_reviews_detection(user, db):
     """Détection automatique des faux avis sur toutes les colonnes"""
