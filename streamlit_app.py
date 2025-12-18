@@ -6910,7 +6910,7 @@ def render_sentiment_analysis_marketing(user, db):
                 negatif_pct = round((sentiment_counts.get('négatif', 0) / total_sentiments) * 100, 2)
                 neutre_pct  = round((sentiment_counts.get('neutre', 0) / total_sentiments) * 100, 2)
                 erreur_pct  = round((sentiment_counts.get('erreur', 0) / total_sentiments) * 100, 2)
-
+                
                 
                 fig1 = px.pie(
                     values=sentiment_counts.values,
@@ -6918,10 +6918,10 @@ def render_sentiment_analysis_marketing(user, db):
                     title="Répartition globale des sentiments",
                     hole=0.4,
                     color_discrete_map={
-                        'positif': '#36B37E',
-                        'négatif': '#FF5630',
-                        'neutre': '#FFAB00',
-                        'erreur': '#6554C0'
+                        'positif': '#36B37E',  # Vert pour positif
+                        'négatif': '#FF5630',  # Rouge pour négatif
+                        'neutre': '#FFAB00',   # JAUNE pour neutre (corrigé)
+                        'erreur': '#6554C0'    # Violet pour erreur
                     }
                 )
                 fig1.update_traces(textposition='inside', textinfo='percent+label')
