@@ -4521,21 +4521,21 @@ if len(anomalies) > 0:
                         time.sleep(0.5)
                         st.rerun()
         
-        # Détection des doublons
-        st.markdown("#### Détection des doublons")
-        duplicate_count = df.duplicated().sum()
+    # Détection des doublons
+    st.markdown("#### Détection des doublons")
+    duplicate_count = df.duplicated().sum()
         
-        if duplicate_count > 0:
-            st.warning(f"{duplicate_count} doublons détectés")
-            duplicates = df[df.duplicated(keep=False)]
-            st.dataframe(duplicates.head(10), use_container_width=True)
+    if duplicate_count > 0:
+        st.warning(f"{duplicate_count} doublons détectés")
+        duplicates = df[df.duplicated(keep=False)]
+        st.dataframe(duplicates.head(10), use_container_width=True)
             
-            if st.button("Supprimer tous les doublons", key="remove_duplicates"):
-                initial_count = len(df)
-                df_cleaned = df.drop_duplicates().copy()
-                st.session_state['uploaded_data'] = df_cleaned
-                st.success(f"{initial_count - len(df_cleaned)} doublons supprimés")
-                st.rerun()
+        if st.button("Supprimer tous les doublons", key="remove_duplicates"):
+            initial_count = len(df)
+            df_cleaned = df.drop_duplicates().copy()
+            st.session_state['uploaded_data'] = df_cleaned
+            st.success(f"{initial_count - len(df_cleaned)} doublons supprimés")
+            st.rerun()
         else:
             st.success("Aucun doublon détecté")
     
