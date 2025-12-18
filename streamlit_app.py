@@ -4328,6 +4328,59 @@ def render_eda_analysis(user, db):
     # Créer des onglets pour différentes analyses EDA
     tab1, tab2, tab3, tab4 = st.tabs(["Aperçu", "Nettoyage", "Visualisations", "Export"])
     
+    with tab1:
+        st.markdown("### Aperçu des Données")
+        
+        # Informations générales
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Lignes", df.shape[0])
+        with col2:
+            st.metric("Colonnes", df.shape[1])
+        with col3:
+            missing_total = df.isnull().sum().sum()
+            st.metric("Valeurs manquantes", missing_total)
+        
+        # Aperçu du dataframe
+        st.markdown("#### Prévisualisation des données")
+        num_rows_preview = st.slider("Nombre de lignes à afficher", 5, 50, 10, key="preview_rows")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            show_head = st.checkbox("Afficher les premières lignes", value=True, key="show_head")
+        with col2:
+            show_tail = st.checkbox("Afficher les dernières lignes", key="show_tail")
+        
+        if show_head:
+            st.markdown(f"**Premières {num_rows_preview} lignes :**")
+            st.dataframe(df.head(num_rows_preview), use_container_width=True)
+        
+        if show_tail:
+            st.markdown(f"**Dernières {num_rows_preview} lignes :**")
+            st.dataframe(df.tail(num_rows_preview), use_container_width=True)
+        
+        # Types de données
+        st.markdown("#### Types de données")
+        dtype_info = pd.DataFrame({
+            'Colonne': df.columns,
+            'Type': df.dtypes.astype(str),
+            'Valeurs uniques': [df[col].nunique() for col in df.columns],
+            'Valeurs manquantes': df.isnull().sum().values
+        })
+        st.dataframe(dtype_info, use_container_width=True, height=400)
+        
+        # Statistiques descriptives
+        st.markdown("#### Statistiques descriptives")
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        if numeric_cols:
+            desc_stats = df[numeric_cols].describe().T
+            desc_stats['IQR'] = desc_stats['75%'] - desc_stats['25%']
+            desc_stats = desc_stats[['count', 'mean', 'std', 'min', '25%', '50%', '75%', 'max', 'IQR']]
+            st.dataframe(desc_stats, use_container_width=True)
+        else:
+            st.info("Aucune colonne numérique pour les statistiques descriptives")
+    
     with tab2:
         st.markdown("### Nettoyage des données")
         
@@ -4369,7 +4422,6 @@ def render_eda_analysis(user, db):
                     df_cleaned = df.dropna(subset=[treatment_col])
                     st.session_state['uploaded_data'] = df_cleaned
                     st.success(f"{initial_count - len(df_cleaned)} lignes supprimées")
-                    # Forcer le rechargement
                     st.rerun()
             
             with col2:
@@ -4433,18 +4485,13 @@ def render_eda_analysis(user, db):
                     fig = px.box(df, y=selected_col, title=f"Box Plot de {selected_col}")
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # CORRECTION: Bouton pour supprimer les anomalies
+                    # Bouton pour supprimer les anomalies
                     if st.button("Supprimer toutes les anomalies", key="remove_all_anomalies"):
                         initial_count = len(df)
-                        # Filtrer les anomalies
                         df_cleaned = df[(df[selected_col] >= lower_bound) & (df[selected_col] <= upper_bound)].copy()
                         st.session_state['uploaded_data'] = df_cleaned
-                        
                         st.success(f"{initial_count - len(df_cleaned)} anomalies supprimées")
                         st.info(f"Données nettoyées: {len(df_cleaned)} lignes restantes")
-                        
-                        # Forcer le rechargement immédiat
-                        time.sleep(1)
                         st.rerun()
                 else:
                     st.success("Aucune anomalie détectée dans cette colonne")
@@ -4468,6 +4515,379 @@ def render_eda_analysis(user, db):
                 st.rerun()
         else:
             st.success("Aucun doublon détecté")
+    
+    with tab3:
+        st.markdown("### Visualisations")
+        
+        # Type de visualisation
+        viz_type = st.selectbox(
+            "Type de visualisation :",
+            ["Histogramme", "Diagramme en barres", "Nuage de points", "Box Plot", 
+             "Heatmap de corrélation", "Violin Plot", "Graphique en ligne", "Carte thermique"],
+            key="viz_type"
+        )
+        
+        if viz_type == "Histogramme":
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            if numeric_cols:
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_col = st.selectbox("Sélectionner la colonne :", numeric_cols, key="hist_col")
+                with col2:
+                    nbins = st.slider("Nombre de bins :", 5, 100, 30, key="hist_bins")
+                
+                fig = px.histogram(df, x=x_col, nbins=nbins, title=f"Histogramme de {x_col}")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucune colonne numérique disponible pour l'histogramme")
+        
+        elif viz_type == "Diagramme en barres":
+            categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+            if categorical_cols:
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_col = st.selectbox("Sélectionner la colonne catégorielle :", categorical_cols, key="bar_x")
+                with col2:
+                    if len(categorical_cols) > 1:
+                        color_col = st.selectbox("Colonne de couleur (optionnel) :", ["Aucune"] + categorical_cols, key="bar_color")
+                    else:
+                        color_col = "Aucune"
+                
+                value_counts = df[x_col].value_counts().reset_index()
+                value_counts.columns = [x_col, 'count']
+                
+                if color_col != "Aucune" and color_col in df.columns:
+                    fig = px.bar(df, x=x_col, color=color_col, title=f"Diagramme en barres de {x_col} par {color_col}")
+                else:
+                    fig = px.bar(value_counts, x=x_col, y='count', title=f"Distribution de {x_col}")
+                
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucune colonne catégorielle disponible pour le diagramme en barres")
+        
+        elif viz_type == "Nuage de points":
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            if len(numeric_cols) >= 2:
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    x_col = st.selectbox("Axe X :", numeric_cols, key="scatter_x")
+                with col2:
+                    y_col = st.selectbox("Axe Y :", numeric_cols, key="scatter_y")
+                with col3:
+                    categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+                    if categorical_cols:
+                        color_col = st.selectbox("Couleur (optionnel) :", ["Aucune"] + categorical_cols, key="scatter_color")
+                    else:
+                        color_col = "Aucune"
+                
+                if color_col != "Aucune" and color_col in df.columns:
+                    fig = px.scatter(df, x=x_col, y=y_col, color=color_col, 
+                                   title=f"{y_col} vs {x_col} par {color_col}")
+                else:
+                    fig = px.scatter(df, x=x_col, y=y_col, title=f"{y_col} vs {x_col}")
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Besoin d'au moins 2 colonnes numériques pour le nuage de points")
+        
+        elif viz_type == "Box Plot":
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            if numeric_cols:
+                col1, col2 = st.columns(2)
+                with col1:
+                    y_col = st.selectbox("Colonne numérique :", numeric_cols, key="box_y")
+                with col2:
+                    categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+                    if categorical_cols:
+                        x_col = st.selectbox("Colonne catégorielle (optionnel) :", ["Aucune"] + categorical_cols, key="box_x")
+                    else:
+                        x_col = "Aucune"
+                
+                if x_col != "Aucune" and x_col in df.columns:
+                    fig = px.box(df, x=x_col, y=y_col, title=f"Box Plot de {y_col} par {x_col}")
+                else:
+                    fig = px.box(df, y=y_col, title=f"Box Plot de {y_col}")
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucune colonne numérique disponible pour le Box Plot")
+        
+        elif viz_type == "Heatmap de corrélation":
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            if len(numeric_cols) >= 2:
+                corr_matrix = df[numeric_cols].corr()
+                
+                fig = px.imshow(
+                    corr_matrix,
+                    text_auto=True,
+                    color_continuous_scale='RdBu',
+                    zmin=-1, zmax=1,
+                    title="Matrice de corrélation",
+                    labels=dict(color="Corrélation")
+                )
+                fig.update_layout(width=800, height=600)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Besoin d'au moins 2 colonnes numériques pour la heatmap de corrélation")
+        
+        elif viz_type == "Violin Plot":
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            if numeric_cols:
+                col1, col2 = st.columns(2)
+                with col1:
+                    y_col = st.selectbox("Colonne numérique :", numeric_cols, key="violin_y")
+                with col2:
+                    categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+                    if categorical_cols:
+                        x_col = st.selectbox("Colonne catégorielle :", ["Aucune"] + categorical_cols, key="violin_x")
+                    else:
+                        x_col = "Aucune"
+                
+                if x_col != "Aucune" and x_col in df.columns:
+                    fig = px.violin(df, x=x_col, y=y_col, box=True, points="all",
+                                  title=f"Violin Plot de {y_col} par {x_col}")
+                else:
+                    fig = px.violin(df, y=y_col, box=True, points="all",
+                                  title=f"Violin Plot de {y_col}")
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucune colonne numérique disponible pour le Violin Plot")
+        
+        elif viz_type == "Graphique en ligne":
+            date_cols = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            
+            if date_cols and numeric_cols:
+                col1, col2 = st.columns(2)
+                with col1:
+                    date_col = st.selectbox("Colonne de date :", date_cols, key="line_date")
+                with col2:
+                    y_col = st.selectbox("Colonne numérique :", numeric_cols, key="line_y")
+                
+                # Trier par date
+                df_sorted = df.sort_values(date_col)
+                fig = px.line(df_sorted, x=date_col, y=y_col, title=f"Évolution de {y_col} dans le temps")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Besoin d'une colonne date et d'une colonne numérique pour le graphique en ligne")
+        
+        elif viz_type == "Carte thermique":
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            if len(numeric_cols) >= 2:
+                # Sélectionner un sous-ensemble pour la lisibilité
+                selected_cols = st.multiselect(
+                    "Sélectionner les colonnes :",
+                    numeric_cols,
+                    default=numeric_cols[:5] if len(numeric_cols) >= 5 else numeric_cols,
+                    key="heatmap_cols"
+                )
+                
+                if len(selected_cols) >= 2:
+                    corr_subset = df[selected_cols].corr()
+                    fig = px.imshow(
+                        corr_subset,
+                        text_auto=True,
+                        color_continuous_scale='Viridis',
+                        title="Carte thermique de corrélation"
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Besoin d'au moins 2 colonnes numériques pour la carte thermique")
+    
+    with tab4:
+        st.markdown("### Export des Données")
+        
+        # Options d'export
+        export_format = st.selectbox(
+            "Format d'export :",
+            ["CSV", "Excel", "JSON", "Rapport HTML"],
+            key="export_format"
+        )
+        
+        # Filtres d'export
+        st.markdown("#### Options d'export")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            export_all = st.checkbox("Exporter toutes les colonnes", value=True, key="export_all")
+            if not export_all:
+                selected_columns = st.multiselect(
+                    "Sélectionner les colonnes à exporter :",
+                    df.columns.tolist(),
+                    default=df.columns.tolist()[:5] if len(df.columns) > 5 else df.columns.tolist(),
+                    key="export_columns"
+                )
+            else:
+                selected_columns = df.columns.tolist()
+        
+        with col2:
+            sample_size = st.slider(
+                "Nombre de lignes à exporter :",
+                min_value=1,
+                max_value=len(df),
+                value=min(1000, len(df)),
+                key="export_rows"
+            )
+        
+        # Bouton d'export
+        if st.button("Générer l'export", type="primary", use_container_width=True):
+            with st.spinner("Génération de l'export en cours..."):
+                # Préparer les données
+                export_df = df[selected_columns].head(sample_size) if selected_columns else df.head(sample_size)
+                
+                if export_format == "CSV":
+                    csv_data = export_df.to_csv(index=False)
+                    st.download_button(
+                        label="Télécharger CSV",
+                        data=csv_data,
+                        file_name=f"export_eda_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                
+                elif export_format == "Excel":
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                        export_df.to_excel(writer, sheet_name='Données', index=False)
+                        
+                        # Ajouter un sheet avec les métadonnées
+                        metadata = pd.DataFrame({
+                            'Métrique': ['Lignes exportées', 'Colonnes exportées', 'Date export'],
+                            'Valeur': [len(export_df), len(export_df.columns), datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+                        })
+                        metadata.to_excel(writer, sheet_name='Métadonnées', index=False)
+                    
+                    st.download_button(
+                        label="Télécharger Excel",
+                        data=buffer.getvalue(),
+                        file_name=f"export_eda_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                
+                elif export_format == "JSON":
+                    json_data = export_df.to_json(orient='records', indent=2)
+                    st.download_button(
+                        label="Télécharger JSON",
+                        data=json_data,
+                        file_name=f"export_eda_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
+                
+                elif export_format == "Rapport HTML":
+                    # Créer un rapport HTML simple
+                    html_report = f"""
+                    <html>
+                    <head>
+                        <title>Rapport EDA - {filename}</title>
+                        <style>
+                            body {{ font-family: Arial, sans-serif; margin: 40px; }}
+                            h1 {{ color: #333; }}
+                            .summary {{ background: #f5f5f5; padding: 20px; border-radius: 5px; }}
+                            table {{ width: 100%; border-collapse: collapse; }}
+                            th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
+                            th {{ background-color: #4CAF50; color: white; }}
+                        </style>
+                    </head>
+                    <body>
+                        <h1>Rapport d'Analyse Exploratoire des Données</h1>
+                        <p><strong>Fichier :</strong> {filename}</p>
+                        <p><strong>Date d'export :</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                        
+                        <div class="summary">
+                            <h2>Résumé des données</h2>
+                            <p><strong>Lignes :</strong> {len(export_df)}</p>
+                            <p><strong>Colonnes :</strong> {len(export_df.columns)}</p>
+                            <p><strong>Valeurs manquantes :</strong> {export_df.isnull().sum().sum()}</p>
+                        </div>
+                        
+                        <h2>Aperçu des données</h2>
+                        {export_df.head(20).to_html(index=False)}
+                        
+                        <h2>Statistiques descriptives</h2>
+                    """
+                    
+                    # Ajouter les statistiques descriptives pour les colonnes numériques
+                    numeric_cols = export_df.select_dtypes(include=[np.number]).columns.tolist()
+                    if numeric_cols:
+                        desc_stats = export_df[numeric_cols].describe().T
+                        html_report += desc_stats.to_html()
+                    
+                    html_report += """
+                    </body>
+                    </html>
+                    """
+                    
+                    st.download_button(
+                        label="Télécharger Rapport HTML",
+                        data=html_report,
+                        file_name=f"rapport_eda_{datetime.now().strftime('%Y%m%d_%H%M')}.html",
+                        mime="text/html",
+                        use_container_width=True
+                    )
+        
+        # Rapport statistique
+        st.markdown("---")
+        st.markdown("#### Générer un rapport statistique")
+        
+        if st.button("Générer rapport statistique", use_container_width=True):
+            with st.spinner("Génération du rapport..."):
+                report_content = f"""
+                RAPPORT STATISTIQUE - ANALYSE EDA
+                =================================
+                Date : {datetime.now().strftime('%d/%m/%Y %H:%M')}
+                Fichier : {filename}
+                Lignes : {len(df)}
+                Colonnes : {len(df.columns)}
+                
+                RÉSUMÉ DES DONNÉES :
+                ===================
+                """
+                
+                # Types de données
+                report_content += "\nTypes de données par colonne :\n"
+                for col in df.columns:
+                    report_content += f"- {col}: {df[col].dtype}, Valeurs uniques: {df[col].nunique()}, Manquantes: {df[col].isnull().sum()}\n"
+                
+                # Valeurs manquantes
+                missing_total = df.isnull().sum().sum()
+                report_content += f"\nValeurs manquantes totales : {missing_total} ({missing_total/(len(df)*len(df.columns))*100:.1f}%)\n"
+                
+                # Statistiques descriptives
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                if numeric_cols:
+                    report_content += "\nSTATISTIQUES DESCRIPTIVES :\n"
+                    report_content += "===========================\n"
+                    for col in numeric_cols[:10]:  # Limiter à 10 colonnes
+                        if df[col].notna().sum() > 0:
+                            report_content += f"\n{col}:\n"
+                            report_content += f"  Moyenne: {df[col].mean():.2f}\n"
+                            report_content += f"  Médiane: {df[col].median():.2f}\n"
+                            report_content += f"  Écart-type: {df[col].std():.2f}\n"
+                            report_content += f"  Min: {df[col].min():.2f}\n"
+                            report_content += f"  Max: {df[col].max():.2f}\n"
+                
+                # Recommandations
+                report_content += """
+                
+                RECOMMANDATIONS :
+                ================
+                1. Nettoyer les valeurs manquantes avant analyse
+                2. Vérifier la cohérence des types de données
+                3. Explorer les relations entre variables
+                4. Valider les hypothèses statistiques
+                """
+                
+                st.download_button(
+                    label="Télécharger Rapport Statistique",
+                    data=report_content,
+                    file_name=f"rapport_statistique_eda_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
 
 
 def render_sentiment_analysis(user, db):
