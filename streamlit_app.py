@@ -151,40 +151,37 @@ class DatabaseManager:
             return None
     
     
-    def resolve_ticket(self, ticket_id, user_id):
-        """Marque un ticket comme résolu"""
+    def delete_user(self, user_id):
+        """Supprime un utilisateur de la base de données"""
         if not self.connection_pool:
-            return False
+            return False, "Base de données non disponible"
         
         conn = self.get_connection()
         if not conn:
-            return False
+            return False, "Erreur de connexion"
         
         cursor = conn.cursor()
         try:
-            cursor.execute("""
-                UPDATE support_tickets 
-                SET status = 'Résolu',
-                    resolved_at = NOW(),
-                    updated_at = NOW()
-                WHERE id = %s
-            """, (ticket_id,))
+            # Vérifier si c'est le dernier administrateur
+            cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != %s", (user_id,))
+            other_admins = cursor.fetchone()[0]
             
+            cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+            user_role = cursor.fetchone()[0] if cursor.rowcount > 0 else None
+            
+            # Empêcher la suppression du dernier admin
+            if user_role == 'admin' and other_admins == 0:
+                return False, "Impossible de supprimer le dernier administrateur"
+            
+            # Supprimer l'utilisateur
+            cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
             conn.commit()
             
-            # Log l'activité
-            self.log_activity(
-                user_id,
-                "ticket_resolved",
-                f"Ticket #{ticket_id} résolu"
-            )
-            
-            return cursor.rowcount > 0
+            return True, f"Utilisateur supprimé avec succès"
             
         except Exception as e:
             conn.rollback()
-            print(f"Erreur resolve_ticket: {e}")
-            return False
+            return False, f"Erreur lors de la suppression: {str(e)}"
         finally:
             cursor.close()
             self.return_connection(conn)
@@ -614,40 +611,7 @@ class DatabaseManager:
             cursor.close()
             self.return_connection(conn)
 
-    def delete_user(self, user_id):
-        """Supprime un utilisateur de la base de données"""
-        if not self.connection_pool:
-            return False, "Base de données non disponible"
-        
-        conn = self.get_connection()
-        if not conn:
-            return False, "Erreur de connexion"
-        
-        cursor = conn.cursor()
-        try:
-            # Vérifier si c'est le dernier administrateur
-            cursor.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != %s", (user_id,))
-            other_admins = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
-            user_role = cursor.fetchone()[0] if cursor.rowcount > 0 else None
-            
-            # Empêcher la suppression du dernier admin
-            if user_role == 'admin' and other_admins == 0:
-                return False, "Impossible de supprimer le dernier administrateur"
-            
-            # Supprimer l'utilisateur
-            cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
-            conn.commit()
-            
-            return True, f"Utilisateur supprimé avec succès"
-            
-        except Exception as e:
-            conn.rollback()
-            return False, f"Erreur lors de la suppression: {str(e)}"
-        finally:
-            cursor.close()
-            self.return_connection(conn)
+    
 
     def _get_default_stats(self):
         """Retourne des statistiques par défaut (seulement si DB non disponible)"""
