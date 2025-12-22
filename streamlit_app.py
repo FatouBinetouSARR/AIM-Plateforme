@@ -1181,6 +1181,7 @@ def apply_custom_css():
         background: #F8FAFC;
         font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         color: #0F172A;
+        font-size: 18px;
     }
 
     /* =========================
