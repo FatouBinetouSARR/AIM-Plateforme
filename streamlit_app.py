@@ -5317,6 +5317,179 @@ def render_analyst_overview(user, db):
         st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("---")
+    
+    # Graphiques
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Distribution par type de données")
+        
+        if data_available:
+            # Utiliser les données importées
+            type_counts = df.dtypes.value_counts()
+            types = [str(dtype) for dtype in type_counts.index]
+            counts = type_counts.values.tolist()
+            
+            if len(types) > 0:
+                fig = px.pie(
+                    values=counts,
+                    names=types,
+                    title="Types de données dans le fichier",
+                    color_discrete_sequence=px.colors.qualitative.Set3,
+                    hole=0.3
+                )
+                fig.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucune information sur les types de données")
+        else:
+            data_distribution = metrics.get('data_distribution', [])
+            
+            if data_distribution:
+                types = [row[0] for row in data_distribution]
+                counts = [row[1] for row in data_distribution]
+                
+                fig = px.pie(
+                    values=counts,
+                    names=types,
+                    title="",
+                    color_discrete_sequence=px.colors.qualitative.Set3,
+                    hole=0.3
+                )
+                fig.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("Aucune donnée disponible")
+    
+    with col2:
+        st.subheader("Aperçu des données")
+        
+        if data_available:
+            # Afficher un aperçu statistique des données importées
+            st.markdown("**Statistiques descriptives:**")
+            
+            # Sélectionner une colonne numérique pour analyse
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            
+            if len(numeric_cols) > 0:
+                selected_col = st.selectbox(
+                    "Sélectionner une colonne numérique :",
+                    numeric_cols,
+                    key="overview_numeric_col"
+                )
+                
+                if selected_col:
+                    col_data = df[selected_col].dropna()
+                    
+                    if len(col_data) > 0:
+                        # Histogramme
+                        fig = px.histogram(
+                            df, 
+                            x=selected_col,
+                            title=f"Distribution de '{selected_col}'",
+                            nbins=30,
+                            color_discrete_sequence=['#667eea']
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Statistiques
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.metric("Moyenne", f"{col_data.mean():.2f}")
+                        with col2:
+                            st.metric("Médiane", f"{col_data.median():.2f}")
+                        with col3:
+                            st.metric("Écart-type", f"{col_data.std():.2f}")
+                        with col4:
+                            st.metric("Valeurs uniques", len(col_data.unique()))
+                    else:
+                        st.warning(f"La colonne '{selected_col}' ne contient pas de valeurs numériques valides.")
+            else:
+                st.info("Aucune colonne numérique trouvée dans les données.")
+                
+            # Aperçu des données
+            with st.expander("Aperçu du tableau de données (10 premières lignes)", expanded=False):
+                # Afficher les informations sur le tableau
+                st.caption(f"Dimensions : {df.shape[0]} lignes × {df.shape[1]} colonnes")
+                
+                # Afficher un échantillon du tableau
+                if len(df.columns) <= 15:  # Si nombre raisonnable de colonnes
+                    st.dataframe(
+                        df.head(10),
+                        use_container_width=True,
+                        height=300
+                    )
+                else:  # Si trop de colonnes, afficher un sous-ensemble
+                    st.info(f"Affichage des 10 premières colonnes sur {len(df.columns)}")
+                    st.dataframe(
+                        df.iloc[:, :10].head(10),
+                        use_container_width=True,
+                        height=300,
+                        column_config={
+                            col: st.column_config.Column(
+                                width="small" if df[col].dtype == 'object' else "medium",
+                                help=f"Type: {df[col].dtype}"
+                            )
+                            for col in df.columns[:10]
+                        }
+                    )
+                    st.caption(f"... et {len(df.columns) - 10} colonnes supplémentaires")
+                
+                # Afficher les types de données
+                with st.expander("Types de données par colonne", expanded=False):
+                    type_info = pd.DataFrame({
+                        'Colonne': df.columns,
+                        'Type': df.dtypes.astype(str),
+                        'Valeurs manquantes': df.isnull().sum().values,
+                        'Valeurs uniques': [df[col].nunique() for col in df.columns]
+                    })
+                    st.dataframe(type_info, use_container_width=True, height=400)
+        else:
+            upload_activity = metrics.get('upload_activity', [])
+            
+            if upload_activity:
+                dates = [row[0] for row in upload_activity]
+                uploads = [row[1] for row in upload_activity]
+                records = [row[2] for row in upload_activity]
+                
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=dates,
+                    y=uploads,
+                    name='Uploads',
+                    marker_color='#667eea'
+                ))
+                fig.add_trace(go.Scatter(
+                    x=dates,
+                    y=records,
+                    name='Enregistrements',
+                    yaxis='y2',
+                    line=dict(color='#36B37E', width=3)
+                ))
+                
+                fig.update_layout(
+                    title="Activité d'upload récente",
+                    yaxis=dict(title="Nombre d'uploads"),
+                    yaxis2=dict(
+                        title="Enregistrements (milliers)",
+                        overlaying='y',
+                        side='right',
+                        tickformat=',.0f'
+                    ),
+                    hovermode='x unified'
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                # Graphique d'exemple
+                dates = pd.date_range(end=pd.Timestamp.now(), periods=7, freq='D')
+                fig = px.bar(
+                    x=dates,
+                    y=np.random.randint(1, 10, 7),
+                    title="Aucune donnée récente",
+                    labels={'x': 'Date', 'y': 'Uploads'}
+                )
+                st.plotly_chart(fig, use_container_width=True)
                 
 
 def render_analyst_analytics_enhanced(user, db):
