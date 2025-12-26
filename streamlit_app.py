@@ -6323,40 +6323,6 @@ def render_classification_models(user, df):
                                title="Top 10 des variables les plus importantes")
                 st.plotly_chart(fig_imp, use_container_width=True)
             
-            # Prédictions sur de nouvelles données
-            st.markdown("### Faire une prédiction")
-            
-            col1, col2 = st.columns(2)
-            input_values = {}
-            
-            for i, feature in enumerate(feature_cols[:4]):  # Limiter à 4 features pour l'affichage
-                with col1 if i % 2 == 0 else col2:
-                    mean_val = df[feature].mean()
-                    std_val = df[feature].std()
-                    input_values[feature] = st.number_input(
-                        f"{feature} :",
-                        value=float(mean_val),
-                        step=float(std_val/10)
-                    )
-            
-            if st.button("Prédire"):
-                # Préparer l'input
-                input_array = np.array([[input_values[f] for f in feature_cols]])
-                input_scaled = scaler.transform(input_array)
-                
-                # Faire la prédiction
-                prediction = model.predict(input_scaled)[0]
-                proba = model.predict_proba(input_scaled)[0] if hasattr(model, 'predict_proba') else None
-                
-                if proba is not None:
-                    st.success(f"**Prédiction :** {class_names[prediction]}")
-                    st.info(f"**Probabilités :**")
-                    for i, prob in enumerate(proba):
-                        st.write(f"- {class_names[i]}: {prob:.3f}")
-                else:
-                    st.success(f"**Prédiction :** {class_names[prediction]}")
-
-
 
 def render_reports(user, db):
     """Génération de rapports (Section désactivée)"""
