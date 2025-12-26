@@ -4383,32 +4383,47 @@ def render_eda_analysis(user, db):
             cols = st.columns(3)
             with cols[0]:
                 if st.button("Supprimer les lignes", key="drop_rows"):
-                    initial_count = len(df)
-                    df_cleaned = df.dropna(subset=[treatment_col])
+                    # Récupérer le DataFrame actuel depuis la session
+                    current_df = st.session_state['uploaded_data'].copy()
+                    initial_count = len(current_df)
+                    df_cleaned = current_df.dropna(subset=[treatment_col])
+                    
+                    # Mettre à jour le DataFrame dans la session
                     st.session_state['uploaded_data'] = df_cleaned
-                    st.success(f"{initial_count - len(df_cleaned)} lignes supprimées")
+                    
+                    st.success(f"✅ {initial_count - len(df_cleaned)} lignes supprimées")
                     st.rerun()
             
             with cols[1]:
                 if st.button("Remplacer par moyenne", key="fill_mean"):
-                    if df[treatment_col].dtype in [np.int64, np.float64]:
-                        mean_val = df[treatment_col].mean()
-                        df_filled = df.copy()
-                        df_filled[treatment_col] = df_filled[treatment_col].fillna(mean_val)
-                        st.session_state['uploaded_data'] = df_filled
-                        st.success(f"Valeurs manquantes remplacées par {mean_val:.2f}")
+                    # Récupérer le DataFrame actuel depuis la session
+                    current_df = st.session_state['uploaded_data'].copy()
+                    
+                    if current_df[treatment_col].dtype in [np.int64, np.float64]:
+                        mean_val = current_df[treatment_col].mean()
+                        current_df[treatment_col] = current_df[treatment_col].fillna(mean_val)
+                        
+                        # Mettre à jour le DataFrame dans la session
+                        st.session_state['uploaded_data'] = current_df
+                        
+                        st.success(f"✅ Valeurs manquantes remplacées par {mean_val:.2f}")
                         st.rerun()
                     else:
                         st.error("Cette colonne n'est pas numérique")
             
             with cols[2]:
                 if st.button("Remplacer par mode", key="fill_mode"):
-                    mode_val = df[treatment_col].mode()[0] if not df[treatment_col].mode().empty else None
+                    # Récupérer le DataFrame actuel depuis la session
+                    current_df = st.session_state['uploaded_data'].copy()
+                    
+                    mode_val = current_df[treatment_col].mode()[0] if not current_df[treatment_col].mode().empty else None
                     if mode_val is not None:
-                        df_filled = df.copy()
-                        df_filled[treatment_col] = df_filled[treatment_col].fillna(mode_val)
-                        st.session_state['uploaded_data'] = df_filled
-                        st.success(f"Valeurs manquantes remplacées par '{mode_val}'")
+                        current_df[treatment_col] = current_df[treatment_col].fillna(mode_val)
+                        
+                        # Mettre à jour le DataFrame dans la session
+                        st.session_state['uploaded_data'] = current_df
+                        
+                        st.success(f"✅ Valeurs manquantes remplacées par '{mode_val}'")
                         st.rerun()
                     else:
                         st.error("Impossible de déterminer le mode")
@@ -4434,47 +4449,39 @@ def render_eda_analysis(user, db):
                     # Identifier les anomalies
                     anomalies = df[(df[selected_col] < lower_bound) | (df[selected_col] > upper_bound)]
                     
-                    # CORRECTION : Utiliser une approche sécurisée pour les colonnes
+                    # Afficher les statistiques
                     cols = st.columns(4)
-                    if len(cols) == 4:
-                        with cols[0]:
-                            st.metric("Anomalies détectées", len(anomalies))
-                        with cols[1]:
-                            percentage = (len(anomalies)/len(df)*100) if len(df) > 0 else 0
-                            st.metric("Pourcentage", f"{percentage:.2f}%")
-                        with cols[2]:
-                            st.metric("Borne inférieure", f"{lower_bound:.2f}")
-                        with cols[3]:
-                            st.metric("Borne supérieure", f"{upper_bound:.2f}")
-                    else:
-                        # Fallback avec 2 colonnes
-                        cols = st.columns(2)
-                        with cols[0]:
-                            st.metric("Anomalies détectées", len(anomalies))
-                        with cols[1]:
-                            percentage = (len(anomalies)/len(df)*100) if len(df) > 0 else 0
-                            st.metric("Pourcentage", f"{percentage:.2f}%")
+                    with cols[0]:
+                        st.metric("Anomalies détectées", len(anomalies))
+                    with cols[1]:
+                        percentage = (len(anomalies)/len(df)*100) if len(df) > 0 else 0
+                        st.metric("Pourcentage", f"{percentage:.2f}%")
+                    with cols[2]:
+                        st.metric("Borne inférieure", f"{lower_bound:.2f}")
+                    with cols[3]:
+                        st.metric("Borne supérieure", f"{upper_bound:.2f}")
                     
                     if len(anomalies) > 0:
                         st.dataframe(anomalies[[selected_col]].head(10), use_container_width=True)
                         
                         # Bouton pour supprimer les anomalies
                         if st.button("Supprimer toutes les anomalies", key=f"remove_anomalies_{selected_col}", type="primary"):
-                            # Créer une copie
-                            current_df = st.session_state.get('uploaded_data', df).copy()
+                            # Récupérer le DataFrame actuel depuis la session
+                            current_df = st.session_state['uploaded_data'].copy()
                             
-                            # Filtrer
+                            # Filtrer pour garder seulement les non-anomalies
                             mask = (current_df[selected_col] >= lower_bound) & (current_df[selected_col] <= upper_bound)
                             df_cleaned = current_df[mask].copy()
                             
-                            # Mettre à jour
+                            # Mettre à jour le DataFrame dans la session
                             st.session_state['uploaded_data'] = df_cleaned
                             
-                            # Message de confirmation
-                            st.success(f"{len(current_df) - len(df_cleaned)} anomalies supprimées !")
+                            # Afficher un message de confirmation
+                            anomalies_removed = len(current_df) - len(df_cleaned)
+                            st.success(f"✅ {anomalies_removed} anomalies supprimées avec succès !")
+                            st.info(f"Dataset mis à jour : {len(df_cleaned)} lignes restantes.")
                             
-                            # Forcer le rechargement
-                            time.sleep(1)
+                            # Forcer le rechargement immédiat de la page
                             st.rerun()
                     else:
                         st.success("Aucune anomalie détectée dans cette colonne")
@@ -4494,10 +4501,20 @@ def render_eda_analysis(user, db):
             st.dataframe(duplicates.head(10), use_container_width=True)
                 
             if st.button("Supprimer tous les doublons", key="remove_duplicates"):
-                initial_count = len(df)
-                df_cleaned = df.drop_duplicates().copy()
+                # Récupérer le DataFrame actuel depuis la session
+                current_df = st.session_state['uploaded_data'].copy()
+                
+                # Supprimer les doublons
+                df_cleaned = current_df.drop_duplicates().copy()
+                
+                # Mettre à jour le DataFrame dans la session
                 st.session_state['uploaded_data'] = df_cleaned
-                st.success(f"{initial_count - len(df_cleaned)} doublons supprimés")
+                
+                # Message de confirmation
+                st.success(f"✅ {len(current_df) - len(df_cleaned)} doublons supprimés avec succès !")
+                st.info(f"Dataset mis à jour : {len(df_cleaned)} lignes uniques.")
+                
+                # Forcer le rechargement
                 st.rerun()
         else:
             st.success("Aucun doublon détecté")
@@ -4694,8 +4711,7 @@ def render_eda_analysis(user, db):
                     mime="text/plain",
                     use_container_width=True
                 )
-
-
+                
 def render_sentiment_analysis(user, db):
     """Analyse des sentiments et détection des faux avis"""
     st.subheader("Analyse des Sentiments & Détection des Faux Avis")
