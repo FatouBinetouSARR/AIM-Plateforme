@@ -6497,7 +6497,8 @@ def dashboard_marketing(user, db):
     
     # Contenu principal - TOUTES LES PAGES DOIVENT ÊTRE DÉFINIES
     if selected_page == "Vue d'ensemble":
-        render_marketing_overview_advanced(user, db)
+        # Utilise la fonction existante qui a les KPIs dynamiques
+        render_marketing_overview_existing(user, db)
     elif selected_page == "Analyse Sentiments":
         render_sentiment_analysis_marketing(user, db)
     elif selected_page == "Détection Faux Avis":
@@ -6505,127 +6506,433 @@ def dashboard_marketing(user, db):
     elif selected_page == "IA & Recommandations":
         render_ai_recommendations_marketing(user, db)
     elif selected_page == "Profil":
-        render_user_profile_enhanced(user, db)  
+        render_user_profile_enhanced(user, db)  # CETTE LIGNE EST ESSENTIELLE !
 
 # =============================
-#   FONCTIONS MARKETING
+#   FONCTIONS MARKETING EXISTANTES (AVEC KPIs DYNAMIQUES)
 # =============================
 
-def render_marketing_overview_advanced(user, db):
-    """Vue d'ensemble marketing avec KPIs"""
+def render_marketing_overview_existing(user, db):
+    """Vue d'ensemble marketing EXISTANTE avec KPIs dynamiques"""
     st.subheader("Vue d'ensemble Marketing")
     
-    # Récupérer les métriques marketing
-    metrics = db.get_marketing_metrics()
+    # Vérifier si des données ont été importées
+    data_available = 'marketing_data' in st.session_state and st.session_state['marketing_data'] is not None
     
-    # KPIs marketing
+    if data_available:
+        df = st.session_state['marketing_data']
+        filename = st.session_state.get('marketing_filename', 'Fichier importé')
+        
+        st.success(f"Données actives: {filename}")
+        
+        # Calculer les métriques dynamiques à partir des données importées
+        total_rows = len(df)
+        total_columns = len(df.columns)
+        
+        # Identifier les colonnes marketing communes
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        
+        # Chercher des colonnes spécifiques marketing
+        impression_cols = [col for col in df.columns if 'impression' in col.lower()]
+        click_cols = [col for col in df.columns if 'clic' in col.lower() or 'click' in col.lower()]
+        conversion_cols = [col for col in df.columns if 'conversion' in col.lower()]
+        spend_cols = [col for col in df.columns if 'dépense' in col.lower() or 'spend' in col.lower() or 'cost' in col.lower()]
+        revenue_cols = [col for col in df.columns if 'revenu' in col.lower() or 'revenue' in col.lower()]
+        campaign_cols = [col for col in df.columns if 'campagne' in col.lower() or 'campaign' in col.lower()]
+        
+        # Calculer les métriques si les colonnes existent
+        metrics = {
+            'total_campaigns': df[campaign_cols[0]].nunique() if campaign_cols else 0,
+            'total_rows': total_rows,
+            'total_columns': total_columns,
+            'numeric_columns': len(numeric_cols)
+        }
+        
+        if impression_cols:
+            metrics['total_impressions'] = df[impression_cols[0]].sum()
+        if click_cols:
+            metrics['total_clicks'] = df[click_cols[0]].sum()
+        if conversion_cols:
+            metrics['total_conversions'] = df[conversion_cols[0]].sum()
+        if spend_cols:
+            metrics['total_spend'] = df[spend_cols[0]].sum()
+        if revenue_cols:
+            metrics['total_revenue'] = df[revenue_cols[0]].sum()
+        
+        # Calculer les taux si possible
+        if 'total_impressions' in metrics and 'total_clicks' in metrics and metrics['total_impressions'] > 0:
+            metrics['ctr'] = (metrics['total_clicks'] / metrics['total_impressions']) * 100
+        
+        if 'total_clicks' in metrics and 'total_conversions' in metrics and metrics['total_clicks'] > 0:
+            metrics['conversion_rate'] = (metrics['total_conversions'] / metrics['total_clicks']) * 100
+        
+        if 'total_spend' in metrics and 'total_revenue' in metrics and metrics['total_spend'] > 0:
+            metrics['roi'] = ((metrics['total_revenue'] - metrics['total_spend']) / metrics['total_spend']) * 100
+        
+    else:
+        # Utiliser les métriques de la base de données si aucune donnée importée
+        try:
+            metrics = db.get_marketing_metrics()
+        except AttributeError:
+            st.warning("Les métriques marketing ne sont pas disponibles pour le moment")
+            metrics = {
+                'total_campaigns': 0,
+                'total_rows': 0,
+                'total_columns': 0,
+                'numeric_columns': 0
+            }
+        
+        if not data_available:
+            st.info("Aucune donnée importée. Importez un fichier depuis la sidebar pour des analyses dynamiques.")
+    
+    # AFFICHER LES KPIs DYNAMIQUES EXISTANTS
+    st.markdown("### KPIs Marketing")
+    
+    # Ligne 1 de KPIs
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("Campagnes", metrics.get('campaigns', 0))
+        st.metric("Campagnes", metrics.get('total_campaigns', 0))
+    
     with col2:
-        st.metric("Impressions", f"{metrics.get('impressions', 0):,}")
+        st.metric("Lignes", metrics.get('total_rows', 0))
+    
     with col3:
-        st.metric("CTR", f"{metrics.get('ctr', 0):.2f}%")
+        st.metric("Colonnes", metrics.get('total_columns', 0))
+    
     with col4:
-        st.metric("ROI", f"{metrics.get('roi', 0):.2f}%")
+        st.metric("Col. numériques", metrics.get('numeric_columns', 0))
+    
+    # Ligne 2 de KPIs (si disponibles)
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if 'total_impressions' in metrics:
+            st.metric("Impressions", f"{metrics['total_impressions']:,}")
+        else:
+            st.metric("Impressions", "N/A")
+    
+    with col2:
+        if 'total_clicks' in metrics:
+            st.metric("Clics", f"{metrics['total_clicks']:,}")
+        else:
+            st.metric("Clics", "N/A")
+    
+    with col3:
+        if 'ctr' in metrics:
+            st.metric("CTR", f"{metrics['ctr']:.2f}%")
+        else:
+            st.metric("CTR", "N/A")
+    
+    with col4:
+        if 'roi' in metrics:
+            st.metric("ROI", f"{metrics['roi']:.2f}%")
+        else:
+            st.metric("ROI", "N/A")
     
     st.markdown("---")
     
-    # Graphiques
+    # Aperçu des données si importées
+    if data_available:
+        st.markdown("### Aperçu des données")
+        
+        with st.expander("Visualiser les données importées", expanded=False):
+            # Sélection du nombre de lignes à afficher
+            num_rows = st.slider("Nombre de lignes à afficher", 5, 100, 10)
+            
+            # Afficher les données
+            st.dataframe(df.head(num_rows), use_container_width=True)
+            
+            # Statistiques descriptives
+            if numeric_cols:
+                st.markdown("#### Statistiques descriptives")
+                st.dataframe(df[numeric_cols].describe(), use_container_width=True)
+        
+        # Graphique de distribution
+        if numeric_cols:
+            st.markdown("### Distribution des données")
+            
+            selected_col = st.selectbox(
+                "Sélectionner une colonne numérique:",
+                numeric_cols,
+                key="marketing_numeric_col"
+            )
+            
+            if selected_col:
+                fig = px.histogram(
+                    df, 
+                    x=selected_col,
+                    title=f"Distribution de {selected_col}",
+                    nbins=30,
+                    color_discrete_sequence=['#667eea']
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+def render_sentiment_analysis_marketing(user, db):
+    """Analyse des sentiments pour marketing - VERSION EXISTANTE"""
+    st.subheader("Analyse des Sentiments Clients")
+    
+    # Vérifier si des données ont été importées
+    if 'marketing_data' not in st.session_state:
+        st.warning("Aucune donnée importée")
+        st.markdown("Importez d'abord vos données depuis la sidebar.")
+        return
+    
+    df = st.session_state['marketing_data']
+    
+    # Identifier les colonnes de texte
+    text_cols = df.select_dtypes(include=['object']).columns.tolist()
+    
+    if not text_cols:
+        st.error("Aucune colonne texte trouvée dans les données")
+        return
+    
+    # Interface utilisateur
     col1, col2 = st.columns(2)
     
     with col1:
-        # Top campagnes
-        if 'top_campaigns' in metrics and metrics['top_campaigns']:
-            top_campaigns_df = pd.DataFrame(
-                metrics['top_campaigns'],
-                columns=['Campagne', 'Impressions', 'Clics', 'Conversions', 'Dépense', 'Revenu']
-            )
-            top_campaigns_df['ROI'] = ((top_campaigns_df['Revenu'] - top_campaigns_df['Dépense']) / top_campaigns_df['Dépense'] * 100).round(2)
-            
-            fig = px.bar(top_campaigns_df, x='Campagne', y='ROI', 
-                        title="Top Campagnes par ROI",
-                        color='ROI', color_continuous_scale='Viridis')
-            st.plotly_chart(fig, use_container_width=True)
-
-def render_sentiment_analysis_marketing(user, db):
-    """Analyse des sentiments pour marketing"""
-    st.subheader("Analyse des Sentiments Clients")
+        text_column = st.selectbox(
+            "Colonne à analyser:",
+            text_cols,
+            help="Sélectionnez la colonne contenant les avis/textes clients"
+        )
     
-    if 'marketing_data' in st.session_state:
-        df = st.session_state['marketing_data']
-        st.success(f"Analyse des sentiments sur {len(df)} entrées")
-        
-        # Sélection de la colonne de texte
-        text_cols = df.select_dtypes(include=['object']).columns.tolist()
-        
-        if text_cols:
-            text_column = st.selectbox("Colonne texte à analyser:", text_cols)
+    with col2:
+        if 'rating' in df.columns or 'note' in df.columns:
+            rating_col = 'rating' if 'rating' in df.columns else 'note'
+            st.info(f"Colonne de notes détectée: {rating_col}")
+    
+    # Analyse
+    if st.button("Lancer l'analyse des sentiments", type="primary"):
+        with st.spinner("Analyse en cours..."):
+            # Vérifier si TextBlob est disponible
+            if not TEXTBLOB_AVAILABLE:
+                st.error("TextBlob n'est pas installé")
+                return
             
-            if TEXTBLOB_AVAILABLE:
-                if st.button("Analyser les sentiments", type="primary"):
-                    with st.spinner("Analyse en cours..."):
-                        # Analyse des sentiments
-                        sentiments = []
-                        for text in df[text_column].dropna().astype(str):
-                            try:
-                                blob = TextBlob(text)
-                                polarity = blob.sentiment.polarity
-                                if polarity > 0.1:
-                                    sentiment = 'positif'
-                                elif polarity < -0.1:
-                                    sentiment = 'négatif'
-                                else:
-                                    sentiment = 'neutre'
-                                sentiments.append(sentiment)
-                            except:
-                                sentiments.append('erreur')
-                        
-                        # Afficher résultats
-                        sentiment_counts = pd.Series(sentiments).value_counts()
-                        fig = px.pie(values=sentiment_counts.values, names=sentiment_counts.index,
-                                    title="Distribution des sentiments", hole=0.3)
-                        st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.warning("TextBlob n'est pas installé")
-        else:
-            st.warning("Aucune colonne texte trouvée")
-    else:
-        st.info("Importez des données depuis la sidebar pour analyser les sentiments")
+            # Analyser les sentiments
+            sentiments = []
+            polarities = []
+            
+            for text in df[text_column].dropna().astype(str):
+                try:
+                    blob = TextBlob(text)
+                    polarity = blob.sentiment.polarity
+                    
+                    # Classifier
+                    if polarity > 0.1:
+                        sentiment = 'positif'
+                    elif polarity < -0.1:
+                        sentiment = 'négatif'
+                    else:
+                        sentiment = 'neutre'
+                    
+                    sentiments.append(sentiment)
+                    polarities.append(polarity)
+                    
+                except Exception as e:
+                    sentiments.append('erreur')
+                    polarities.append(0)
+            
+            # Ajouter les résultats au DataFrame
+            df_results = df.copy()
+            df_results['sentiment'] = sentiments
+            df_results['polarite'] = polarities
+            
+            # Stocker les résultats
+            st.session_state['sentiment_results'] = df_results
+            
+            # Afficher les résultats
+            st.success(f"Analyse terminée sur {len(df_results)} entrées")
+            
+            # Distribution des sentiments
+            sentiment_counts = df_results['sentiment'].value_counts()
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Graphique camembert
+                fig = px.pie(
+                    values=sentiment_counts.values,
+                    names=sentiment_counts.index,
+                    title="Distribution des sentiments",
+                    hole=0.3,
+                    color_discrete_map={
+                        'positif': '#36B37E',
+                        'négatif': '#FF5630',
+                        'neutre': '#FFAB00'
+                    }
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # Statistiques
+                st.markdown("#### Statistiques")
+                for sentiment, count in sentiment_counts.items():
+                    percentage = (count / len(df_results)) * 100
+                    st.write(f"**{sentiment}:** {count} ({percentage:.1f}%)")
+                
+                # Polarité moyenne
+                avg_polarity = df_results['polarite'].mean()
+                st.write(f"**Polarité moyenne:** {avg_polarity:.3f}")
+            
+            # Corrélation avec les notes si disponibles
+            if 'rating' in df.columns or 'note' in df.columns:
+                rating_col = 'rating' if 'rating' in df.columns else 'note'
+                
+                st.markdown("#### Corrélation avec les notes")
+                
+                # Créer un graphique de dispersion
+                fig = px.scatter(
+                    df_results,
+                    x=rating_col,
+                    y='polarite',
+                    color='sentiment',
+                    title="Notes vs Polarité des sentiments",
+                    labels={rating_col: 'Note', 'polarite': 'Polarité'}
+                )
+                st.plotly_chart(fig, use_container_width=True)
 
 def render_fake_reviews_detection_marketing(user, db):
-    """Détection de faux avis pour marketing"""
+    """Détection de faux avis pour marketing - VERSION EXISTANTE"""
     st.subheader("Détection de Faux Avis")
     
-    if 'marketing_data' in st.session_state:
-        df = st.session_state['marketing_data']
+    # Vérifier si des données ont été importées
+    if 'marketing_data' not in st.session_state:
+        st.warning("Aucune donnée importée")
+        st.markdown("Importez d'abord vos données depuis la sidebar.")
+        return
+    
+    df = st.session_state['marketing_data']
+    
+    st.markdown("""
+    ### Système de Détection de Faux Avis
+    
+    Cette fonctionnalité analyse automatiquement les avis pour détecter les patterns suspects.
+    """)
+    
+    # Identifier les colonnes
+    text_cols = df.select_dtypes(include=['object']).columns.tolist()
+    
+    if not text_cols:
+        st.error("Aucune colonne texte trouvée")
+        return
+    
+    # Configuration
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        text_column = st.selectbox(
+            "Colonne des avis:",
+            text_cols,
+            key="fake_reviews_text_col"
+        )
         
-        st.markdown("""
-        ### Détection Automatique de Faux Avis
-        Cette fonctionnalité utilise des algorithmes pour identifier les avis suspects.
-        """)
+        min_length = st.slider(
+            "Longueur minimale suspecte:",
+            min_value=5,
+            max_value=50,
+            value=15,
+            help="Les textes plus courts seront suspects"
+        )
+    
+    with col2:
+        # Chercher colonne auteur
+        author_cols = [col for col in df.columns if any(word in col.lower() for word in ['author', 'user', 'name', 'client'])]
+        author_column = st.selectbox(
+            "Colonne auteur (optionnel):",
+            ['Aucune'] + author_cols,
+            key="fake_reviews_author_col"
+        )
         
-        # Configuration
-        col1, col2 = st.columns(2)
-        with col1:
-            min_length = st.slider("Longueur texte minimale", 5, 100, 10)
-        with col2:
-            repetition_threshold = st.slider("Seuil de répétition (%)", 10, 50, 30)
-        
-        if st.button("Détecter les faux avis", type="primary"):
-            with st.spinner("Analyse en cours..."):
-                # Détection simple
-                df['text_length'] = df.select_dtypes(include=['object']).iloc[:, 0].astype(str).apply(len)
-                df['suspicious'] = df['text_length'] < min_length
+        repetition_threshold = st.slider(
+            "Seuil de répétition (%):",
+            min_value=10,
+            max_value=50,
+            value=30,
+            help="Pourcentage maximum de répétition d'un mot"
+        )
+    
+    # Bouton d'analyse
+    if st.button("Détecter les faux avis", type="primary"):
+        with st.spinner("Analyse en cours..."):
+            # Préparer les données
+            analysis_df = df.copy()
+            
+            # 1. Détection par longueur
+            analysis_df['text_length'] = analysis_df[text_column].astype(str).apply(len)
+            analysis_df['suspicious_length'] = analysis_df['text_length'] < min_length
+            
+            # 2. Détection par répétition
+            def check_repetition(text):
+                if isinstance(text, str) and len(text) > 0:
+                    words = text.split()
+                    if len(words) > 0:
+                        word_counts = Counter(words)
+                        most_common_count = word_counts.most_common(1)[0][1]
+                        repetition_percentage = (most_common_count / len(words)) * 100
+                        return repetition_percentage > repetition_threshold
+                return False
+            
+            analysis_df['suspicious_repetition'] = analysis_df[text_column].apply(check_repetition)
+            
+            # 3. Détection par auteur (si colonne disponible)
+            if author_column != 'Aucune' and author_column in analysis_df.columns:
+                author_counts = analysis_df[author_column].value_counts()
+                suspicious_authors = author_counts[author_counts > 3].index.tolist()
+                analysis_df['suspicious_author'] = analysis_df[author_column].isin(suspicious_authors)
+            else:
+                analysis_df['suspicious_author'] = False
+            
+            # Calculer le score de suspicion
+            suspicion_columns = ['suspicious_length', 'suspicious_repetition', 'suspicious_author']
+            analysis_df['suspicion_score'] = analysis_df[suspicion_columns].sum(axis=1)
+            analysis_df['is_fake_review'] = analysis_df['suspicion_score'] >= 2
+            
+            # Résultats
+            fake_count = analysis_df['is_fake_review'].sum()
+            total_reviews = len(analysis_df)
+            fake_percentage = (fake_count / total_reviews) * 100
+            
+            # Afficher les résultats
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Avis analysés", total_reviews)
+            
+            with col2:
+                st.metric("Faux avis détectés", fake_count)
+            
+            with col3:
+                st.metric("Taux de faux avis", f"{fake_percentage:.1f}%")
+            
+            # Détails des faux avis
+            if fake_count > 0:
+                st.markdown("### Détails des avis suspects")
                 
-                suspicious_count = df['suspicious'].sum()
-                st.warning(f"{suspicious_count} avis suspects détectés")
+                fake_reviews = analysis_df[analysis_df['is_fake_review']]
                 
-                if suspicious_count > 0:
-                    st.dataframe(df[df['suspicious']].head(10), use_container_width=True)
-    else:
-        st.info("Importez des données depuis la sidebar pour détecter les faux avis")
+                # Colonnes à afficher
+                display_cols = [text_column, 'suspicion_score', 'text_length']
+                if author_column != 'Aucune':
+                    display_cols.insert(0, author_column)
+                
+                st.dataframe(
+                    fake_reviews[display_cols].head(20),
+                    use_container_width=True
+                )
+                
+                # Export
+                csv_data = fake_reviews[display_cols].to_csv(index=False)
+                st.download_button(
+                    label="Exporter les faux avis (CSV)",
+                    data=csv_data,
+                    file_name=f"faux_avis_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.success("Aucun faux avis détecté selon les critères définis")
 
 def render_ai_recommendations_marketing(user, db):
     """Recommandations IA pour marketing avec génération PDF"""
