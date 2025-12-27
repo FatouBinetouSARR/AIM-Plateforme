@@ -6479,7 +6479,7 @@ def dashboard_marketing(user, db):
         
         # Navigation MAJ - AJOUT DE "PROFIL"
         st.markdown("---")
-        pages = ["Vue d'ensemble", "Analyse Sentiments", "Détection Faux Avis", "IA & Recommandations", "Profil"]  # Ajouté "Profil"
+        pages = ["Vue d'ensemble", "Analyse Sentiments", "Détection Faux Avis", "IA & Recommandations", "Profil"]
         selected_page = st.radio(
             "Navigation",
             pages,
@@ -6504,1548 +6504,557 @@ def dashboard_marketing(user, db):
         render_fake_reviews_detection_marketing(user, db)
     elif selected_page == "IA & Recommandations":
         render_ai_recommendations_marketing(user, db)
-    elif selected_page == "Profil":  # Nouvelle condition pour la page Profil
-        render_user_profile_enhanced(user, db)        
-def _calculate_marketing_metrics_from_data(df):
-    """Calcule les métriques marketing à partir d'un DataFrame"""
-    metrics = {}
-    
-    # Compter les campagnes uniques (basé sur la première colonne catégorielle)
-    categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
-    if categorical_cols:
-        metrics['total_campaigns'] = df[categorical_cols[0]].nunique()
-    
-    # Chercher des colonnes communes de métriques marketing
-    impression_cols = [col for col in df.columns if 'impression' in col.lower()]
-    click_cols = [col for col in df.columns if 'clic' in col.lower() or 'click' in col.lower()]
-    conversion_cols = [col for col in df.columns if 'conversion' in col.lower()]
-    spend_cols = [col for col in df.columns if 'dépense' in col.lower() or 'spend' in col.lower() or 'cost' in col.lower()]
-    revenue_cols = [col for col in df.columns if 'revenu' in col.lower() or 'revenue' in col.lower()]
-    
-    # Calculer les sommes si les colonnes existent
-    if impression_cols:
-        metrics['total_impressions'] = df[impression_cols[0]].sum()
-    
-    if click_cols:
-        metrics['total_clicks'] = df[click_cols[0]].sum()
-    
-    if conversion_cols:
-        metrics['total_conversions'] = df[conversion_cols[0]].sum()
-    
-    if spend_cols:
-        metrics['total_spend'] = df[spend_cols[0]].sum()
-    
-    if revenue_cols:
-        metrics['total_revenue'] = df[revenue_cols[0]].sum()
-    
-    # Calculer les taux
-    if 'total_impressions' in metrics and 'total_clicks' in metrics and metrics['total_impressions'] > 0:
-        metrics['ctr'] = (metrics['total_clicks'] / metrics['total_impressions']) * 100
-    
-    if 'total_clicks' in metrics and 'total_conversions' in metrics and metrics['total_clicks'] > 0:
-        metrics['conversion_rate'] = (metrics['total_conversions'] / metrics['total_clicks']) * 100
-    
-    if 'total_spend' in metrics and 'total_revenue' in metrics and metrics['total_spend'] > 0:
-        metrics['roi'] = ((metrics['total_revenue'] - metrics['total_spend']) / metrics['total_spend']) * 100
-    
-    return metrics
+    elif selected_page == "Profil":
+        render_user_profile_enhanced(user, db)
 
+# =============================
+#   FONCTIONS MARKETING
+# =============================
 
 def render_marketing_overview_advanced(user, db):
-    """Vue d'ensemble marketing avancée avec KPIs réduits"""
-    st.subheader("Tableau de Bord Marketing")
+    """Vue d'ensemble marketing avec KPIs"""
+    st.subheader("Vue d'ensemble Marketing")
     
-    # Vérifier si des données sont importées
-    data_available = 'marketing_data' in st.session_state and st.session_state['marketing_data'] is not None
+    # Récupérer les métriques marketing
+    metrics = db.get_marketing_metrics()
     
-    if not data_available:
-        st.warning("**Importez vos données marketing pour activer le dashboard**")
-        st.markdown("""
-        ### Guide d'utilisation :
-        
-        **Étapes :**
-        1. **Importez vos données** (clients, campagnes, avis) depuis la sidebar
-        2. **Analysez les sentiments** pour comprendre l'opinion clients
-        3. **Détectez les faux avis** pour protéger votre réputation
-        4. **Recevez des recommandations IA** personnalisées
-        
-        **Formats acceptés :** CSV, Excel avec colonnes structurées
-        """)
-        return
-    
-    df = st.session_state['marketing_data']
-    filename = st.session_state.get('marketing_filename', 'Données marketing')
-    
-    st.success(f"**Dashboard actif sur :** {filename}")
-    
-    # Calculer les métriques dynamiques (KPIs réduits)
-    metrics = _calculate_simplified_marketing_metrics(df)
-    
-    # SECTION KPIs SIMPLIFIÉS - 4 seulement
-    st.markdown("### KPIs Marketing")
-    
-    # Ligne 1 - KPIs réduits
+    # KPIs marketing
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-        st.markdown('<div class="kpi-label">CLIENTS</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="kpi-value">{metrics.get("total_customers", 0):,}</div>'.replace(",", " "), unsafe_allow_html=True)
-        st.markdown(f'<div style="color: #36B37E; font-size: 0.8em;">Total clients</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
+        st.metric("Campagnes", metrics.get('campaigns', 0))
     with col2:
-        st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-        st.markdown('<div class="kpi-label">SATISFACTION</div>', unsafe_allow_html=True)
-        satisfaction = metrics.get('avg_sentiment_score', 0)
-        satisfaction_color = "#36B37E" if satisfaction >= 0.3 else "#FFAB00" if satisfaction >= -0.3 else "#FF5630"
-        st.markdown(f'<div class="kpi-value" style="color: {satisfaction_color};">{satisfaction:.2f}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="color: #6554C0; font-size: 0.8em;">Score sentiment</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
+        st.metric("Impressions", f"{metrics.get('impressions', 0):,}")
     with col3:
-        st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-        st.markdown('<div class="kpi-label">CONVERSIONS</div>', unsafe_allow_html=True)
-        conversion_rate = metrics.get('conversion_rate', 0)
-        st.markdown(f'<div class="kpi-value">{conversion_rate:.1f}%</div>', unsafe_allow_html=True)
-        st.markdown(f'<div style="color: #00B8D9; font-size: 0.8em;">Taux de conversion</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Aperçu des données
-    st.markdown("### Aperçu des données")
-    st.dataframe(df.head(10), use_container_width=True)
-    
-    # Statistiques rapides
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Lignes", df.shape[0])
-    with col2:
-        st.metric("Colonnes", df.shape[1])
-    with col3:
-        st.metric("Valeurs manquantes", df.isnull().sum().sum())
+        st.metric("CTR", f"{metrics.get('ctr', 0):.2f}%")
     with col4:
-        numeric_cols = len(df.select_dtypes(include=[np.number]).columns)
-        st.metric("Colonnes numériques", numeric_cols)
-        
-        
-def _calculate_simplified_marketing_metrics(df):
-    """Calcule des métriques marketing simplifiées"""
-    metrics = {}
+        st.metric("ROI", f"{metrics.get('roi', 0):.2f}%")
     
-    # Métriques de base
-    metrics['total_customers'] = len(df)
-    
-    # Identifier les colonnes
-    revenue_cols = [col for col in df.columns if any(x in col.lower() for x in ['revenue', 'revenu', 'chiffre', 'ca', 'sales'])]
-    cost_cols = [col for col in df.columns if any(x in col.lower() for x in ['cost', 'coût', 'dépense', 'spend', 'budget'])]
-    
-    # Calculs dynamiques
-    if revenue_cols:
-        metrics['total_revenue'] = df[revenue_cols[0]].sum()
-    
-    if cost_cols and revenue_cols:
-        metrics['total_cost'] = df[cost_cols[0]].sum()
-        metrics['roi'] = ((metrics['total_revenue'] - metrics['total_cost']) / max(metrics['total_cost'], 1)) * 100
-    
-    # Métriques simulées
-    metrics['avg_sentiment_score'] = np.random.uniform(-0.5, 0.8)
-    metrics['conversion_rate'] = np.random.uniform(1, 15)
-    
-    return metrics        
-            
-def _generate_marketing_recommendations(metrics, df):
-    """Génère des recommandations marketing basées sur les données"""
-    recommendations = []
-    
-    # Analyse ROI
-    roi = metrics.get('roi', 0)
-    if roi < 100:
-        recommendations.append({
-            'title': 'Optimisation du ROI nécessaire',
-            'description': f'Votre ROI actuel ({roi:.1f}%) est en dessous du seuil optimal de 150%.',
-            'priority': 'high',
-            'action': '''
-            1. **Analyser les canaux les moins performants**
-            2. **Réallouer le budget** vers les canaux à meilleur ROI
-            3. **Optimiser les landing pages** pour améliorer les conversions
-            4. **Mettre en place le remarketing** pour les abandons de panier
-            '''
-        })
-    
-    # Analyse LTV/CAC
-    ltv = metrics.get('ltv', 0)
-    cac = metrics.get('cac', 0)
-    if cac > 0 and ltv / cac < 3:
-        recommendations.append({
-            'title': 'Ratio LTV/CAC à améliorer',
-            'description': f'Votre ratio LTV/CAC ({ltv/cac:.1f}) est inférieur à l\'objectif de 3.',
-            'priority': 'medium',
-            'action': '''
-            1. **Augmenter la valeur moyenne des commandes** (up-selling)
-            2. **Améliorer la fidélisation** des clients existants
-            3. **Négocier les coûts d'acquisition** avec les partenaires
-            4. **Cibler les segments clients plus rentables**
-            '''
-        })
-    
-    # Analyse sentiment
-    sentiment = metrics.get('avg_sentiment_score', 0)
-    if sentiment < 0:
-        recommendations.append({
-            'title': 'Sentiment client négatif détecté',
-            'description': f'Le score de sentiment moyen ({sentiment:.2f}) indique une insatisfaction.',
-            'priority': 'high',
-            'action': '''
-            1. **Analyser les causes** des avis négatifs
-            2. **Mettre en place un programme de récupération** client
-            3. **Améliorer le service client** et la réactivité
-            4. **Communiquer proactivement** sur les améliorations
-            '''
-        })
-    
-    # Analyse croissance
-    growth = metrics.get('customer_growth', 0)
-    if growth < 10:
-        recommendations.append({
-            'title': 'Croissance client insuffisante',
-            'description': f'La croissance client ({growth:.1f}%) nécessite une attention.',
-            'priority': 'medium',
-            'action': '''
-            1. **Lancer des campagnes d'acquisition** ciblées
-            2. **Optimiser le parcours d\'inscription** client
-            3. **Mettre en place un programme de parrainage**
-            4. **Développer des partenariats stratégiques**
-            '''
-        })
-    
-    # Recommandations génériques
-    recommendations.append({
-        'title': 'Automatiser le marketing personnalisé',
-        'description': 'Mettez en place des automatisations basées sur le comportement client.',
-        'priority': 'low',
-        'action': '''
-        1. **Segmenter automatiquement** votre base client
-        2. **Programmer des emails** déclenchés par des actions
-        3. **Personnaliser les recommandations** produits
-        4. **Automatiser les rappels** et follow-ups
-        '''
-    })
-    
-    return recommendations       
-    
-def render_sentiment_analysis_marketing(user, db):
-    """Analyse des sentiments pour le marketing - AUTOMATIQUE sur toutes les colonnes texte"""
-    st.subheader("Analyse Automatique des Sentiments")
-    
-    if not TEXTBLOB_AVAILABLE:
-        st.error("TextBlob n'est pas disponible. Installez-le avec: pip install textblob")
-        return
-    
-    if 'marketing_data' not in st.session_state:
-        st.warning("Importez d'abord vos données marketing")
-        return
-    
-    df = st.session_state['marketing_data']
-    
-    # Identifier TOUTES les colonnes texte
-    text_cols = df.select_dtypes(include=['object']).columns.tolist()
-    if not text_cols:
-        st.error("Aucune colonne texte détectée dans les données")
-        return
-    
-    st.info(f"**Analyse automatique en cours sur {len(text_cols)} colonnes texte...**")
-    
-    if st.button("Lancer l'analyse complète", type="primary"):
-        with st.spinner(f"Analyse des sentiments sur toutes les colonnes texte..."):
-            # Dictionnaire pour stocker les résultats
-            all_results = {}
-            
-            for text_col in text_cols:
-                sentiments = []
-                polarities = []
-                subjectivities = []
-                
-                # Analyser chaque texte dans la colonne
-                for text in df[text_col].dropna().head(100):  # Limité à 100 pour performance
-                    try:
-                        blob = TextBlob(str(text))
-                        
-                        # Détection et traduction si nécessaire
-                        if detect(str(text)) != 'en':
-                            try:
-                                translated = blob.translate(to='en')
-                                polarity = translated.sentiment.polarity
-                                subjectivity = translated.sentiment.subjectivity
-                            except:
-                                polarity = blob.sentiment.polarity
-                                subjectivity = blob.sentiment.subjectivity
-                        else:
-                            polarity = blob.sentiment.polarity
-                            subjectivity = blob.sentiment.subjectivity
-                        
-                        # Classification
-                        if polarity > 0.1:
-                            sentiment = 'positif'
-                        elif polarity < -0.1:
-                            sentiment = 'négatif'
-                        else:
-                            sentiment = 'neutre'
-                        
-                        sentiments.append(sentiment)
-                        polarities.append(polarity)
-                        subjectivities.append(subjectivity)
-                        
-                    except Exception as e:
-                        sentiments.append('erreur')
-                        polarities.append(0)
-                        subjectivities.append(0)
-                
-                # Stocker les résultats pour cette colonne
-                all_results[text_col] = {
-                    'sentiments': sentiments,
-                    'polarities': polarities,
-                    'subjectivities': subjectivities,
-                    'count': len(sentiments)
-                }
-            
-            # Stocker les résultats dans la session
-            st.session_state['sentiment_results'] = all_results
-            
-            # Afficher les résultats sous forme de tableau
-            st.markdown("### Résultats de l'analyse")
-            
-            # Créer un DataFrame récapitulatif
-            summary_data = []
-            for col_name, results in all_results.items():
-                if results['count'] > 0:
-                    sentiments = results['sentiments']
-                    polarities = results['polarities']
-                    
-                    pos_count = sentiments.count('positif')
-                    neg_count = sentiments.count('négatif')
-                    neu_count = sentiments.count('neutre')
-                    err_count = sentiments.count('erreur')
-                    
-                    avg_polarity = np.mean([p for p in polarities if p != 0]) if any(p != 0 for p in polarities) else 0
-                    
-                    summary_data.append({
-                        'Colonne': col_name,
-                        'Textes analysés': results['count'],
-                        'Positifs': pos_count,
-                        'Négatifs': neg_count,
-                        'Neutres': neu_count,
-                        'Erreurs': err_count,
-                        'Polarité moyenne': f"{avg_polarity:.3f}",
-                        'Score global': 'Positif' if avg_polarity > 0.1 else 'Neutre' if avg_polarity >= -0.1 else 'Négatif'
-                    })
-            
-            if summary_data:
-                summary_df = pd.DataFrame(summary_data)
-                st.dataframe(summary_df, use_container_width=True)
-                
-                # VISUALISATION 1: Répartition globale des sentiments
-                st.markdown("---")
-                st.markdown("### Visualisation 1: Répartition globale des sentiments")
-                
-                # Agréger tous les sentiments
-                all_sentiments = []
-                for results in all_results.values():
-                    all_sentiments.extend(results['sentiments'])
-                
-                sentiment_counts = pd.Series(all_sentiments).value_counts()
-                total_sentiments = sentiment_counts.sum()
-                positif_pct = round((sentiment_counts.get('positif', 0) / total_sentiments) * 100, 2)
-                negatif_pct = round((sentiment_counts.get('négatif', 0) / total_sentiments) * 100, 2)
-                neutre_pct  = round((sentiment_counts.get('neutre', 0) / total_sentiments) * 100, 2)
-                erreur_pct  = round((sentiment_counts.get('erreur', 0) / total_sentiments) * 100, 2)
-                
-                fig1 = px.pie(
-                    values=sentiment_counts.values,
-                    names=sentiment_counts.index,
-                    title="Répartition globale des sentiments",
-                    hole=0.4
-                )
-                fig1.update_traces(textposition='inside', textinfo='percent+label')
-                st.plotly_chart(fig1, use_container_width=True)
-                
-                # Interprétation marketing
-                st.markdown("#### Interprétation marketing")
-                
-                # Générer dynamiquement l'interprétation
-                interpretation_text = f"""
-                **Sentiments neutres ({neutre_pct}%)**
-                """
-                
-                if neutre_pct > 80:
-                    interpretation_text += f"""
-                    Très forte dominance des contenus informatifs ou peu émotionnels.  
-                    Cela indique un engagement affectif très limité des audiences et un besoin de contenu plus engageant.
-                    """
-                elif neutre_pct > 60:
-                    interpretation_text += f"""
-                    Majorité significative de contenus peu émotionnels.  
-                    Cela révèle un engagement émotionnel modéré et une opportunité d'humaniser le contenu.
-                    """
-                else:
-                    interpretation_text += f"""
-                    Part notable mais non dominante des contenus informatifs.  
-                    L'audience montre déjà un certain niveau d'engagement au-delà du simple contenu factuel.
-                    """
-                
-                interpretation_text += f"""
-
-                **Sentiments positifs ({positif_pct}%)**
-                """
-                
-                if positif_pct > 30:
-                    interpretation_text += f"""
-                    Très bonne perception globale de votre contenu !  
-                    Votre audience est hautement satisfaite - capitalisez sur ces émotions positives.
-                    """
-                elif positif_pct > 15:
-                    interpretation_text += f"""
-                    Perception favorable notable.  
-                    Il existe une base solide d'adhésion à renforcer par des actions ciblées.
-                    """
-                elif positif_pct > 5:
-                    interpretation_text += f"""
-                    Proportion modeste de retours positifs.  
-                    Un potentiel significatif d'amélioration existe pour booster l'engagement positif.
-                    """
-                else:
-                    interpretation_text += f"""
-                    Très faible niveau de sentiment positif.  
-                    Une transformation profonde de la stratégie de contenu est nécessaire pour générer de l'enthousiasme.
-                    """
-                
-                interpretation_text += f"""
-
-                **Sentiments négatifs ({negatif_pct}%)**
-                """
-                
-                if negatif_pct > 20:
-                    interpretation_text += f"""
-                    Proportion alarmante de retours négatifs !  
-                    Action corrective urgente requise pour identifier et résoudre les sources de mécontentement.
-                    """
-                elif negatif_pct > 10:
-                    interpretation_text += f"""
-                    Part notable de sentiments négatifs.  
-                    Des mesures correctives proactives sont recommandées pour éviter l'escalade.
-                    """
-                elif negatif_pct > 5:
-                    interpretation_text += f"""
-                    Faible mais perceptible niveau de négativité.  
-                    Surveillez ces signaux pour prévenir tout risque avant qu'ils ne s'amplifient.
-                    """
-                else:
-                    interpretation_text += f"""
-                    Négativité marginale dans les retours.  
-                    Aucun signal d'alerte majeur détecté - la perception globale reste stable.
-                    """
-                
-                # Ajouter la section erreurs si pertinente
-                if erreur_pct > 5:
-                    interpretation_text += f"""
-
-                **Analyses en erreur ({erreur_pct}%)**
-                    Proportion notable d'analyses non abouties.  
-                    Vérifiez la qualité des données textuelles pour améliorer la fiabilité des résultats.
-                    """
-                
-                st.markdown(interpretation_text)
-                
-                # Messages conditionnels
-                if neutre_pct > 80:
-                    st.info("Priorité stratégique : L'engagement émotionnel est très faible. Une refonte de la stratégie de contenu vers plus d'interactivité et d'émotion est recommandée.")
-                elif neutre_pct > 60:
-                    st.info("Opportunité d'amélioration : L'engagement émotionnel peut être optimisé. Testez des formats de contenu plus engageants.")
-                
-                if negatif_pct > 10:
-                    st.warning("Attention requise : Proportion notable de sentiments négatifs. Des actions correctives sont à envisager rapidement.")
-                elif negatif_pct > 5:
-                    st.warning("Surveillance active : Quelques signaux négatifs détectés. Maintenez une veille attentive sur ces indicateurs.")
-                
-                if positif_pct > 30:
-                    st.success("Excellente performance : Perception très positive ! Capitalisez sur ces résultats pour renforcer la fidélité.")
-                elif positif_pct > 15:
-                    st.success("Bonne dynamique : Perception favorable. Développez les leviers qui génèrent cette positivité.")
-                
-                if erreur_pct > 5:
-                    st.error("Problème technique : Taux d'erreur élevé dans l'analyse. Vérifiez la qualité et la cohérence des données textuelles.")
-                
-                # VISUALISATION 2: Polarité par colonne
-                st.markdown("---")
-                st.markdown("### Visualisation 2: Performance par colonne")
-                
-                # Préparer les données
-                col_names = []
-                avg_polarities = []
-                text_counts = []
-                
-                for col_name, results in all_results.items():
-                    if results['count'] > 0:
-                        polarities = results['polarities']
-                        avg_polarity = np.mean([p for p in polarities if p != 0]) if any(p != 0 for p in polarities) else 0
-                        
-                        col_names.append(col_name[:30])  # Tronquer les noms longs
-                        avg_polarities.append(avg_polarity)
-                        text_counts.append(results['count'])
-                
-                if col_names:
-                    # Créer un DataFrame pour le graphique
-                    viz_df = pd.DataFrame({
-                        'Colonne': col_names,
-                        'Polarité moyenne': avg_polarities,
-                        'Textes analysés': text_counts
-                    })
-                    
-                    fig2 = px.bar(
-                        viz_df,
-                        x='Colonne',
-                        y='Polarité moyenne',
-                        color='Polarité moyenne',
-                        title="Score de sentiment moyen par colonne",
-                        hover_data=['Textes analysés']
-                    )
-                    fig2.update_layout(
-                        xaxis_tickangle=-45,
-                        coloraxis_colorbar=dict(title="Polarité")
-                    )
-                    fig2.add_hline(y=0.1, line_dash="dash", annotation_text="Seuil positif")
-                    fig2.add_hline(y=-0.1, line_dash="dash", annotation_text="Seuil négatif")
-                    
-                    st.plotly_chart(fig2, use_container_width=True)
-                    
-                    # Interprétation 2
-                    best_col_idx = viz_df['Polarité moyenne'].idxmax()
-                    worst_col_idx = viz_df['Polarité moyenne'].idxmin()
-                    
-                    best_col = viz_df.loc[best_col_idx, 'Colonne']
-                    best_score = viz_df.loc[best_col_idx, 'Polarité moyenne']
-                    worst_col = viz_df.loc[worst_col_idx, 'Colonne']
-                    worst_score = viz_df.loc[worst_col_idx, 'Polarité moyenne']
-                    
-                    st.markdown(f"""
-                    **Interprétation:**
-                    - Meilleure performance : {best_col} (score: {best_score:.3f})
-                    - Performance à améliorer : {worst_col} (score: {worst_score:.3f})
-                    - Ligne verte : Seuil au-dessus duquel le sentiment est considéré comme positif
-                    - Ligne rouge : Seuil en-dessous duquel le sentiment est considéré comme négatif
-                    
-                    Recommandation : Concentrez vos efforts d'amélioration sur la colonne {worst_col} tout en capitalisant sur les bonnes pratiques de {best_col}.
-                    """)
-                
-                # Bouton d'export
-                st.markdown("---")
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("Exporter les résultats (CSV)", use_container_width=True):
-                        # Créer un DataFrame détaillé
-                        detailed_data = []
-                        for col_name, results in all_results.items():
-                            for i, (sentiment, polarity, subjectivity) in enumerate(zip(
-                                results['sentiments'],
-                                results['polarities'],
-                                results['subjectivities']
-                            )):
-                                detailed_data.append({
-                                    'Colonne': col_name,
-                                    'Index': i,
-                                    'Sentiment': sentiment,
-                                    'Polarité': polarity,
-                                    'Subjectivité': subjectivity
-                                })
-                        
-                        detailed_df = pd.DataFrame(detailed_data)
-                        csv = detailed_df.to_csv(index=False)
-                        
-                        st.download_button(
-                            label="Télécharger CSV",
-                            data=csv,
-                            file_name=f"analyse_sentiments_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                            mime="text/csv",
-                            use_container_width=True
-                        )
-                
-                with col2:
-                    if st.button("Ré-analyser", use_container_width=True):
-                        del st.session_state['sentiment_results']
-                        st.rerun()
-                        
-            else:
-                st.error("Aucun résultat d'analyse disponible")
-    
-    elif 'sentiment_results' in st.session_state:
-        st.success("Analyse déjà effectuée. Cliquez sur le bouton pour ré-analyser si nécessaire.")
-            
-def render_fake_reviews_detection(user, db):
-    """Détection automatique des faux avis sur toutes les colonnes"""
-    st.subheader("Détection Automatique des Faux Avis")
-    
-    if 'marketing_data' not in st.session_state:
-        st.warning("Importez d'abord vos données marketing")
-        return
-    
-    df = st.session_state['marketing_data']
-    
-    # Identifier les colonnes texte
-    text_cols = df.select_dtypes(include=['object']).columns.tolist()
-    if not text_cols:
-        st.error("Aucune colonne texte détectée")
-        return
-    
-    st.info(f"**Détection automatique sur {len(text_cols)} colonnes texte...**")
-    
-    if st.button("Détecter les faux avis automatiquement", type="primary"):
-        with st.spinner("Analyse en cours..."):
-            detection_results = []
-            
-            for text_col in text_cols:
-                fake_count = 0
-                total_reviews = 0
-                reasons = []
-                
-                for text in df[text_col].dropna().head(200):  # Limité à 200 par colonne
-                    total_reviews += 1
-                    text_str = str(text)
-                    
-                    # Règle 1: Texte trop court
-                    if len(text_str) < 10:
-                        fake_count += 1
-                        reasons.append("Texte trop court (<10 caractères)")
-                        continue
-                    
-                    # Règle 2: Répétition excessive
-                    words = text_str.split()
-                    if len(words) > 0:
-                        word_counts = Counter(words)
-                        max_repeat = max(word_counts.values())
-                        if max_repeat / len(words) > 0.3:  # 30% de répétition
-                            fake_count += 1
-                            reasons.append("Répétition excessive")
-                            continue
-                    
-                    # Règle 3: Texte générique
-                    generic_phrases = [
-                        'super', 'génial', 'excellent', 'parfait', 'top', 'meilleur',
-                        'nul', 'horrible', 'déçu', 'décevant', 'mauvais'
-                    ]
-                    if any(phrase in text_str.lower() for phrase in generic_phrases) and len(text_str) < 20:
-                        fake_count += 1
-                        reasons.append("Texte générique court")
-                        continue
-                
-                if total_reviews > 0:
-                    fake_percentage = (fake_count / total_reviews) * 100
-                    
-                    # Analyser les raisons principales
-                    if reasons:
-                        reason_counts = Counter(reasons)
-                        main_reason = reason_counts.most_common(1)[0][0] if reason_counts else "N/A"
-                    else:
-                        main_reason = "N/A"
-                    
-                    detection_results.append({
-                        'Colonne': text_col,
-                        'Avis analysés': total_reviews,
-                        'Faux avis détectés': fake_count,
-                        'Taux de faux avis': f"{fake_percentage:.1f}%",
-                        'Raison principale': main_reason,
-                        'Niveau de risque': 'Faible' if fake_percentage < 10 else 'Moyen' if fake_percentage < 30 else 'Élevé'
-                    })
-            
-            # Afficher les résultats dans un tableau
-            st.markdown("### Résultats de détection")
-            
-            if detection_results:
-                results_df = pd.DataFrame(detection_results)
-                st.dataframe(results_df, use_container_width=True)
-
-                # ===========================================
-                # SECTION: IDENTIFICATION DES AUTEURS DES FAUX AVIS
-                # ===========================================
-                st.markdown("---")
-                st.markdown("### 3. Identification des auteurs de faux avis")
-                
-                # Chercher les colonnes d'auteur potentielles
-                possible_author_cols = []
-                for col in df.columns:
-                    col_lower = col.lower()
-                    if any(keyword in col_lower for keyword in ['author', 'user', 'name', 'client', 'utilisateur', 'auteur', 'writer', 'reviewer']):
-                        possible_author_cols.append(col)
-                
-                if possible_author_cols:
-                    # Sélectionner la colonne auteur
-                    author_col = st.selectbox(
-                        "Sélectionnez la colonne contenant les noms d'auteurs :",
-                        possible_author_cols,
-                        help="Cette colonne sera utilisée pour identifier les auteurs des faux avis"
-                    )
-                    
-                    if author_col:
-                        # Créer un DataFrame pour stocker les auteurs suspects
-                        suspicious_authors_data = []
-                        
-                        for text_col in text_cols:
-                            for idx, text in enumerate(df[text_col].dropna().head(200)):  # Limité à 200 par colonne
-                                text_str = str(text)
-                                is_fake = False
-                                reason = ""
-                                
-                                # Appliquer les mêmes règles de détection
-                                # Règle 1: Texte trop court
-                                if len(text_str) < 10:
-                                    is_fake = True
-                                    reason = "Texte trop court (<10 caractères)"
-                                
-                                # Règle 2: Répétition excessive
-                                elif len(text_str.split()) > 0:
-                                    words = text_str.split()
-                                    word_counts = Counter(words)
-                                    max_repeat = max(word_counts.values())
-                                    if max_repeat / len(words) > 0.3:
-                                        is_fake = True
-                                        reason = "Répétition excessive"
-                                
-                                # Règle 3: Texte générique
-                                else:
-                                    generic_phrases = [
-                                        'super', 'génial', 'excellent', 'parfait', 'top', 'meilleur',
-                                        'nul', 'horrible', 'déçu', 'décevant', 'mauvais'
-                                    ]
-                                    if any(phrase in text_str.lower() for phrase in generic_phrases) and len(text_str) < 20:
-                                        is_fake = True
-                                        reason = "Texte générique court"
-                                
-                                # Si c'est un faux avis et qu'on a un auteur, l'ajouter
-                                if is_fake and idx < len(df) and pd.notna(df.loc[idx, author_col]):
-                                    author = str(df.loc[idx, author_col])
-                                    
-                                    suspicious_authors_data.append({
-                                        'Auteur': author,
-                                        'Colonne texte': text_col,
-                                        'Texte': text_str[:50] + "..." if len(text_str) > 50 else text_str,
-                                        'Raison': reason,
-                                        'Longueur': len(text_str)
-                                    })
-                        
-                        # Créer le DataFrame des auteurs suspects
-                        if suspicious_authors_data:
-                            authors_df = pd.DataFrame(suspicious_authors_data)
-                            
-                            # Grouper par auteur pour analyse
-                            author_analysis = authors_df.groupby('Auteur').agg({
-                                'Colonne texte': 'count',
-                                'Raison': lambda x: x.mode()[0] if not x.mode().empty else "Divers",
-                                'Longueur': 'mean'
-                            }).rename(columns={'Colonne texte': 'Nombre de faux avis', 'Longueur': 'Longueur moyenne'})
-                            
-                            author_analysis = author_analysis.sort_values('Nombre de faux avis', ascending=False)
-                            
-                            # Afficher le tableau des auteurs
-                            st.markdown(f"**{len(author_analysis)} auteurs suspects identifiés**")
-                            
-                            # Tableau principal
-                            st.dataframe(
-                                author_analysis.reset_index(),
-                                use_container_width=True,
-                                height=400,
-                                column_config={
-                                    "Auteur": st.column_config.TextColumn("Auteur", width="medium"),
-                                    "Nombre de faux avis": st.column_config.NumberColumn("Faux avis", width="small"),
-                                    "Raison": st.column_config.TextColumn("Raison principale", width="medium"),
-                                    "Longueur moyenne": st.column_config.NumberColumn("Long. moyenne", width="small", format="%.0f")
-                                }
-                            )
-                            
-                            # Statistiques supplémentaires
-                            st.markdown("#### Statistiques des auteurs suspects")
-                            
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                most_active = author_analysis.iloc[0] if not author_analysis.empty else None
-                                if most_active is not None:
-                                    st.metric("Auteur le plus actif", 
-                                            f"{author_analysis.index[0]}",
-                                            f"{int(most_active['Nombre de faux avis'])} faux avis")
-                            
-                            with col2:
-                                avg_fake_per_author = author_analysis['Nombre de faux avis'].mean()
-                                st.metric("Moyenne par auteur", f"{avg_fake_per_author:.1f}")
-                            
-                            with col3:
-                                authors_multiple = len(author_analysis[author_analysis['Nombre de faux avis'] > 1])
-                                st.metric("Auteurs récidivistes", authors_multiple)
-                            
-                            # Visualisation : Top 10 des auteurs les plus suspects
-                            st.markdown("---")
-                            st.markdown("#### Top 10 des auteurs les plus suspects")
-                            
-                            top_authors = author_analysis.head(10)
-                            
-                            fig_authors = px.bar(
-                                top_authors.reset_index(),
-                                x='Auteur',
-                                y='Nombre de faux avis',
-                                color='Nombre de faux avis',
-                                title="Top 10 des auteurs avec le plus de faux avis",
-                                color_continuous_scale='Reds',
-                                labels={'Nombre de faux avis': 'Faux avis détectés'}
-                            )
-                            fig_authors.update_layout(xaxis_tickangle=-45)
-                            st.plotly_chart(fig_authors, use_container_width=True)
-                            
-                            # Export des auteurs suspects
-                            st.markdown("---")
-                            st.markdown("#### Export des auteurs suspects")
-                            
-                            csv_authors = authors_df.to_csv(index=False)
-                            st.download_button(
-                                label="Exporter la liste complète des auteurs suspects (CSV)",
-                                data=csv_authors,
-                                file_name=f"auteurs_suspects_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                                mime="text/csv",
-                                use_container_width=True
-                            )
-                            
-                        else:
-                            st.info("Aucun auteur de faux avis identifié avec les colonnes actuelles.")
-                            
-                else:
-                    st.warning("""
-                    **Aucune colonne d'auteur détectée automatiquement**
-                    
-                    Pour identifier les auteurs de faux avis, votre dataset doit contenir une colonne avec :
-                    - "author", "user", "name", "client", "auteur", "reviewer" dans le nom de la colonne
-                    - Les noms des personnes ayant écrit les avis/commentaires
-                    
-                    **Conseil :** Renommez votre colonne d'auteur pour inclure l'un de ces mots-clés.
-                    """)
-                
-                # VISUALISATION 1: Taux de faux avis par colonne
-                st.markdown("---")
-                st.markdown("### Visualisation 1: Distribution des risques")
-                
-                fig1 = px.bar(
-                    results_df,
-                    x='Colonne',
-                    y='Taux de faux avis',
-                    color='Niveau de risque',
-                    color_discrete_map={
-                        'Faible': '#36B37E',
-                        'Moyen': '#FFAB00',
-                        'Élevé': '#FF5630'
-                    },
-                    title="Taux de faux avis détectés par colonne",
-                    hover_data=['Avis analysés', 'Faux avis détectés']
-                )
-                fig1.update_layout(
-                    xaxis_tickangle=-45,
-                    yaxis_title="Taux de faux avis (%)"
-                )
-                fig1.add_hline(y=10, line_dash="dash", line_color="green", annotation_text="Seuil faible")
-                fig1.add_hline(y=30, line_dash="dash", line_color="red", annotation_text="Seuil élevé")
-                
-                st.plotly_chart(fig1, use_container_width=True)
-                
-                # Interprétation 1
-                highest_risk = results_df.loc[results_df['Taux de faux avis'].str.rstrip('%').astype(float).idxmax()]
-                lowest_risk = results_df.loc[results_df['Taux de faux avis'].str.rstrip('%').astype(float).idxmin()]
-                
-                st.markdown(f"""
-                #### **Interprétation:**
-                - **Risque le plus élevé**: {highest_risk['Colonne']} ({highest_risk['Taux de faux avis']})
-                - **Risque le plus faible**: {lowest_risk['Colonne']} ({lowest_risk['Taux de faux avis']})
-                - **Ligne verte**: En-dessous de 10%, risque acceptable
-                - **Ligne rouge**: Au-dessus de 30%, nécessite une action immédiate
-                
-                **Priorité**: Traitez d'abord la colonne **{highest_risk['Colonne']}**.
-                """)
-                
-                # VISUALISATION 2: Répartition des raisons
-                st.markdown("---")
-                st.markdown("### Visualisation 2: Causes des faux avis")
-                
-                # Compter les raisons principales
-                reason_counts = Counter([r['Raison principale'] for r in detection_results if r['Raison principale'] != 'N/A'])
-                
-                if reason_counts:
-                    reasons_df = pd.DataFrame({
-                        'Raison': list(reason_counts.keys()),
-                        'Occurrences': list(reason_counts.values())
-                    })
-                    
-                    fig2 = px.pie(
-                        reasons_df,
-                        values='Occurrences',
-                        names='Raison',
-                        title="Répartition des causes de faux avis",
-                        hole=0.3,
-                        color_discrete_sequence=px.colors.qualitative.Set3
-                    )
-                    fig2.update_traces(textposition='inside', textinfo='percent+label')
-                    
-                    st.plotly_chart(fig2, use_container_width=True)
-                    
-                    # Interprétation 2
-                    main_reason = reasons_df.loc[reasons_df['Occurrences'].idxmax(), 'Raison']
-                    
-                    st.markdown(f"""
-                    #### **Interprétation:**
-                    - **Cause principale**: {main_reason}
-                    - **Répartition**: Pourcentage de chaque cause parmi toutes les colonnes
-                    
-                    **Action recommandée**: 
-                    1. Pour **{main_reason}**, mettre en place des filtres automatiques
-                    2. Surveiller les colonnes avec cette cause récurrente
-                    3. Former les équipes à identifier ce type de contenu
-                    """)
-                
-                # Exporter les résultats détaillés
-                st.markdown("---")
-                st.markdown("### Export des résultats")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # Export CSV
-                    csv = results_df.to_csv(index=False)
-                    st.download_button(
-                        label="Exporter tableau (CSV)",
-                        data=csv,
-                        file_name=f"detection_faux_avis_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                        mime="text/csv",
-                        use_container_width=True
-                    )
-                
-                with col2:
-                    # Rapport détaillé
-                    if st.button("Générer rapport détaillé", use_container_width=True):
-                        report = f"""
-                        RAPPORT DE DÉTECTION DE FAUX AVIS
-                        ===================================
-                        Date: {datetime.now().strftime('%d/%m/%Y %H:%M')}
-                        Fichier: {st.session_state.get('marketing_filename', 'N/A')}
-                        
-                        RÉSUMÉ:
-                        - Colonnes analysées: {len(detection_results)}
-                        - Total avis analysés: {sum(r['Avis analysés'] for r in detection_results)}
-                        - Total faux avis détectés: {sum(r['Faux avis détectés'] for r in detection_results)}
-                        
-                        COLONNES À RISQUE (taux > 30%):
-                        """
-                        
-                        for result in detection_results:
-                            taux = float(result['Taux de faux avis'].rstrip('%'))
-                            if taux > 30:
-                                report += f"\n- {result['Colonne']}: {result['Taux de faux avis']} ({result['Raison principale']})"
-                        
-                        report += f"""
-                        
-                        RECOMMANDATIONS:
-                        1. Vérifier manuellement les colonnes à risque élevé
-                        2. Mettre en place des validations pour les nouvelles soumissions
-                        3. Former les modérateurs aux patterns détectés
-                        4. Surveiller régulièrement les taux de faux avis
-                        """
-                        
-                        st.download_button(
-                            label="Télécharger rapport",
-                            data=report,
-                            file_name=f"rapport_faux_avis_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                            mime="text/plain",
-                            use_container_width=True
-                        )
-                
-                # Bouton pour ré-analyser
-                st.markdown("---")
-                if st.button("Lancer une nouvelle détection", use_container_width=True):
-                    st.rerun()
-                    
-            else:
-                st.error("Aucun résultat de détection disponible")
-                
-                
-
-def _analyze_marketing_data_insights(df):
-    """Analyse les données marketing pour extraire des insights"""
-    insights = {
-        'data_shape': df.shape,
-        'numeric_columns': df.select_dtypes(include=[np.number]).columns.tolist(),
-        'text_columns': df.select_dtypes(include=['object']).columns.tolist(),
-        'missing_values': df.isnull().sum().sum(),
-        'date_columns': [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
-    }
-    
-    # Analyser les colonnes numériques
-    if insights['numeric_columns']:
-        insights['numeric_stats'] = {}
-        for col in insights['numeric_columns'][:5]:  # Limiter à 5 colonnes
-            insights['numeric_stats'][col] = {
-                'mean': df[col].mean(),
-                'median': df[col].median(),
-                'std': df[col].std(),
-                'min': df[col].min(),
-                'max': df[col].max()
-            }
-    
-    return insights
-
-def _analyze_sentiment_insights():
-    """Analyse les insights des sentiments"""
-    if 'sentiment_results' not in st.session_state:
-        return {}
-    
-    results = st.session_state['sentiment_results']
-    insights = {
-        'total_columns': len(results),
-        'total_texts': sum(r['count'] for r in results.values()),
-        'positive_count': 0,
-        'negative_count': 0,
-        'neutral_count': 0
-    }
-    
-    for results_data in results.values():
-        sentiments = results_data['sentiments']
-        insights['positive_count'] += sentiments.count('positif')
-        insights['negative_count'] += sentiments.count('négatif')
-        insights['neutral_count'] += sentiments.count('neutre')
-    
-    return insights
-
-def _analyze_fake_reviews_insights():
-    """Analyse les insights des faux avis"""
-    # Cette fonction analyse les résultats de détection de faux avis
-    # Dans une implémentation réelle, vous extrairiez ces données de votre base de données
-    return {
-        'fake_review_percentage': np.random.uniform(5, 25),
-        'main_reason': "Texte trop court",
-        'risk_level': "Moyen"
-    }
-# =======================================
-#     IA POUR RECOMMANDATIONS MARKETING
-# =======================================
-
-def render_ai_recommendations(user, db):
-    """IA de recommandations marketing en temps réel"""
-    st.subheader("IA - Recommandations Marketing Intelligentes")
-    
-    st.markdown("""
-    ### AIM Marketing Intelligence
-    
-    **Fonctionnement de l'IA :**
-    1. **Analyse des données** : Vérification des analyses de sentiments et faux avis
-    2. **Diagnostic intelligent** : Identification des problèmes et opportunités
-    3. **Recommandations personnalisées** : Stratégies adaptées à vos résultats
-    4. **Actions concrètes** : Étapes à mettre en œuvre immédiatement
-    """)
-    
-    # Vérifier si les analyses sont disponibles
-    sentiment_analysis_available = 'sentiment_analysis' in st.session_state
-    fake_reviews_available = 'fake_reviews_analysis' in st.session_state
-    marketing_data_available = 'marketing_data' in st.session_state
-    
-    if not any([sentiment_analysis_available, fake_reviews_available, marketing_data_available]):
-        st.warning("""
-        **Analyses requises pour les recommandations IA :**
-        
-        Pour générer des recommandations personnalisées, effectuez d'abord :
-        1. **Importez des données marketing** (sidebar)
-        2. **Analysez les sentiments** (onglet "Analyse Sentiments")
-        3. **Détectez les faux avis** (onglet "Détection Faux Avis")
-        
-        L'IA analysera automatiquement vos résultats pour générer des recommandations.
-        """)
-        return
-    
-    # Section de diagnostic IA
     st.markdown("---")
-    st.markdown("### Diagnostic IA en temps réel")
     
-    # Collecter les données des analyses
-    analysis_data = {}
-    
-    if sentiment_analysis_available:
-        df_sentiment = st.session_state['sentiment_analysis']
-        
-        # Calculer les métriques de sentiment
-        sentiment_counts = df_sentiment['sentiment'].value_counts()
-        total_reviews = len(df_sentiment)
-        
-        analysis_data['sentiment'] = {
-            'total_reviews': total_reviews,
-            'positive_percentage': (sentiment_counts.get('positif', 0) / total_reviews * 100) if total_reviews > 0 else 0,
-            'negative_percentage': (sentiment_counts.get('négatif', 0) / total_reviews * 100) if total_reviews > 0 else 0,
-            'neutral_percentage': (sentiment_counts.get('neutre', 0) / total_reviews * 100) if total_reviews > 0 else 0,
-            'avg_polarity': df_sentiment['polarite'].mean() if 'polarite' in df_sentiment.columns else 0,
-            'avg_subjectivity': df_sentiment['subjectivite'].mean() if 'subjectivite' in df_sentiment.columns else 0
-        }
-    
-    if fake_reviews_available:
-        df_fake = st.session_state['fake_reviews_analysis']
-        fake_count = df_fake['is_fake'].sum() if 'is_fake' in df_fake.columns else 0
-        total_fake_reviews = len(df_fake)
-        
-        analysis_data['fake_reviews'] = {
-            'total_analyzed': total_fake_reviews,
-            'fake_count': fake_count,
-            'fake_percentage': (fake_count / total_fake_reviews * 100) if total_fake_reviews > 0 else 0,
-            'fake_reasons': df_fake['fake_reason'].value_counts().to_dict() if 'fake_reason' in df_fake.columns else {}
-        }
-    
-    if marketing_data_available:
-        df_marketing = st.session_state['marketing_data']
-        analysis_data['marketing'] = {
-            'total_customers': len(df_marketing),
-            'columns_available': list(df_marketing.columns),
-            'has_dates': any('date' in col.lower() for col in df_marketing.columns)
-        }
-    
-    # Afficher le diagnostic IA
+    # Graphiques
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("#### État des analyses")
-        
-        if sentiment_analysis_available:
-            sent_data = analysis_data['sentiment']
-            positive_pct = sent_data['positive_percentage']
-            
-            # Évaluation de santé
-            if positive_pct >= 70:
-                health_status = "Excellente"
-                health_color = "#36B37E"
-            elif positive_pct >= 50:
-                health_status = "Satisfaisante"
-                health_color = "#FFAB00"
-            else:
-                health_status = "Critique"
-                health_color = "#FF5630"
-            
-            st.metric("Santé des avis", health_status)
-            st.metric("Avis positifs", f"{positive_pct:.1f}%")
-            st.metric("Avis négatifs", f"{sent_data['negative_percentage']:.1f}%")
-    
-    with col2:
-        st.markdown("#### Points d'attention")
-        
-        attention_points = []
-        
-        if sentiment_analysis_available:
-            sent_data = analysis_data['sentiment']
-            if sent_data['negative_percentage'] > 30:
-                attention_points.append(f"**{sent_data['negative_percentage']:.1f}% d'avis négatifs** - Réponse urgente requise")
-            if sent_data['avg_polarity'] < -0.2:
-                attention_points.append("**Polarité très négative** - Revoir la satisfaction client")
-        
-        if fake_reviews_available:
-            fake_data = analysis_data['fake_reviews']
-            if fake_data['fake_percentage'] > 10:
-                attention_points.append(f"**{fake_data['fake_percentage']:.1f}% de faux avis** - Risque réputationnel élevé")
-        
-        if attention_points:
-            for point in attention_points:
-                st.warning(point)
-        else:
-            st.success("Aucun point critique identifié")
-    
-    # Section recommandations IA
-    st.markdown("---")
-    st.markdown("### Recommandations IA Marketing")
-    
-    # Générer des recommandations basées sur l'analyse
-    recommendations = _generate_ai_recommendations(analysis_data)
-    
-    # Afficher les recommandations par catégorie
-    tab1, tab2, tab3 = st.tabs(["Actions immédiates", "Stratégies", "Surveillance"])
-    
-    with tab1:
-        st.markdown("#### Actions à mettre en place cette semaine")
-        
-        if 'immediate_actions' in recommendations:
-            for i, action in enumerate(recommendations['immediate_actions'], 1):
-                with st.expander(f"Action {i}: {action['title']}", expanded=True):
-                    st.markdown(f"**Objectif :** {action['objective']}")
-                    st.markdown(f"**Impact estimé :** {action['impact']}")
-                    st.markdown(f"**Étapes :**")
-                    for step in action['steps']:
-                        st.markdown(f"- {step}")
-                    
-                    if action.get('metrics'):
-                        st.markdown(f"**Métriques de suivi :** {action['metrics']}")
-    
-    with tab2:
-        st.markdown("#### Stratégies à moyen terme")
-        
-        if 'strategies' in recommendations:
-            for i, strategy in enumerate(recommendations['strategies'], 1):
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.markdown(f"**{strategy['title']}**")
-                    st.markdown(f"*{strategy['description']}*")
-                    st.markdown(f"**Résultat attendu :** {strategy['expected_result']}")
-                with col2:
-                    st.metric("Priorité", strategy['priority'])
-    
-    with tab3:
-        st.markdown("#### Tableau de bord de surveillance")
-        
-        # Créer un tableau de bord de surveillance
-        surveillance_metrics = []
-        
-        if sentiment_analysis_available:
-            sent_data = analysis_data['sentiment']
-            surveillance_metrics.extend([
-                {"Métrique": "Taux satisfaction", "Valeur": f"{sent_data['positive_percentage']:.1f}%", "Cible": "> 70%", "Statut": "OK" if sent_data['positive_percentage'] >= 70 else "Attention"},
-                {"Métrique": "Avis négatifs", "Valeur": f"{sent_data['negative_percentage']:.1f}%", "Cible": "< 15%", "Statut": "OK" if sent_data['negative_percentage'] <= 15 else "Attention"}
-            ])
-        
-        if fake_reviews_available:
-            fake_data = analysis_data['fake_reviews']
-            surveillance_metrics.append(
-                {"Métrique": "Faux avis", "Valeur": f"{fake_data['fake_percentage']:.1f}%", "Cible": "< 5%", "Statut": "OK" if fake_data['fake_percentage'] <= 5 else "Attention"}
+        # Top campagnes
+        if 'top_campaigns' in metrics and metrics['top_campaigns']:
+            top_campaigns_df = pd.DataFrame(
+                metrics['top_campaigns'],
+                columns=['Campagne', 'Impressions', 'Clics', 'Conversions', 'Dépense', 'Revenu']
             )
-        
-        if surveillance_metrics:
-            import plotly.graph_objects as go
+            top_campaigns_df['ROI'] = ((top_campaigns_df['Revenu'] - top_campaigns_df['Dépense']) / top_campaigns_df['Dépense'] * 100).round(2)
             
-            # Créer un tableau visuel
-            fig = go.Figure(data=[go.Table(
-                header=dict(
-                    values=list(surveillance_metrics[0].keys()),
-                    fill_color='#8B5CF6',
-                    align='center',
-                    font=dict(color='white', size=12)
-                ),
-                cells=dict(
-                    values=[[m[col] for m in surveillance_metrics] for col in surveillance_metrics[0].keys()],
-                    fill_color='#F3F4F6',
-                    align='center'
-                )
-            )])
-            
-            fig.update_layout(
-                title="Indicateurs de surveillance marketing",
-                height=200 + len(surveillance_metrics) * 40
-            )
-            
+            fig = px.bar(top_campaigns_df, x='Campagne', y='ROI', 
+                        title="Top Campagnes par ROI",
+                        color='ROI', color_continuous_scale='Viridis')
             st.plotly_chart(fig, use_container_width=True)
+
+def render_sentiment_analysis_marketing(user, db):
+    """Analyse des sentiments pour marketing"""
+    st.subheader("Analyse des Sentiments Clients")
+    
+    if 'marketing_data' in st.session_state:
+        df = st.session_state['marketing_data']
+        st.success(f"Analyse des sentiments sur {len(df)} entrées")
+        
+        # Sélection de la colonne de texte
+        text_cols = df.select_dtypes(include=['object']).columns.tolist()
+        
+        if text_cols:
+            text_column = st.selectbox("Colonne texte à analyser:", text_cols)
             
-            # Recommandations de surveillance
-            st.markdown("#### Alertes configurées")
-            st.info("""
-            **Alertes automatiques :**
-            - Email si satisfaction < 60%
-            - Notification si faux avis > 10%
-            - Rapport hebdomadaire automatique
-            """)
+            if TEXTBLOB_AVAILABLE:
+                if st.button("Analyser les sentiments", type="primary"):
+                    with st.spinner("Analyse en cours..."):
+                        # Analyse des sentiments
+                        sentiments = []
+                        for text in df[text_column].dropna().astype(str):
+                            try:
+                                blob = TextBlob(text)
+                                polarity = blob.sentiment.polarity
+                                if polarity > 0.1:
+                                    sentiment = 'positif'
+                                elif polarity < -0.1:
+                                    sentiment = 'négatif'
+                                else:
+                                    sentiment = 'neutre'
+                                sentiments.append(sentiment)
+                            except:
+                                sentiments.append('erreur')
+                        
+                        # Afficher résultats
+                        sentiment_counts = pd.Series(sentiments).value_counts()
+                        fig = px.pie(values=sentiment_counts.values, names=sentiment_counts.index,
+                                    title="Distribution des sentiments", hole=0.3)
+                        st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("TextBlob n'est pas installé")
+        else:
+            st.warning("Aucune colonne texte trouvée")
+    else:
+        st.info("Importez des données depuis la sidebar pour analyser les sentiments")
+
+def render_fake_reviews_detection_marketing(user, db):
+    """Détection de faux avis pour marketing"""
+    st.subheader("Détection de Faux Avis")
     
-    # Section simulation d'impact
-    st.markdown("---")
-    st.markdown("### Simulation d'impact des recommandations")
+    if 'marketing_data' in st.session_state:
+        df = st.session_state['marketing_data']
+        
+        st.markdown("""
+        ### Détection Automatique de Faux Avis
+        Cette fonctionnalité utilise des algorithmes pour identifier les avis suspects.
+        """)
+        
+        # Configuration
+        col1, col2 = st.columns(2)
+        with col1:
+            min_length = st.slider("Longueur texte minimale", 5, 100, 10)
+        with col2:
+            repetition_threshold = st.slider("Seuil de répétition (%)", 10, 50, 30)
+        
+        if st.button("Détecter les faux avis", type="primary"):
+            with st.spinner("Analyse en cours..."):
+                # Détection simple
+                df['text_length'] = df.select_dtypes(include=['object']).iloc[:, 0].astype(str).apply(len)
+                df['suspicious'] = df['text_length'] < min_length
+                
+                suspicious_count = df['suspicious'].sum()
+                st.warning(f"{suspicious_count} avis suspects détectés")
+                
+                if suspicious_count > 0:
+                    st.dataframe(df[df['suspicious']].head(10), use_container_width=True)
+    else:
+        st.info("Importez des données depuis la sidebar pour détecter les faux avis")
+
+def render_ai_recommendations_marketing(user, db):
+    """Recommandations IA pour marketing avec génération PDF"""
+    st.subheader("Recommandations IA")
     
-    with st.expander("Simuler l'impact des actions recommandées", expanded=False):
+    st.markdown("""
+    ### Recommandations Intelligentes
+    L'IA analyse vos données marketing pour générer des recommandations personnalisées basées sur vos performances.
+    """)
+    
+    # Vérifier si des données marketing sont disponibles
+    has_marketing_data = 'marketing_data' in st.session_state
+    
+    if has_marketing_data:
+        df = st.session_state['marketing_data']
+        
+        # Analyser les données pour générer des recommandations dynamiques
+        st.markdown("#### Analyse de vos données")
+        
+        # Identifier les colonnes clés
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        text_cols = df.select_dtypes(include=['object']).columns.tolist()
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            current_satisfaction = st.number_input(
-                "Satisfaction actuelle (%)",
-                min_value=0.0,
-                max_value=100.0,
-                value=analysis_data.get('sentiment', {}).get('positive_percentage', 50.0),
-                step=1.0
-            )
-            
-            investment = st.number_input(
-                "Budget marketing supplémentaire (€)",
-                min_value=0,
-                value=5000,
-                step=500
-            )
+            st.info(f"**Colonnes numériques:** {len(numeric_cols)}")
+            if numeric_cols:
+                st.write("Exemples:", ", ".join(numeric_cols[:3]))
         
         with col2:
-            action_scope = st.select_slider(
-                "Portée des actions",
-                options=["Léger", "Modéré", "Agressif"],
-                value="Modéré"
+            st.info(f"**Colonnes texte:** {len(text_cols)}")
+            if text_cols:
+                st.write("Exemples:", ", ".join(text_cols[:3]))
+    
+    # Options d'analyse
+    analysis_type = st.selectbox(
+        "Type d'analyse:",
+        ["Optimisation budget", "Ciblage clients", "Analyse concurrentielle", "Stratégie contenu", "Analyse complète"]
+    )
+    
+    # Paramètres d'analyse
+    with st.expander("Paramètres d'analyse", expanded=False):
+        col1, col2 = st.columns(2)
+        with col1:
+            time_period = st.selectbox(
+                "Période d'analyse:",
+                ["30 derniers jours", "3 derniers mois", "6 derniers mois", "Toute la période"]
             )
-            
-            time_horizon = st.select_slider(
-                "Horizon temporel",
-                options=["1 mois", "3 mois", "6 mois", "1 an"],
-                value="3 mois"
+        with col2:
+            priority_focus = st.selectbox(
+                "Priorité:",
+                ["Maximiser ROI", "Augmenter conversions", "Réduire coûts", "Améliorer engagement"]
             )
-        
-        if st.button("Simuler l'impact", type="primary"):
-            # Simulation simple
-            impact_multiplier = {"Léger": 1.1, "Modéré": 1.2, "Agressif": 1.3}[action_scope]
-            time_multiplier = {"1 mois": 0.8, "3 mois": 1.0, "6 mois": 1.2, "1 an": 1.5}[time_horizon]
+    
+    if st.button("Générer des recommandations IA", type="primary"):
+        with st.spinner("L'IA analyse vos données..."):
+            # Générer des recommandations dynamiques basées sur les données
+            recommendations = generate_dynamic_recommendations(analysis_type, has_marketing_data, priority_focus, time_period)
             
-            simulated_satisfaction = min(100, current_satisfaction * impact_multiplier * time_multiplier)
-            roi_estimate = (investment * (simulated_satisfaction / current_satisfaction - 1)) if current_satisfaction > 0 else 0
+            # Afficher les recommandations
+            st.markdown("### Recommandations Générées")
             
-            col1, col2, col3 = st.columns(3)
+            for i, rec in enumerate(recommendations, 1):
+                with st.container():
+                    st.markdown(f"**Recommandation {i}:** {rec['title']}")
+                    st.markdown(f"*{rec['description']}*")
+                    
+                    col1, col2, col3 = st.columns([2, 1, 1])
+                    with col1:
+                        st.markdown(f"**Impact estimé:** {rec['impact']}")
+                    with col2:
+                        st.markdown(f"**Priorité:** {rec['priority']}")
+                    with col3:
+                        st.markdown(f"**Délai:** {rec['timeline']}")
+                    
+                    st.markdown("---")
+            
+            # Générer et offrir le téléchargement PDF
+            pdf_bytes = generate_recommendations_pdf(user, recommendations, analysis_type)
+            
+            st.markdown("### Exporter les recommandations")
+            
+            col1, col2 = st.columns(2)
             with col1:
-                st.metric("Satisfaction projetée", f"{simulated_satisfaction:.1f}%", f"{simulated_satisfaction - current_satisfaction:.1f}%")
+                st.download_button(
+                    label="Télécharger PDF",
+                    data=pdf_bytes,
+                    file_name=f"recommandations_marketing_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            
             with col2:
-                st.metric("ROI estimé", f"{roi_estimate:.0f} €")
-            with col3:
-                efficiency = (simulated_satisfaction - current_satisfaction) / max(investment, 1) * 1000
-                st.metric("Efficacité", f"{efficiency:.2f} pts/1000€")
-    
-    # Bouton pour générer un rapport complet
-    st.markdown("---")
-    if st.button("Générer un rapport IA complet", type="primary", use_container_width=True):
-        report = _generate_ai_report(analysis_data, recommendations)
-        
-        st.download_button(
-            label="Télécharger le rapport IA",
-            data=report,
-            file_name=f"rapport_ia_marketing_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
-        
-        st.success("Rapport IA généré avec succès! Téléchargez-le pour voir les recommandations détaillées.")
+                # Option pour enregistrer dans la base de données
+                if st.button("Enregistrer dans la base", use_container_width=True):
+                    recommendations_text = "\n".join([f"{r['title']}: {r['description']}" for r in recommendations])
+                    db.log_ai_recommendation(
+                        user['id'],
+                        f"marketing_recommendation_{analysis_type}",
+                        recommendations_text
+                    )
+                    st.success("Recommandations enregistrées dans la base de données")
 
-
-def _generate_ai_recommendations(analysis_data):
-    """Génère des recommandations marketing intelligentes basées sur l'analyse"""
-    recommendations = {
-        'immediate_actions': [],
-        'strategies': [],
-        'monitoring': []
-    }
+def generate_dynamic_recommendations(analysis_type, has_data, priority_focus, time_period):
+    """Génère des recommandations dynamiques basées sur le contexte"""
     
-    # Analyse des sentiments
-    if 'sentiment' in analysis_data:
-        sent_data = analysis_data['sentiment']
-        
-        if sent_data['negative_percentage'] > 30:
-            recommendations['immediate_actions'].append({
-                'title': "Réponse aux avis négatifs",
-                'objective': "Réduire l'impact des avis négatifs",
-                'impact': "Élevé",
-                'steps': [
-                    "Identifier les 10 avis négatifs les plus récents",
-                    "Répondre personnellement à chaque avis",
-                    "Proposer des solutions concrètes",
-                    "Suivre les clients insatisfaits"
-                ],
-                'metrics': "Réduction de 20% des avis négatifs en 30 jours"
-            })
-        
-        if sent_data['avg_polarity'] < -0.2:
-            recommendations['strategies'].append({
-                'title': "Programme d'amélioration de la satisfaction",
-                'description': "Stratégie proactive pour améliorer l'expérience client",
-                'priority': "Haute",
-                'expected_result': "Augmentation de 15% de la satisfaction en 3 mois"
-            })
-    
-    # Faux avis
-    if 'fake_reviews' in analysis_data:
-        fake_data = analysis_data['fake_reviews']
-        
-        if fake_data['fake_percentage'] > 10:
-            recommendations['immediate_actions'].append({
-                'title': "Nettoyage des faux avis",
-                'objective': "Supprimer les faux avis et renforcer la crédibilité",
-                'impact': "Critique",
-                'steps': [
-                    "Signaler les faux avis aux plateformes",
-                    "Implémenter un système de vérification",
-                    "Former l'équipe à la détection",
-                    "Communiquer sur l'authenticité"
-                ],
-                'metrics': "Réduction à <5% de faux avis en 15 jours"
-            })
-    
-    # Recommandations génériques basées sur les données
-    if 'marketing' in analysis_data:
-        recommendations['strategies'].extend([
+    # Recommandations de base
+    base_recommendations = {
+        "Optimisation budget": [
             {
-                'title': "Personnalisation des campagnes",
-                'description': "Adapter les messages marketing aux segments clients identifiés",
-                'priority': "Moyenne",
-                'expected_result': "Augmentation de 25% du taux de conversion"
+                "title": "Réallocation budgétaire stratégique",
+                "description": "Redirigez 20% du budget des campagnes sous-performantes vers les canaux à haut ROI",
+                "impact": "Augmentation du ROI de 15-25%",
+                "priority": "Haute",
+                "timeline": "2 semaines"
             },
             {
-                'title': "Programme de fidélisation",
-                'description': "Créer un programme pour retenir les clients satisfaits",
-                'priority': "Haute",
-                'expected_result': "Augmentation de 30% de la rétention client"
+                "title": "Optimisation des plages horaires",
+                "description": "Ciblez les créneaux 18h-22h pour maximiser l'engagement sur les réseaux sociaux",
+                "impact": "Augmentation du CTR de 30%",
+                "priority": "Moyenne",
+                "timeline": "1 semaine"
+            },
+            {
+                "title": "Test A/B automatisé",
+                "description": "Implémentez des tests A/B sur les landing pages pour optimiser les taux de conversion",
+                "impact": "Amélioration conversion de 8-12%",
+                "priority": "Haute",
+                "timeline": "3 semaines"
             }
-        ])
+        ],
+        "Ciblage clients": [
+            {
+                "title": "Segmentation avancée",
+                "description": "Créez 5 segments clients basés sur le comportement d'achat et l'engagement",
+                "impact": "Augmentation de la pertinence des campagnes de 40%",
+                "priority": "Haute",
+                "timeline": "2 semaines"
+            },
+            {
+                "title": "Personnalisation des messages",
+                "description": "Adaptez le contenu marketing selon le cycle de vie du client",
+                "impact": "Amélioration de la rétention de 25%",
+                "priority": "Moyenne",
+                "timeline": "4 semaines"
+            },
+            {
+                "title": "Reactivation clients dormants",
+                "description": "Lancez une campagne ciblée pour les clients inactifs depuis 90+ jours",
+                "impact": "Taux de réactivation de 12-18%",
+                "priority": "Basse",
+                "timeline": "3 semaines"
+            }
+        ],
+        "Analyse concurrentielle": [
+            {
+                "title": "Benchmark des canaux",
+                "description": "Analysez la performance relative par canal vs vos principaux concurrents",
+                "impact": "Identification de 3 opportunités majeures",
+                "priority": "Haute",
+                "timeline": "2 semaines"
+            },
+            {
+                "title": "Analyse des prix",
+                "description": "Surveillez la stratégie tarifaire des concurrents pour ajuster vos offres",
+                "impact": "Optimisation des marges de 5-8%",
+                "priority": "Moyenne",
+                "timeline": "3 semaines"
+            },
+            {
+                "title": "Monitoring des avis",
+                "description": "Implémentez un système de veille sur les avis clients des concurrents",
+                "impact": "Amélioration de la satisfaction client",
+                "priority": "Basse",
+                "timeline": "4 semaines"
+            }
+        ],
+        "Stratégie contenu": [
+            {
+                "title": "Calendrier éditorial IA",
+                "description": "Générez un calendrier de contenu optimisé basé sur les tendances saisonnières",
+                "impact": "Augmentation de l'engagement de 35%",
+                "priority": "Haute",
+                "timeline": "1 semaine"
+            },
+            {
+                "title": "Optimisation SEO",
+                "description": "Ciblez 10 mots-clés à fort volume et faible concurrence",
+                "impact": "Trafic organique +45% en 3 mois",
+                "priority": "Moyenne",
+                "timeline": "6 semaines"
+            },
+            {
+                "title": "Contenu vidéo interactif",
+                "description": "Développez du contenu vidéo court pour les réseaux sociaux",
+                "impact": "Portée augmentée de 60%",
+                "priority": "Haute",
+                "timeline": "4 semaines"
+            }
+        ]
+    }
     
-    # Actions de surveillance
-    recommendations['monitoring'] = [
-        "Analyser les sentiments quotidiennement",
-        "Surveiller les tendances hebdomadaires",
-        "Comparer avec les concurrents mensuellement",
-        "Ajuster les stratégies en fonction des résultats"
-    ]
+    # Sélectionner les recommandations selon le type d'analyse
+    if analysis_type in base_recommendations:
+        recommendations = base_recommendations[analysis_type]
+    else:
+        # Analyse complète - mélange de toutes les catégories
+        recommendations = []
+        for category in base_recommendations.values():
+            recommendations.extend(category[:1])  # Prend une recommandation de chaque catégorie
     
-    return recommendations
+    # Personnaliser selon la priorité
+    if priority_focus == "Maximiser ROI":
+        recommendations = [r for r in recommendations if "ROI" in r["impact"] or "%" in r["impact"]]
+    elif priority_focus == "Augmenter conversions":
+        recommendations = [r for r in recommendations if "conversion" in r["description"].lower() or "conversion" in r["impact"].lower()]
+    
+    # Ajouter des données contextuelles si disponibles
+    if has_data:
+        for rec in recommendations:
+            rec["description"] += f" (basé sur l'analyse des données {time_period.lower()})"
+    
+    return recommendations[:5]  # Limiter à 5 recommandations
 
-
-def _generate_ai_report(analysis_data, recommendations):
-    """Génère un rapport IA complet"""
-    report = f"""
-    ============================================================================
-    RAPPORT D'INTELLIGENCE ARTIFICIELLE - AIM MARKETING PLATFORM
-    ============================================================================
-    Date de génération: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
-    
-    ============================================================================
-    1. DIAGNOSTIC GLOBAL
-    ============================================================================
-    
-    """
-    
-    if 'sentiment' in analysis_data:
-        sent_data = analysis_data['sentiment']
-        report += f"""
-        ANALYSE DES SENTIMENTS :
+def generate_recommendations_pdf(user, recommendations, analysis_type):
+    """Génère un PDF des recommandations"""
+    try:
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+        import io
+        
+        # Créer le buffer pour le PDF
+        buffer = io.BytesIO()
+        
+        # Créer le document
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72
+        )
+        
+        # Styles
+        styles = getSampleStyleSheet()
+        
+        # Styles personnalisés
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#1E3A8A')
+        )
+        
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=16,
+            spaceAfter=20,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#475569')
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=10,
+            spaceBefore=20,
+            textColor=colors.HexColor('#334155')
+        )
+        
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=10,
+            spaceAfter=6
+        )
+        
+        # Contenu du PDF
+        story = []
+        
+        # Titre
+        story.append(Paragraph("AIM Analytics Platform - Rapport de Recommandations", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Informations générales
+        story.append(Paragraph(f"Type d'analyse: {analysis_type}", subtitle_style))
+        story.append(Paragraph(f"Généré pour: {user.get('full_name', user.get('username', 'Utilisateur'))}", normal_style))
+        story.append(Paragraph(f"Date: {datetime.now().strftime('%d/%m/%Y %H:%M')}", normal_style))
+        story.append(Paragraph(f"Nombre de recommandations: {len(recommendations)}", normal_style))
+        
+        story.append(Spacer(1, 30))
+        
+        # Résumé exécutif
+        story.append(Paragraph("Résumé Exécutif", heading_style))
+        story.append(Paragraph(
+            f"Ce rapport présente {len(recommendations)} recommandations stratégiques "
+            f"pour optimiser votre performance marketing. Les suggestions sont basées sur "
+            f"l'analyse de données et les meilleures pratiques du secteur.",
+            normal_style
+        ))
+        
+        story.append(Spacer(1, 20))
+        
+        # Recommandations détaillées
+        story.append(Paragraph("Recommandations Détaillées", heading_style))
+        
+        for i, rec in enumerate(recommendations, 1):
+            story.append(Paragraph(f"Recommandation {i}: {rec['title']}", heading_style))
+            story.append(Paragraph(f"Description: {rec['description']}", normal_style))
+            
+            # Tableau des métriques
+            data = [
+                ['Métrique', 'Valeur'],
+                ['Impact estimé', rec['impact']],
+                ['Priorité', rec['priority']],
+                ['Délai recommandé', rec['timeline']]
+            ]
+            
+            table = Table(data, colWidths=[2*inch, 3*inch])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0'))
+            ]))
+            
+            story.append(table)
+            story.append(Spacer(1, 15))
+        
+        # Conclusion
+        story.append(Paragraph("Plan d'Action", heading_style))
+        story.append(Paragraph(
+            "Pour mettre en œuvre ces recommandations, nous suggérons le plan d'action suivant:",
+            normal_style
+        ))
+        
+        action_steps = [
+            "1. Prioriser les recommandations 'Haute' priorité dans les 2 prochaines semaines",
+            "2. Allouer les ressources nécessaires pour les initiatives à fort impact",
+            "3. Mettre en place un suivi mensuel des indicateurs clés",
+            "4. Réviser et ajuster la stratégie tous les trimestres"
+        ]
+        
+        for step in action_steps:
+            story.append(Paragraph(step, normal_style))
+        
+        story.append(Spacer(1, 20))
+        
+        # Pied de page
+        story.append(Paragraph(
+            "Généré par AIM Analytics Platform - Plateforme d'Intelligence Marketing",
+            ParagraphStyle(
+                'Footer',
+                parent=styles['Normal'],
+                fontSize=8,
+                alignment=TA_CENTER,
+                textColor=colors.gray
+            )
+        ))
+        
+        # Générer le PDF
+        doc.build(story)
+        
+        # Récupérer le PDF du buffer
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        
+        return pdf_bytes
+        
+    except ImportError:
+        # Fallback si reportlab n'est pas installé
+        st.error("La génération PDF nécessite ReportLab. Installez-le avec: pip install reportlab")
+        
+        # Créer un document texte formaté
+        text_content = f"""
+        AIM ANALYTICS PLATFORM - RAPPORT DE RECOMMANDATIONS
+        ====================================================
+        
+        Type d'analyse: {analysis_type}
+        Généré pour: {user.get('full_name', user.get('username', 'Utilisateur'))}
+        Date: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+        
+        RESUME EXECUTIF
+        ---------------
+        Ce rapport présente {len(recommendations)} recommandations stratégiques
+        pour optimiser votre performance marketing.
+        
+        RECOMMANDATIONS DETAILLEES
         ---------------------------
-        Total avis analysés : {sent_data['total_reviews']:,}
-        Avis positifs : {sent_data['positive_percentage']:.1f}%
-        Avis négatifs : {sent_data['negative_percentage']:.1f}%
-        Avis neutres : {sent_data['neutral_percentage']:.1f}%
-        Polarité moyenne : {sent_data['avg_polarity']:.3f}
-        Subjectivité moyenne : {sent_data['avg_subjectivity']:.3f}
+        """
         
-        ÉVALUATION : {"Excellente" if sent_data['positive_percentage'] >= 70 else "Moyenne" if sent_data['positive_percentage'] >= 50 else "Critique"}
+        for i, rec in enumerate(recommendations, 1):
+            text_content += f"""
+        Recommandation {i}: {rec['title']}
+        Description: {rec['description']}
+        Impact estimé: {rec['impact']}
+        Priorité: {rec['priority']}
+        Délai: {rec['timeline']}
+        ----------------------------------------
+            """
         
-        """
-    
-    if 'fake_reviews' in analysis_data:
-        fake_data = analysis_data['fake_reviews']
-        report += f"""
-        DÉTECTION DE FAUX AVIS :
-        ---------------------------
-        Total analysé : {fake_data['total_analyzed']:,}
-        Faux avis détectés : {fake_data['fake_count']:,}
-        Taux de faux avis : {fake_data['fake_percentage']:.1f}%
+        text_content += """
+        PLAN D'ACTION
+        -------------
+        1. Prioriser les recommandations 'Haute' priorité
+        2. Allouer les ressources nécessaires
+        3. Mettre en place un suivi mensuel
+        4. Réviser la stratégie trimestriellement
         
-        RISQUE RÉPUTATIONNEL : {"Élevé" if fake_data['fake_percentage'] > 10 else "Modéré" if fake_data['fake_percentage'] > 5 else "Faible"}
+        Généré par AIM Analytics Platform
+        """
         
-        """
-    
-    report += f"""
-    ============================================================================
-    2. RECOMMANDATIONS INTELLIGENTES
-    ============================================================================
-    
-    ACTIONS IMMÉDIATES (Cette semaine) :
-    ---------------------------------------
-    """
-    
-    for i, action in enumerate(recommendations.get('immediate_actions', []), 1):
-        report += f"""
-        {i}. {action['title']}
-            Objectif : {action['objective']}
-            Impact : {action['impact']}
-            Étapes :
-        """
-        for step in action.get('steps', []):
-            report += f"               - {step}\n"
-        
-        if action.get('metrics'):
-            report += f"            Métriques : {action['metrics']}\n"
-    
-    report += f"""
-    STRATÉGIES À MOYEN TERME (1-3 mois) :
-    ----------------------------------------
-    """
-    
-    for i, strategy in enumerate(recommendations.get('strategies', []), 1):
-        report += f"""
-        {i}. {strategy['title']}
-            Description : {strategy['description']}
-            Priorité : {strategy['priority']}
-            Résultat attendu : {strategy['expected_result']}
-        """
-    
-    report += f"""
-    ============================================================================
-    3. PLAN DE SURVEILLANCE
-    ============================================================================
-    
-    INDICATEURS CLÉS À SURVEILLER :
-    ----------------------------------
-    """
-    
-    # Ajouter les indicateurs
-    if 'sentiment' in analysis_data:
-        sent_data = analysis_data['sentiment']
-        report += f"""
-        • Taux de satisfaction client : {sent_data['positive_percentage']:.1f}% (Cible : >70%)
-        • Avis négatifs : {sent_data['negative_percentage']:.1f}% (Cible : <15%)
-        """
-    
-    if 'fake_reviews' in analysis_data:
-        fake_data = analysis_data['fake_reviews']
-        report += f"""
-        • Taux de faux avis : {fake_data['fake_percentage']:.1f}% (Cible : <5%)
-        """
-    
-    report += f"""
-    
-    ALERTES À CONFIGURER :
-    -------------------------
-    • Satisfaction client < 60%
-    • Augmentation > 10% des avis négatifs
-    • Taux de faux avis > 8%
-    • Baisse > 15% du taux de conversion
-    
-    ============================================================================
-    4. PRÉVISIONS ET IMPACTS ESTIMÉS
-    ============================================================================
-    
-    IMPACT DES RECOMMANDATIONS :
-    --------------------------------
-    • Augmentation estimée de la satisfaction : 15-25% en 3 mois
-    • Réduction estimée des faux avis : 40-60% en 1 mois
-    • ROI marketing estimé : 3-5x sur 6 mois
-    • Augmentation du taux de rétention : 20-30% en 6 mois
-    
-    RISQUES IDENTIFIÉS :
-    -----------------------
-    • Réputation compromise par les faux avis
-    • Clientèle insatisfaite non adressée
-    • Opportunités de croissance manquées
-    • Concurrence agressive
-    
-    ============================================================================
-    5. CONCLUSION ET PROCHAINES ÉTAPES
-    ============================================================================
-    
-    RECAPITULATIF :
-    ----------------
-    Priorité absolue : {recommendations.get('immediate_actions', [{}])[0].get('title', 'Aucune action urgente') if recommendations.get('immediate_actions') else 'Aucune action urgente'}
-    Opportunité principale : Personnalisation marketing
-    Risque principal : {"Faux avis" if analysis_data.get('fake_reviews', {}).get('fake_percentage', 0) > 10 else "Insatisfaction client"}
-    
-    PROCHAINES ÉTAPES :
-    -------------------
-    1. Mettre en œuvre les actions immédiates cette semaine
-    2. Planifier les stratégies à moyen terme
-    3. Configurer le tableau de bord de surveillance
-    4. Réviser les résultats dans 15 jours
-    
-    ============================================================================
-    GÉNÉRÉ PAR L'IA AIM MARKETING PLATFORM
-    Pour plus d'informations : contact@aim-analytics.com
-    ============================================================================
-    """
-    
-    return report
-
-
+        # Retourner comme bytes (simuler un PDF)
+        return text_content.encode('utf-8')
 # =============================
 #          MAIN APP
 # =============================
