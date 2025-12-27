@@ -6495,7 +6495,7 @@ def dashboard_marketing(user, db):
             st.session_state.clear()
             st.rerun()
     
-    # Contenu principal
+    # Contenu principal - TOUTES LES PAGES DOIVENT ÊTRE DÉFINIES
     if selected_page == "Vue d'ensemble":
         render_marketing_overview_advanced(user, db)
     elif selected_page == "Analyse Sentiments":
@@ -6505,7 +6505,7 @@ def dashboard_marketing(user, db):
     elif selected_page == "IA & Recommandations":
         render_ai_recommendations_marketing(user, db)
     elif selected_page == "Profil":
-        render_user_profile_enhanced(user, db)
+        render_user_profile_enhanced(user, db)  
 
 # =============================
 #   FONCTIONS MARKETING
