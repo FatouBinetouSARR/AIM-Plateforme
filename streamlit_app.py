@@ -6413,9 +6413,9 @@ def render_reports(user, db):
             use_container_width=True
         )
             
-#=============================
+# =============================
 #   DASHBOARD MARKETING
-#=============================            
+# =============================
 
 def dashboard_marketing(user, db):
     """Dashboard avancé pour le responsable marketing avec IA"""
@@ -6477,9 +6477,9 @@ def dashboard_marketing(user, db):
             except Exception as e:
                 st.error(f"Erreur d'import: {str(e)}")
         
-        # Navigation MAJ - SUPPRIMÉ "Ciblage Clients"
+        # Navigation MAJ - AJOUT DE "PROFIL"
         st.markdown("---")
-        pages = ["Vue d'ensemble", "Analyse Sentiments", "Détection Faux Avis", "IA & Recommandations"]
+        pages = ["Vue d'ensemble", "Analyse Sentiments", "Détection Faux Avis", "IA & Recommandations", "Profil"]  # Ajouté "Profil"
         selected_page = st.radio(
             "Navigation",
             pages,
@@ -6501,11 +6501,11 @@ def dashboard_marketing(user, db):
     elif selected_page == "Analyse Sentiments":
         render_sentiment_analysis_marketing(user, db)
     elif selected_page == "Détection Faux Avis":
-        render_fake_reviews_detection(user, db)
+        render_fake_reviews_detection_marketing(user, db)
     elif selected_page == "IA & Recommandations":
-        render_ai_recommendations(user, db)
-        
-        
+        render_ai_recommendations_marketing(user, db)
+    elif selected_page == "Profil":  # Nouvelle condition pour la page Profil
+        render_user_profile_enhanced(user, db)        
 def _calculate_marketing_metrics_from_data(df):
     """Calcule les métriques marketing à partir d'un DataFrame"""
     metrics = {}
