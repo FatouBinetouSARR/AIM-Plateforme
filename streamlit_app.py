@@ -6988,21 +6988,7 @@ def render_sentiment_analysis_marketing(user, db):
                 )
                 st.plotly_chart(fig_bar, use_container_width=True)
         
-        # Analyse par langue
-        st.markdown("### Analyse par langue détectée")
-        
-        if df_results['langue_detectee'].nunique() > 1:
-            lang_stats = df_results['langue_detectee'].value_counts().head(10)
-            
-            fig_lang = px.bar(
-                x=lang_stats.index,
-                y=lang_stats.values,
-                title="Top 10 des langues détectées",
-                labels={'x': 'Langue', 'y': 'Nombre d\'avis'},
-                color=lang_stats.values,
-                color_continuous_scale='Viridis'
-            )
-            st.plotly_chart(fig_lang, use_container_width=True)
+       
         
         # Tableau détaillé des résultats
         st.markdown("### Détails des résultats")
