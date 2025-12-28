@@ -7914,7 +7914,9 @@ def generate_marketing_recommendations(sentiment_stats, fake_review_stats, recom
                     "Améliorez les 3 points les plus critiqués",
                     "Formez votre équipe à mieux gérer les réclamations"
                 ],
-                'kpis': [f"Réduire les avis négatifs à {max(5, negatif//2)}%"]
+                'kpis': [f"Réduire les avis négatifs à {max(5, negatif//2)}%"],
+                'impact': "Élevé",  # AJOUTER CETTE LIGNE
+                'effort': "Moyen"   # AJOUTER CETTE LIGNE
             })
         
         # B. Si satisfaction moyenne
@@ -7930,7 +7932,9 @@ def generate_marketing_recommendations(sentiment_stats, fake_review_stats, recom
                     "Récompensez les clients fidèles",
                     "Simplifiez le processus d'achat"
                 ],
-                'kpis': [f"Atteindre {positif + 10}% de satisfaction"]
+                'kpis': [f"Atteindre {positif + 10}% de satisfaction"],
+                'impact': "Moyen",  # AJOUTER CETTE LIGNE
+                'effort': "Faible"  # AJOUTER CETTE LIGNE
             })
     
     # 2. RECOMMANDATIONS BASÉES SUR LES FAUX AVIS (si disponibles)
@@ -7950,7 +7954,9 @@ def generate_marketing_recommendations(sentiment_stats, fake_review_stats, recom
                     "Mettez en place un système de vérification",
                     "Signalez les faux avis évidents"
                 ],
-                'kpis': [f"Réduire les faux avis à {max(2, fake_rate//3)}%"]
+                'kpis': [f"Réduire les faux avis à {max(2, fake_rate//3)}%"],
+                'impact': "Élevé",  # AJOUTER CETTE LIGNE
+                'effort': "Moyen"   # AJOUTER CETTE LIGNE
             })
     
     # 3. RECOMMANDATIONS GÉNÉRALES PAR TYPE
@@ -7966,7 +7972,9 @@ def generate_marketing_recommendations(sentiment_stats, fake_review_stats, recom
                 "Ciblez mieux votre audience",
                 "Analysez le ROI de chaque canal"
             ],
-            'kpis': ["Augmenter le ROI de 20%"]
+            'kpis': ["Augmenter le ROI de 20%"],
+            'impact': "Moyen",  # AJOUTER CETTE LIGNE
+            'effort': "Élevé"   # AJOUTER CETTE LIGNE
         })
     
     elif recommendation_type == "Stratégie contenu":
@@ -7981,7 +7989,9 @@ def generate_marketing_recommendations(sentiment_stats, fake_review_stats, recom
                 "Créez des guides pratiques",
                 "Partagez des témoignages clients"
             ],
-            'kpis': ["Augmenter l'engagement de 30%"]
+            'kpis': ["Augmenter l'engagement de 30%"],
+            'impact': "Faible",  # AJOUTER CETTE LIGNE
+            'effort': "Moyen"    # AJOUTER CETTE LIGNE
         })
     
     elif recommendation_type == "Amélioration réputation":
@@ -7996,7 +8006,9 @@ def generate_marketing_recommendations(sentiment_stats, fake_review_stats, recom
                 "Partagez vos succès et améliorations",
                 "Soyez transparent avec vos clients"
             ],
-            'kpis': ["Améliorer le score de confiance de 25%"]
+            'kpis': ["Améliorer le score de confiance de 25%"],
+            'impact': "Moyen",  # AJOUTER CETTE LIGNE
+            'effort': "Faible"  # AJOUTER CETTE LIGNE
         })
     
     # 4. RECOMMANDATION DE SYNTHÈSE (si données disponibles)
@@ -8025,7 +8037,9 @@ def generate_marketing_recommendations(sentiment_stats, fake_review_stats, recom
                 "Ajustez vos actions en fonction des résultats",
                 "Célébrez les progrès réalisés"
             ],
-            'kpis': ["Maintenir ou améliorer tous les indicateurs"]
+            'kpis': ["Maintenir ou améliorer tous les indicateurs"],
+            'impact': "Variable",  # AJOUTER CETTE LIGNE
+            'effort': "Faible"     # AJOUTER CETTE LIGNE
         })
     
     # 5. SI AUCUNE DONNÉE, DONNER DES CONSEILS GÉNÉRAUX
@@ -8041,7 +8055,9 @@ def generate_marketing_recommendations(sentiment_stats, fake_review_stats, recom
                 "Analysez les sentiments",
                 "Détectez les faux avis"
             ],
-            'kpis': ["Avoir au moins 100 avis analysés"]
+            'kpis': ["Avoir au moins 100 avis analysés"],
+            'impact': "Élevé",  # AJOUTER CETTE LIGNE
+            'effort': "Moyen"   # AJOUTER CETTE LIGNE
         })
     
     return recommendations
