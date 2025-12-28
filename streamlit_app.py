@@ -7256,7 +7256,7 @@ def render_fake_reviews_detection_marketing(user, db):
                         use_container_width=True
                     )
             else:
-                st.success("Aucun faux avis détecté selon les critères définis")
+                st.success(" Aucun faux avis détecté selon les critères définis")
 def render_ai_recommendations_marketing(user, db):
     """Recommandations IA pour marketing avec génération PDF"""
     st.subheader("Recommandations IA")
