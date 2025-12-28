@@ -7647,7 +7647,7 @@ def render_marketing_ai_recommendations(user, db):
                     st.error(f"Erreur d'import: {str(e)}")
     
     with col2:
-        # Import résultats détection faux avis
+        # Import résultats détection faux avis - VERSION CORRIGÉE
         if not has_fake_review_data:
             st.info("Aucune détection de faux avis importée")
             fake_review_file = st.file_uploader(
@@ -7660,60 +7660,110 @@ def render_marketing_ai_recommendations(user, db):
             if fake_review_file:
                 try:
                     fake_review_df = pd.read_csv(fake_review_file)
-                    # Chercher les colonnes de statut
+                    
+                    # 1. DÉTECTION DES COLONNES D'ÉTAT/STATUT - VERSION AMÉLIORÉE
                     status_col = None
-                    for col in ['is_spam_final', 'faux_avis', 'status', 'statut']:
-                        if col in fake_review_df.columns:
-                            status_col = col
+                    status_cols_to_check = [
+                        'statut', 'status', 'etat', 'state', 'label', 'classification',
+                        'is_spam', 'spam', 'is_fake', 'fake', 'fake_avis', 'faux_avis',
+                        'is_spam_final', 'spam_final', 'is_fake_review', 'fake_review'
+                    ]
+                    
+                    for col in fake_review_df.columns:
+                        col_lower = col.lower()
+                        for keyword in status_cols_to_check:
+                            if keyword in col_lower:
+                                status_col = col
+                                break
+                        if status_col:
                             break
                     
-                    if status_col:
-                        st.session_state['fake_review_detection'] = fake_review_df
-                        st.success(f"Import réussi: {len(fake_review_df)} avis analysés")
-                        st.rerun()
-                    else:
-                        st.error("Format invalide: colonne de statut non trouvée")
-                except Exception as e:
-                    st.error(f"Erreur d'import: {str(e)}")
-    
-    # Afficher les statistiques si des données sont disponibles
-    if has_sentiment_data or has_fake_review_data:
-        st.markdown("### Statistiques disponibles")
-        
-        stats_cols = st.columns(2)
-        
-        with stats_cols[0]:
-            if has_sentiment_data:
-                sentiment_df = st.session_state['sentiment_analysis']
-                sentiment_counts = sentiment_df['sentiment'].value_counts()
-                st.markdown("**Analyse des sentiments:**")
-                st.write(f"- Total avis: {len(sentiment_df)}")
-                for sentiment, count in sentiment_counts.items():
-                    percentage = (count / len(sentiment_df)) * 100
-                    st.write(f"- {sentiment}: {count} ({percentage:.1f}%)")
-        
-        with stats_cols[1]:
-            if has_fake_review_data:
-                fake_review_df = st.session_state['fake_review_detection']
-                # Identifier la colonne de statut
-                status_col = None
-                for col in ['is_spam_final', 'faux_avis', 'status', 'statut']:
-                    if col in fake_review_df.columns:
-                        status_col = col
-                        break
-                
-                if status_col:
-                    if fake_review_df[status_col].dtype == 'bool':
-                        fake_count = fake_review_df[status_col].sum()
-                    else:
-                        fake_count = fake_review_df[fake_review_df[status_col].str.contains('spam|faux|SPAM', case=False, na=False)].shape[0]
+                    # 2. SI AUCUNE COLONNE DE STATUT N'EST TROUVÉE, ON CRÉE UNE COLONNE PAR DÉFAUT
+                    if status_col is None:
+                        st.warning(" Aucune colonne de statut détectée. Colonne 'statut_analyse' créée automatiquement.")
+                        
+                        # Analyser le contenu pour déterminer si ce sont des faux avis
+                        # Chercher des colonnes de texte pour analyse
+                        text_cols = fake_review_df.select_dtypes(include=['object']).columns.tolist()
+                        if text_cols:
+                            # Créer une colonne statut basée sur d'autres critères
+                            fake_review_df['statut_analyse'] = 'authentique'  # Par défaut
+                            
+                            # Chercher d'autres indicateurs
+                            spam_keywords = ['spam', 'fake', 'faux', 'fraud', 'suspect', 'bot']
+                            for text_col in text_cols[:1]:  # Prendre la première colonne de texte
+                                # Vérifier la longueur du texte
+                                fake_review_df['text_length'] = fake_review_df[text_col].astype(str).apply(len)
+                                
+                                # Marquer comme "à vérifier" les textes courts
+                                fake_review_df.loc[fake_review_df['text_length'] < 20, 'statut_analyse'] = 'à_vérifier'
+                                
+                                # Marquer comme "suspect" si contient des mots clés de spam
+                                for keyword in spam_keywords:
+                                    mask = fake_review_df[text_col].astype(str).str.lower().str.contains(keyword)
+                                    fake_review_df.loc[mask, 'statut_analyse'] = 'suspect'
+                            
+                            status_col = 'statut_analyse'
+                            st.info(f" Colonne '{status_col}' créée avec succès")
+                        else:
+                            # Si pas de colonnes texte, créer une colonne par défaut
+                            fake_review_df['statut'] = 'analyse_requise'
+                            status_col = 'statut'
+                            st.info(f" Colonne '{status_col}' créée par défaut")
                     
-                    st.markdown("**Détection faux avis:**")
-                    st.write(f"- Total avis: {len(fake_review_df)}")
-                    st.write(f"- Faux avis: {fake_count}")
-                    fake_rate = (fake_count / len(fake_review_df) * 100) if len(fake_review_df) > 0 else 0
-                    st.write(f"- Taux: {fake_rate:.1f}%")
+                    # 3. VÉRIFIER ET NORMALISER LES VALEURS DE STATUT
+                    if status_col:
+                        # Normaliser les valeurs
+                        status_mapping = {
+                            'spam': 'faux_avis',
+                            'fake': 'faux_avis',
+                            'faux': 'faux_avis',
+                            'fraud': 'faux_avis',
+                            'true': 'authentique',
+                            'real': 'authentique',
+                            'genuine': 'authentique',
+                            'ham': 'authentique',
+                            'legitimate': 'authentique'
+                        }
+                        
+                        if fake_review_df[status_col].dtype == 'object':
+                            fake_review_df[status_col] = fake_review_df[status_col].astype(str).str.lower()
+                            
+                            # Appliquer le mapping
+                            for old_val, new_val in status_mapping.items():
+                                mask = fake_review_df[status_col].str.contains(old_val, na=False)
+                                fake_review_df.loc[mask, status_col] = new_val
+                        
+                        # Compter les valeurs
+                        status_counts = fake_review_df[status_col].value_counts()
+                        st.info(f"**Distribution des statuts :**")
+                        for statut, count in status_counts.items():
+                            st.write(f"- {statut}: {count}")
+                    
+                    # 4. STOCKER LES DONNÉES
+                    st.session_state['fake_review_detection'] = fake_review_df
+                    st.success(f" Import réussi : {len(fake_review_df)} avis analysés")
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f" Erreur d'import : {str(e)}")
     
+    # Vérifier les colonnes essentielles après import
+    if has_fake_review_data:
+        fake_review_df = st.session_state['fake_review_detection']
+        
+        # Afficher les informations sur les colonnes
+        st.markdown("#### Colonnes détectées dans le fichier :")
+        cols_info = []
+        for col in fake_review_df.columns:
+            dtype = str(fake_review_df[col].dtype)
+            unique_count = fake_review_df[col].nunique()
+            sample_value = str(fake_review_df[col].iloc[0])[:50] if len(fake_review_df) > 0 else "N/A"
+            cols_info.append([col, dtype, unique_count, sample_value])
+        
+        cols_df = pd.DataFrame(cols_info, columns=['Colonne', 'Type', 'Valeurs uniques', 'Exemple'])
+        st.dataframe(cols_df, use_container_width=True, height=300)
+        
     # Section de génération de recommandations
     st.markdown("### Génération de recommandations marketing")
     
