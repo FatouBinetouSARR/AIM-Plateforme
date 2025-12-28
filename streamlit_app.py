@@ -6794,7 +6794,7 @@ def render_sentiment_analysis_marketing(user, db):
                 st.plotly_chart(fig, use_container_width=True)
 
 def render_fake_reviews_detection_marketing(user, db):
-    """Détection de faux avis pour marketing - VERSION EXISTANTE"""
+    """Détection de faux avis pour marketing avec analyse des auteurs"""
     st.subheader("Détection de Faux Avis")
     
     # Vérifier si des données ont été importées
@@ -6808,7 +6808,8 @@ def render_fake_reviews_detection_marketing(user, db):
     st.markdown("""
     ### Système de Détection de Faux Avis
     
-    Cette fonctionnalité analyse automatiquement les avis pour détecter les patterns suspects.
+    Cette fonctionnalité analyse automatiquement les avis pour détecter les patterns suspects 
+    et identifier les auteurs potentiellement frauduleux.
     """)
     
     # Identifier les colonnes
@@ -6819,7 +6820,7 @@ def render_fake_reviews_detection_marketing(user, db):
         return
     
     # Configuration
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         text_column = st.selectbox(
@@ -6838,9 +6839,9 @@ def render_fake_reviews_detection_marketing(user, db):
     
     with col2:
         # Chercher colonne auteur
-        author_cols = [col for col in df.columns if any(word in col.lower() for word in ['author', 'user', 'name', 'client'])]
+        author_cols = [col for col in df.columns if any(word in col.lower() for word in ['author', 'user', 'name', 'client', 'auteur', 'utilisateur'])]
         author_column = st.selectbox(
-            "Colonne auteur (optionnel):",
+            "Colonne auteur:",
             ['Aucune'] + author_cols,
             key="fake_reviews_author_col"
         )
@@ -6853,8 +6854,55 @@ def render_fake_reviews_detection_marketing(user, db):
             help="Pourcentage maximum de répétition d'un mot"
         )
     
+    with col3:
+        # Chercher colonne note/rating
+        rating_cols = [col for col in df.columns if any(word in col.lower() for word in ['rating', 'note', 'score', 'star', 'review'])]
+        rating_column = st.selectbox(
+            "Colonne note (optionnel):",
+            ['Aucune'] + rating_cols,
+            key="fake_reviews_rating_col"
+        )
+        
+        extreme_rating_threshold = st.checkbox(
+            "Détecter notes extrêmes",
+            value=True,
+            help="Marquer comme suspect les notes 1 ou 5 avec texte court"
+        )
+    
+    # Règles avancées
+    with st.expander("Règles de détection avancées", expanded=False):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            min_reviews_per_author = st.slider(
+                "Avis minimum par auteur suspect:",
+                min_value=2,
+                max_value=10,
+                value=3,
+                help="Nombre minimum d'avis pour qu'un auteur soit considéré suspect"
+            )
+            
+            same_day_post = st.checkbox(
+                "Détecter avis même jour",
+                value=True,
+                help="Marquer comme suspect si un auteur poste plusieurs avis le même jour"
+            )
+        
+        with col2:
+            pattern_detection = st.checkbox(
+                "Détection de patterns",
+                value=True,
+                help="Détecter les patterns répétitifs dans les avis d'un même auteur"
+            )
+            
+            ip_detection = st.checkbox(
+                "Simulation IP identique",
+                value=False,
+                help="Simuler la détection d'IP identiques (si colonne IP disponible)"
+            )
+    
     # Bouton d'analyse
-    if st.button("Détecter les faux avis", type="primary"):
+    if st.button("Analyser les faux avis", type="primary", use_container_width=True):
         with st.spinner("Analyse en cours..."):
             # Préparer les données
             analysis_df = df.copy()
@@ -6876,26 +6924,93 @@ def render_fake_reviews_detection_marketing(user, db):
             
             analysis_df['suspicious_repetition'] = analysis_df[text_column].apply(check_repetition)
             
-            # 3. Détection par auteur (si colonne disponible)
+            # 3. Détection par note extrême
+            analysis_df['suspicious_rating'] = False
+            if rating_column != 'Aucune' and rating_column in analysis_df.columns and extreme_rating_threshold:
+                analysis_df['suspicious_rating'] = (
+                    (analysis_df[rating_column].isin([1, 5])) & 
+                    (analysis_df['text_length'] < 50)
+                )
+            
+            # 4. ANALYSE DES AUTEURS (PARTIE IMPORTANTE)
+            suspicious_authors_data = {}
+            
             if author_column != 'Aucune' and author_column in analysis_df.columns:
-                author_counts = analysis_df[author_column].value_counts()
-                suspicious_authors = author_counts[author_counts > 3].index.tolist()
+                # Grouper par auteur
+                author_groups = analysis_df.groupby(author_column)
+                
+                for author, group in author_groups:
+                    author_stats = {
+                        'total_reviews': len(group),
+                        'fake_reviews_count': 0,
+                        'suspicion_score': 0,
+                        'avg_text_length': group['text_length'].mean(),
+                        'extreme_ratings': 0,
+                        'patterns': []
+                    }
+                    
+                    # Calculer le score pour chaque avis de l'auteur
+                    for idx, row in group.iterrows():
+                        suspicion_score = 0
+                        
+                        if row['suspicious_length']:
+                            suspicion_score += 1
+                        if row['suspicious_repetition']:
+                            suspicion_score += 1
+                        if row['suspicious_rating']:
+                            suspicion_score += 1
+                            author_stats['extreme_ratings'] += 1
+                        
+                        if suspicion_score >= 2:
+                            author_stats['fake_reviews_count'] += 1
+                        
+                        author_stats['suspicion_score'] += suspicion_score
+                    
+                    # Détection de patterns par auteur
+                    if pattern_detection and len(group) >= 2:
+                        texts = group[text_column].astype(str).tolist()
+                        # Vérifier la similarité entre les textes
+                        if len(texts) >= 2:
+                            # Vérifier les mots clés communs
+                            all_words = []
+                            for text in texts:
+                                words = text.lower().split()
+                                all_words.extend(words[:10])  # Prendre les premiers mots
+                            
+                            word_counts = Counter(all_words)
+                            common_words = [word for word, count in word_counts.items() if count > 1]
+                            
+                            if len(common_words) >= 3:
+                                author_stats['patterns'].append(f"Mots répétés: {', '.join(common_words[:5])}")
+                    
+                    # Marquer l'auteur comme suspect si plusieurs critères
+                    if (author_stats['total_reviews'] >= min_reviews_per_author and 
+                        author_stats['fake_reviews_count'] > 0):
+                        suspicious_authors_data[author] = author_stats
+                
+                # Marquer les avis des auteurs suspects
+                suspicious_authors = list(suspicious_authors_data.keys())
                 analysis_df['suspicious_author'] = analysis_df[author_column].isin(suspicious_authors)
             else:
                 analysis_df['suspicious_author'] = False
             
-            # Calculer le score de suspicion
-            suspicion_columns = ['suspicious_length', 'suspicious_repetition', 'suspicious_author']
+            # Calculer le score de suspicion final
+            suspicion_columns = ['suspicious_length', 'suspicious_repetition', 'suspicious_rating', 'suspicious_author']
             analysis_df['suspicion_score'] = analysis_df[suspicion_columns].sum(axis=1)
             analysis_df['is_fake_review'] = analysis_df['suspicion_score'] >= 2
             
-            # Résultats
+            # ===========================================
+            # AFFICHAGE DES RÉSULTATS
+            # ===========================================
+            
             fake_count = analysis_df['is_fake_review'].sum()
             total_reviews = len(analysis_df)
             fake_percentage = (fake_count / total_reviews) * 100
             
-            # Afficher les résultats
-            col1, col2, col3 = st.columns(3)
+            # Métriques principales
+            st.markdown("### Résultats de la détection")
+            
+            col1, col2, col3, col4 = st.columns(4)
             
             with col1:
                 st.metric("Avis analysés", total_reviews)
@@ -6906,34 +7021,242 @@ def render_fake_reviews_detection_marketing(user, db):
             with col3:
                 st.metric("Taux de faux avis", f"{fake_percentage:.1f}%")
             
-            # Détails des faux avis
+            with col4:
+                avg_suspicion = analysis_df['suspicion_score'].mean()
+                st.metric("Score suspicion moyen", f"{avg_suspicion:.2f}")
+            
+            # ===========================================
+            # ANALYSE DES AUTEURS SUSPECTS
+            # ===========================================
+            if suspicious_authors_data:
+                st.markdown("### Auteurs Suspects Identifiés")
+                st.warning(f"**{len(suspicious_authors_data)} auteurs suspects détectés**")
+                
+                # Créer un DataFrame pour les auteurs suspects
+                authors_df = pd.DataFrame.from_dict(suspicious_authors_data, orient='index')
+                authors_df['author'] = authors_df.index
+                authors_df = authors_df.reset_index(drop=True)
+                
+                # Calculer le pourcentage de faux avis par auteur
+                authors_df['fake_percentage'] = (authors_df['fake_reviews_count'] / authors_df['total_reviews']) * 100
+                authors_df = authors_df.sort_values('fake_percentage', ascending=False)
+                
+                # Afficher le top 10 des auteurs les plus suspects
+                st.markdown("#### Top 10 des auteurs les plus suspects")
+                
+                top_authors = authors_df.head(10)
+                
+                fig_authors = px.bar(
+                    top_authors,
+                    x='author',
+                    y='fake_percentage',
+                    color='total_reviews',
+                    title="Auteurs avec le plus haut pourcentage de faux avis",
+                    labels={'author': 'Auteur', 'fake_percentage': '% de faux avis', 'total_reviews': 'Total avis'},
+                    color_continuous_scale='Reds'
+                )
+                fig_authors.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig_authors, use_container_width=True)
+                
+                # Tableau détaillé des auteurs suspects
+                st.markdown("#### Détail des auteurs suspects")
+                
+                display_columns = ['author', 'total_reviews', 'fake_reviews_count', 'fake_percentage', 
+                                 'avg_text_length', 'extreme_ratings', 'suspicion_score']
+                
+                st.dataframe(
+                    authors_df[display_columns],
+                    use_container_width=True,
+                    height=400
+                )
+                
+                # Patterns détectés
+                st.markdown("#### Patterns détectés")
+                
+                for author, stats in list(suspicious_authors_data.items())[:5]:  # Limiter à 5 auteurs
+                    if stats['patterns']:
+                        with st.expander(f"Patterns pour {author}", expanded=False):
+                            for pattern in stats['patterns']:
+                                st.write(f"- {pattern}")
+                
+                # Recommandations pour les auteurs suspects
+                st.markdown("#### Recommandations")
+                
+                high_risk_authors = authors_df[authors_df['fake_percentage'] >= 50]
+                
+                if len(high_risk_authors) > 0:
+                    st.error(f"**{len(high_risk_authors)} auteurs à haut risque** (≥50% de faux avis)")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**Actions recommandées:**")
+                        st.write("1. Suspension temporaire des comptes")
+                        st.write("2. Vérification manuelle des avis")
+                        st.write("3. Envoi d'email de vérification")
+                    
+                    with col2:
+                        st.markdown("**Prévention:**")
+                        st.write("1. Limite d'avis par jour")
+                        st.write("2. CAPTCHA pour nouveaux avis")
+                        st.write("3. Validation email obligatoire")
+            
+            # ===========================================
+            # DÉTAILS DES FAUX AVIS
+            # ===========================================
             if fake_count > 0:
                 st.markdown("### Détails des avis suspects")
                 
                 fake_reviews = analysis_df[analysis_df['is_fake_review']]
                 
                 # Colonnes à afficher
-                display_cols = [text_column, 'suspicion_score', 'text_length']
+                display_cols = ['suspicion_score', 'text_length']
                 if author_column != 'Aucune':
                     display_cols.insert(0, author_column)
+                display_cols.append(text_column)
+                if rating_column != 'Aucune':
+                    display_cols.append(rating_column)
+                
+                # Filtres
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    min_score = st.slider(
+                        "Score de suspicion minimum:",
+                        min_value=2,
+                        max_value=4,
+                        value=2,
+                        key="min_suspicion_score"
+                    )
+                
+                with col2:
+                    show_only = st.multiselect(
+                        "Afficher par type:",
+                        ['Texte court', 'Répétition', 'Note extrême', 'Auteur suspect'],
+                        default=['Texte court', 'Répétition', 'Note extrême', 'Auteur suspect']
+                    )
+                
+                # Appliquer les filtres
+                filtered_fakes = fake_reviews[fake_reviews['suspicion_score'] >= min_score]
                 
                 st.dataframe(
-                    fake_reviews[display_cols].head(20),
-                    use_container_width=True
+                    filtered_fakes[display_cols].head(50),
+                    use_container_width=True,
+                    height=500
                 )
                 
-                # Export
-                csv_data = fake_reviews[display_cols].to_csv(index=False)
-                st.download_button(
-                    label="Exporter les faux avis (CSV)",
-                    data=csv_data,
-                    file_name=f"faux_avis_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
+                # ===========================================
+                # EXPORT DES RÉSULTATS
+                # ===========================================
+                st.markdown("### Export des résultats")
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    # Export CSV complet
+                    csv_all = analysis_df.to_csv(index=False)
+                    st.download_button(
+                        label="Exporter tous les résultats",
+                        data=csv_all,
+                        file_name=f"detection_faux_avis_complet_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        mime="text/csv",
+                        use_container_width=True
+                    )
+                
+                with col2:
+                    # Export seulement les faux avis
+                    if len(fake_reviews) > 0:
+                        csv_fakes = fake_reviews.to_csv(index=False)
+                        st.download_button(
+                            label=f"Exporter {len(fake_reviews)} faux avis",
+                            data=csv_fakes,
+                            file_name=f"faux_avis_detectes_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
+                
+                with col3:
+                    # Export des auteurs suspects
+                    if suspicious_authors_data:
+                        authors_export = pd.DataFrame.from_dict(suspicious_authors_data, orient='index')
+                        csv_authors = authors_export.to_csv()
+                        st.download_button(
+                            label=f"Exporter {len(suspicious_authors_data)} auteurs suspects",
+                            data=csv_authors,
+                            file_name=f"auteurs_suspects_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
+                
+                # ===========================================
+                # RAPPORT DÉTAILLÉ
+                # ===========================================
+                st.markdown("### Rapport d'analyse")
+                
+                if st.button("Générer un rapport détaillé", use_container_width=True):
+                    report_content = f"""
+                    RAPPORT DE DÉTECTION DE FAUX AVIS - AIM ANALYTICS
+                    ===================================================
+                    
+                    Date d'analyse: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+                    Fichier analysé: {st.session_state.get('marketing_filename', 'N/A')}
+                    Analyste: {user.get('full_name', user.get('username', 'Utilisateur'))}
+                    
+                    PARAMÈTRES UTILISÉS:
+                    - Longueur texte minimale: {min_length} caractères
+                    - Seuil de répétition: {repetition_threshold}%
+                    - Détection notes extrêmes: {'Activée' if extreme_rating_threshold else 'Désactivée'}
+                    - Avis minimum par auteur suspect: {min_reviews_per_author}
+                    
+                    RÉSULTATS:
+                    - Total avis analysés: {total_reviews}
+                    - Faux avis détectés: {fake_count}
+                    - Taux de faux avis: {fake_percentage:.1f}%
+                    - Auteurs suspects identifiés: {len(suspicious_authors_data) if suspicious_authors_data else 0}
+                    
+                    DISTRIBUTION DES SCORES DE SUSPICION:
+                    """
+                    
+                    # Ajouter la distribution des scores
+                    score_distribution = analysis_df['suspicion_score'].value_counts().sort_index()
+                    for score, count in score_distribution.items():
+                        percentage = (count / total_reviews) * 100
+                        report_content += f"\n- Score {score}: {count} avis ({percentage:.1f}%)"
+                    
+                    # Ajouter les auteurs suspects
+                    if suspicious_authors_data:
+                        report_content += f"\n\nAUTEURS SUSPECTS ({len(suspicious_authors_data)}):"
+                        for i, (author, stats) in enumerate(list(suspicious_authors_data.items())[:10], 1):
+                            fake_percent = (stats['fake_reviews_count'] / stats['total_reviews']) * 100
+                            report_content += f"""
+    {i}. {author}:
+       - Total avis: {stats['total_reviews']}
+       - Avis suspects: {stats['fake_reviews_count']}
+       - Taux suspicion: {fake_percent:.1f}%
+       - Longueur moyenne: {stats['avg_text_length']:.0f} caractères
+                            """
+                    
+                    report_content += f"""
+                    
+                    RECOMMANDATIONS:
+                    1. Vérifier manuellement les avis avec score ≥3
+                    2. Contacter les {min(5, len(suspicious_authors_data))} auteurs les plus suspects
+                    3. Implémenter un système de validation pour les nouveaux avis
+                    4. Mettre en place une limite d'avis par utilisateur par jour
+                    
+                    ---
+                    Rapport généré automatiquement par AIM Analytics Platform
+                    """
+                    
+                    st.download_button(
+                        label="Télécharger le rapport complet",
+                        data=report_content,
+                        file_name=f"rapport_faux_avis_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                        mime="text/plain",
+                        use_container_width=True
+                    )
             else:
                 st.success("Aucun faux avis détecté selon les critères définis")
-
 def render_ai_recommendations_marketing(user, db):
     """Recommandations IA pour marketing avec génération PDF"""
     st.subheader("Recommandations IA")
