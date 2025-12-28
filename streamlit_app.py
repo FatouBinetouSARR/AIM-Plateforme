@@ -6847,7 +6847,7 @@ def render_sentiment_analysis_marketing(user, db):
             st.session_state['sentiment_rating_column'] = rating_col
             
             # Afficher les résultats
-            st.success(f"✅ Analyse terminée sur {len(df_results)} entrées")
+            st.success(f" Analyse terminée sur {len(df_results)} entrées")
     
     # Afficher les résultats si l'analyse est terminée
     if 'sentiment_results' in st.session_state and st.session_state.get('sentiment_analysis_complete', False):
@@ -6922,73 +6922,6 @@ def render_sentiment_analysis_marketing(user, db):
             
             stats_df = pd.DataFrame(sentiment_stats)
             st.dataframe(stats_df, use_container_width=True, hide_index=True)
-        
-        # Graphique de distribution des polarités
-        st.markdown("### Distribution des polarités")
-        
-        fig_hist = px.histogram(
-            df_results,
-            x='polarite',
-            color='sentiment',
-            nbins=30,
-            title="Histogramme des polarités par sentiment",
-            labels={'polarite': 'Polarité (-1 à 1)', 'count': 'Nombre'},
-            color_discrete_map={
-                'positif': '#36B37E',
-                'négatif': '#FF5630',
-                'neutre': '#FFAB00',
-                'sarcastique': '#6554C0'
-            },
-            opacity=0.7
-        )
-        st.plotly_chart(fig_hist, use_container_width=True)
-        
-        # Corrélation avec les notes si disponibles
-        if rating_col and rating_col in df_results.columns:
-            st.markdown("### Corrélation avec les notes")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Graphique de dispersion
-                fig_scatter = px.scatter(
-                    df_results,
-                    x=rating_col,
-                    y='polarite',
-                    color='sentiment',
-                    title="Notes vs Polarité des sentiments",
-                    labels={rating_col: 'Note', 'polarite': 'Polarité'},
-                    color_discrete_map={
-                        'positif': '#36B37E',
-                        'négatif': '#FF5630',
-                        'neutre': '#FFAB00',
-                        'sarcastique': '#6554C0'
-                    }
-                )
-                st.plotly_chart(fig_scatter, use_container_width=True)
-            
-            with col2:
-                # Notes moyennes par sentiment
-                avg_ratings = df_results.groupby('sentiment')[rating_col].mean().reset_index()
-                avg_ratings = avg_ratings.sort_values(rating_col, ascending=False)
-                
-                fig_bar = px.bar(
-                    avg_ratings,
-                    x='sentiment',
-                    y=rating_col,
-                    title="Note moyenne par sentiment",
-                    labels={'sentiment': 'Sentiment', rating_col: 'Note moyenne'},
-                    color='sentiment',
-                    color_discrete_map={
-                        'positif': '#36B37E',
-                        'négatif': '#FF5630',
-                        'neutre': '#FFAB00',
-                        'sarcastique': '#6554C0'
-                    }
-                )
-                st.plotly_chart(fig_bar, use_container_width=True)
-        
-       
         
         # Tableau détaillé des résultats
         st.markdown("### Détails des résultats")
