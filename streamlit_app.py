@@ -6497,16 +6497,15 @@ def dashboard_marketing(user, db):
     
     # Contenu principal - TOUTES LES PAGES DOIVENT ÊTRE DÉFINIES
     if selected_page == "Vue d'ensemble":
-        # Utilise la fonction existante qui a les KPIs dynamiques
         render_marketing_overview_existing(user, db)
     elif selected_page == "Analyse Sentiments":
         render_sentiment_analysis_marketing(user, db)
     elif selected_page == "Détection Faux Avis":
         render_fake_reviews_detection_marketing(user, db)
     elif selected_page == "IA & Recommandations":
-        render_ai_recommendations_marketing(user, db)
+        render_marketing_ai_recommendations(user, db) 
     elif selected_page == "Profil":
-        render_user_profile_enhanced(user, db)  # CETTE LIGNE EST ESSENTIELLE !
+        render_user_profile_enhanced(user, db) 
 
 # =============================
 #   FONCTIONS MARKETING EXISTANTES (AVEC KPIs DYNAMIQUES)
@@ -7206,7 +7205,7 @@ def render_fake_reviews_detection_marketing(user, db):
                             use_container_width=True
                         )
             else:
-                st.success("✅ Aucun faux avis détecté selon les critères définis")
+                st.success(" Aucun faux avis détecté selon les critères définis")
     
     # ===========================================
     # BOUTON DE RAPPORT DÉTAILLÉ (EN DEHORS DE LA CONDITION)
