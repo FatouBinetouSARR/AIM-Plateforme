@@ -7101,8 +7101,6 @@ def render_sentiment_analysis_marketing(user, db):
                 help=f"Exporter seulement les avis {sentiment_choice}"
             )
 
-
-
 def render_fake_reviews_detection_marketing(user, db):
     """Détection de faux avis pour marketing avec analyse des auteurs"""
     st.subheader("Détection de Faux Avis")
@@ -7830,8 +7828,8 @@ def render_marketing_ai_recommendations(user, db):
             
             # Générer les recommandations basées sur les analyses
             recommendations = generate_marketing_recommendations(
-                sentiment_stats=sentiment_stats,
-                fake_review_stats=fake_review_stats,
+                sentiment_stats=None,
+                fake_review_stats=None,
                 recommendation_type=recommendation_type,
                 time_horizon=time_horizon
             )
@@ -8174,12 +8172,12 @@ def generate_pdf_report(recommendations, user, sentiment_stats, fake_review_stat
     story.append(Paragraph("STATISTIQUES D'ANALYSE", subtitle_style))
     
     stats_data = []
-    if sentiment_stats:
+    if sentiment_stats is not None:  # Vérifier explicitement
         stats_data.append(["Analyse des sentiments", f"{sentiment_stats.get('total', 0)} avis analysés"])
         stats_data.append(["", f"Taux positif : {sentiment_stats.get('positif_rate', 0):.1f}%"])
         stats_data.append(["", f"Taux négatif : {sentiment_stats.get('negatif_rate', 0):.1f}%"])
     
-    if fake_review_stats:
+    if fake_review_stats is not None:  # Vérifier explicitement
         stats_data.append(["Détection faux avis", f"{fake_review_stats.get('total', 0)} avis analysés"])
         stats_data.append(["", f"Faux avis détectés : {fake_review_stats.get('fake_count', 0)}"])
         stats_data.append(["", f"Taux de faux avis : {fake_review_stats.get('fake_rate', 0):.1f}%"])
