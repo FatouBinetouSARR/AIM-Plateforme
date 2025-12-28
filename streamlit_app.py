@@ -7828,8 +7828,8 @@ def render_marketing_ai_recommendations(user, db):
             
             # Générer les recommandations basées sur les analyses
             recommendations = generate_marketing_recommendations(
-                sentiment_stats=sentiment_stats,  # <-- Peut être None
-                fake_review_stats=fake_review_stats,  # <-- Peut être None
+                sentiment_stats=sentiment_stats,  # Pas sentiment
+                fake_review_stats=fake_review_stats,  # Pas fake_review
                 recommendation_type=recommendation_type,
                 time_horizon=time_horizon
             )
@@ -7878,8 +7878,33 @@ def render_marketing_ai_recommendations(user, db):
         st.markdown("### Export des recommandations")
         
         if st.button("Générer le rapport PDF", type="primary", use_container_width=True):
+            # Récupérer les statistiques de sentiment si disponibles
+            sentiment_stats_to_export = None
+            if 'sentiment_analysis' in st.session_state:
+                sentiment_df = st.session_state['sentiment_analysis']
+                sentiment_counts = sentiment_df['sentiment'].value_counts()
+                sentiment_stats_to_export = {
+                    'total': len(sentiment_df),
+                    'positif': sentiment_counts.get('positif', 0),
+                    'negatif': sentiment_counts.get('négatif', 0),
+                    'neutre': sentiment_counts.get('neutre', 0),
+                    'positif_rate': (sentiment_counts.get('positif', 0) / len(sentiment_df) * 100) if len(sentiment_df) > 0 else 0,
+                    'negatif_rate': (sentiment_counts.get('négatif', 0) / len(sentiment_df) * 100) if len(sentiment_df) > 0 else 0
+                }
+            
+            # Récupérer les statistiques de faux avis si disponibles
+            fake_review_stats_to_export = None
+            if 'fake_review_detection' in st.session_state:
+                fake_review_df = st.session_state['fake_review_detection']
+                # Logique pour calculer les stats des faux avis...
+                fake_review_stats_to_export = {
+                    'total': len(fake_review_df),
+                    'fake_count': 0,  # À calculer selon votre logique
+                    'fake_rate': 0    # À calculer selon votre logique
+                }
+            
             # Générer le contenu du rapport
-            pdf_content = generate_pdf_report(recommendations, user, sentiment_stats, fake_review_stats)
+            pdf_content = generate_pdf_report(recommendations, user, sentiment_stats_to_export, fake_review_stats_to_export)
             
             # Télécharger le PDF
             st.download_button(
