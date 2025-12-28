@@ -7298,434 +7298,637 @@ def render_fake_reviews_detection_marketing(user, db):
             with st.expander("Aperçu du rapport", expanded=False):
                 st.text(report_content[:2000] + "..." if len(report_content) > 2000 else report_content)
                 
-def render_ai_recommendations_marketing(user, db):
-    """Recommandations IA pour marketing avec génération PDF"""
-    st.subheader("Recommandations IA")
+def render_marketing_ai_recommendations(user, db):
+    """Génération de recommandations IA basées sur les analyses de sentiments et faux avis"""
+    st.subheader("Recommandations Marketing Intelligentes")
     
-    st.markdown("""
-    ### Recommandations Intelligentes
-    L'IA analyse vos données marketing pour générer des recommandations personnalisées basées sur vos performances.
-    """)
+    # Vérifier les données disponibles
+    has_sentiment_data = 'sentiment_analysis' in st.session_state
+    has_fake_review_data = 'fake_review_detection' in st.session_state
     
-    # Vérifier si des données marketing sont disponibles
-    has_marketing_data = 'marketing_data' in st.session_state
+    # Section d'import des résultats d'analyse
+    st.markdown("### Import des résultats d'analyse")
     
-    if has_marketing_data:
-        df = st.session_state['marketing_data']
-        
-        # Analyser les données pour générer des recommandations dynamiques
-        st.markdown("#### Analyse de vos données")
-        
-        # Identifier les colonnes clés
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        text_cols = df.select_dtypes(include=['object']).columns.tolist()
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.info(f"**Colonnes numériques:** {len(numeric_cols)}")
-            if numeric_cols:
-                st.write("Exemples:", ", ".join(numeric_cols[:3]))
-        
-        with col2:
-            st.info(f"**Colonnes texte:** {len(text_cols)}")
-            if text_cols:
-                st.write("Exemples:", ", ".join(text_cols[:3]))
+    col1, col2 = st.columns(2)
     
-    # Options d'analyse
-    analysis_type = st.selectbox(
-        "Type d'analyse:",
-        ["Optimisation budget", "Ciblage clients", "Analyse concurrentielle", "Stratégie contenu", "Analyse complète"]
+    with col1:
+        # Import résultats analyse sentiments
+        if not has_sentiment_data:
+            st.info("Aucune analyse de sentiments importée")
+            sentiment_file = st.file_uploader(
+                "Importer résultats analyse sentiments (CSV)",
+                type=['csv'],
+                key="sentiment_results_upload",
+                help="Importez les résultats de l'analyse des sentiments"
+            )
+            
+            if sentiment_file:
+                try:
+                    sentiment_df = pd.read_csv(sentiment_file)
+                    # Vérifier les colonnes nécessaires
+                    required_cols = ['sentiment', 'polarite']
+                    if all(col in sentiment_df.columns for col in required_cols):
+                        st.session_state['sentiment_analysis'] = sentiment_df
+                        st.success(f"Import réussi: {len(sentiment_df)} avis analysés")
+                        st.rerun()
+                    else:
+                        st.error("Format invalide: colonnes 'sentiment' et 'polarite' requises")
+                except Exception as e:
+                    st.error(f"Erreur d'import: {str(e)}")
+    
+    with col2:
+        # Import résultats détection faux avis
+        if not has_fake_review_data:
+            st.info("Aucune détection de faux avis importée")
+            fake_review_file = st.file_uploader(
+                "Importer résultats détection faux avis (CSV)",
+                type=['csv'],
+                key="fake_review_results_upload",
+                help="Importez les résultats de la détection de faux avis"
+            )
+            
+            if fake_review_file:
+                try:
+                    fake_review_df = pd.read_csv(fake_review_file)
+                    # Chercher les colonnes de statut
+                    status_col = None
+                    for col in ['is_spam_final', 'faux_avis', 'status', 'statut']:
+                        if col in fake_review_df.columns:
+                            status_col = col
+                            break
+                    
+                    if status_col:
+                        st.session_state['fake_review_detection'] = fake_review_df
+                        st.success(f"Import réussi: {len(fake_review_df)} avis analysés")
+                        st.rerun()
+                    else:
+                        st.error("Format invalide: colonne de statut non trouvée")
+                except Exception as e:
+                    st.error(f"Erreur d'import: {str(e)}")
+    
+    # Afficher les statistiques si des données sont disponibles
+    if has_sentiment_data or has_fake_review_data:
+        st.markdown("### Statistiques disponibles")
+        
+        stats_cols = st.columns(2)
+        
+        with stats_cols[0]:
+            if has_sentiment_data:
+                sentiment_df = st.session_state['sentiment_analysis']
+                sentiment_counts = sentiment_df['sentiment'].value_counts()
+                st.markdown("**Analyse des sentiments:**")
+                st.write(f"- Total avis: {len(sentiment_df)}")
+                for sentiment, count in sentiment_counts.items():
+                    percentage = (count / len(sentiment_df)) * 100
+                    st.write(f"- {sentiment}: {count} ({percentage:.1f}%)")
+        
+        with stats_cols[1]:
+            if has_fake_review_data:
+                fake_review_df = st.session_state['fake_review_detection']
+                # Identifier la colonne de statut
+                status_col = None
+                for col in ['is_spam_final', 'faux_avis', 'status', 'statut']:
+                    if col in fake_review_df.columns:
+                        status_col = col
+                        break
+                
+                if status_col:
+                    if fake_review_df[status_col].dtype == 'bool':
+                        fake_count = fake_review_df[status_col].sum()
+                    else:
+                        fake_count = fake_review_df[fake_review_df[status_col].str.contains('spam|faux|SPAM', case=False, na=False)].shape[0]
+                    
+                    st.markdown("**Détection faux avis:**")
+                    st.write(f"- Total avis: {len(fake_review_df)}")
+                    st.write(f"- Faux avis: {fake_count}")
+                    fake_rate = (fake_count / len(fake_review_df) * 100) if len(fake_review_df) > 0 else 0
+                    st.write(f"- Taux: {fake_rate:.1f}%")
+    
+    # Section de génération de recommandations
+    st.markdown("### Génération de recommandations marketing")
+    
+    if not (has_sentiment_data or has_fake_review_data):
+        st.warning("Importez d'abord les résultats d'analyse pour générer des recommandations")
+        return
+    
+    # Options de génération
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        recommendation_type = st.selectbox(
+            "Type de recommandations:",
+            ["Optimisation campagnes", "Stratégie contenu", "Amélioration réputation", 
+             "Détection fraudes", "Analyse complète"],
+            help="Sélectionnez le domaine d'optimisation"
+        )
+    
+    with col2:
+        time_horizon = st.selectbox(
+            "Horizon temporel:",
+            ["Court terme (1-3 mois)", "Moyen terme (3-6 mois)", "Long terme (6-12 mois)"],
+            help="Période de mise en œuvre"
+        )
+    
+    # Bouton de génération
+    if st.button("Générer les recommandations marketing", type="primary", use_container_width=True):
+        with st.spinner("Analyse en cours et génération des recommandations..."):
+            # Récupérer les données d'analyse
+            sentiment_stats = {}
+            fake_review_stats = {}
+            
+            if has_sentiment_data:
+                sentiment_df = st.session_state['sentiment_analysis']
+                sentiment_counts = sentiment_df['sentiment'].value_counts()
+                sentiment_stats = {
+                    'total': len(sentiment_df),
+                    'positif': sentiment_counts.get('positif', 0),
+                    'negatif': sentiment_counts.get('négatif', 0),
+                    'neutre': sentiment_counts.get('neutre', 0),
+                    'positif_rate': (sentiment_counts.get('positif', 0) / len(sentiment_df) * 100) if len(sentiment_df) > 0 else 0,
+                    'negatif_rate': (sentiment_counts.get('négatif', 0) / len(sentiment_df) * 100) if len(sentiment_df) > 0 else 0
+                }
+            
+            if has_fake_review_data:
+                fake_review_df = st.session_state['fake_review_detection']
+                status_col = None
+                for col in ['is_spam_final', 'faux_avis', 'status', 'statut']:
+                    if col in fake_review_df.columns:
+                        status_col = col
+                        break
+                
+                if status_col:
+                    if fake_review_df[status_col].dtype == 'bool':
+                        fake_count = fake_review_df[status_col].sum()
+                    else:
+                        fake_count = fake_review_df[fake_review_df[status_col].str.contains('spam|faux|SPAM', case=False, na=False)].shape[0]
+                    
+                    fake_review_stats = {
+                        'total': len(fake_review_df),
+                        'fake_count': fake_count,
+                        'fake_rate': (fake_count / len(fake_review_df) * 100) if len(fake_review_df) > 0 else 0
+                    }
+            
+            # Générer les recommandations basées sur les analyses
+            recommendations = generate_marketing_recommendations(
+                sentiment_stats=sentiment_stats,
+                fake_review_stats=fake_review_stats,
+                recommendation_type=recommendation_type,
+                time_horizon=time_horizon
+            )
+            
+            # Stocker les recommandations
+            st.session_state['marketing_recommendations'] = recommendations
+            st.session_state['recommendations_generated'] = True
+            
+            # Log dans la base de données
+            db.log_ai_recommendation(
+                user['id'],
+                recommendation_type,
+                f"Génération de {len(recommendations)} recommandations marketing"
+            )
+            
+            st.success(f"{len(recommendations)} recommandations générées avec succès!")
+    
+    # Afficher les recommandations si disponibles
+    if 'marketing_recommendations' in st.session_state and st.session_state.get('recommendations_generated', False):
+        recommendations = st.session_state['marketing_recommendations']
+        
+        st.markdown("### Recommandations marketing générées")
+        
+        # Afficher les recommandations
+        for i, rec in enumerate(recommendations, 1):
+            with st.expander(f"Recommandation {i}: {rec['title']}", expanded=True):
+                st.markdown(f"**Catégorie:** {rec['category']}")
+                st.markdown(f"**Priorité:** {rec['priority']}")
+                st.markdown(f"**Impact estimé:** {rec['impact']}")
+                st.markdown(f"**Effort requis:** {rec['effort']}")
+                st.markdown(f"**Délai:** {rec['timeframe']}")
+                
+                st.markdown("**Description:**")
+                st.write(rec['description'])
+                
+                st.markdown("**Actions concrètes:**")
+                for action in rec['actions']:
+                    st.markdown(f"- {action}")
+                
+                st.markdown("**Indicateurs de succès:**")
+                for kpi in rec['kpis']:
+                    st.markdown(f"- {kpi}")
+        
+        # Section d'export PDF
+        st.markdown("---")
+        st.markdown("### Export des recommandations")
+        
+        if st.button("Générer le rapport PDF", type="primary", use_container_width=True):
+            # Générer le contenu du rapport
+            pdf_content = generate_pdf_report(recommendations, user, sentiment_stats, fake_review_stats)
+            
+            # Télécharger le PDF
+            st.download_button(
+                label="Télécharger le rapport PDF",
+                data=pdf_content,
+                file_name=f"recommandations_marketing_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+
+def generate_marketing_recommendations(sentiment_stats, fake_review_stats, recommendation_type, time_horizon):
+    """Génère des recommandations marketing basées sur les analyses"""
+    
+    recommendations = []
+    
+    # Analyse basée sur les sentiments
+    if sentiment_stats:
+        positif_rate = sentiment_stats.get('positif_rate', 0)
+        negatif_rate = sentiment_stats.get('negatif_rate', 0)
+        total_reviews = sentiment_stats.get('total', 0)
+        
+        # Recommandations basées sur le taux de satisfaction
+        if negatif_rate > 20:
+            recommendations.append({
+                'title': "Plan d'action pour réduire les avis négatifs",
+                'category': "Gestion de réputation",
+                'priority': "Haute",
+                'impact': "Élevé",
+                'effort': "Moyen",
+                'timeframe': time_horizon,
+                'description': f"Avec {negatif_rate:.1f}% d'avis négatifs, il est crucial de mettre en place un plan d'action pour améliorer la satisfaction client.",
+                'actions': [
+                    "Mettre en place un système de suivi des réclamations",
+                    "Former le service client à la gestion des insatisfactions",
+                    "Créer un programme de fidélisation pour les clients mécontents",
+                    "Analyser les causes racines des avis négatifs"
+                ],
+                'kpis': [
+                    "Réduction de 50% des avis négatifs dans les 3 mois",
+                    "Amélioration du score de satisfaction de 20%",
+                    "Temps de réponse aux réclamations réduit de 30%"
+                ]
+            })
+        
+        if positif_rate < 60:
+            recommendations.append({
+                'title': "Stratégie d'augmentation de la satisfaction client",
+                'category': "Expérience client",
+                'priority': "Moyenne",
+                'impact': "Moyen",
+                'effort': "Faible",
+                'timeframe': time_horizon,
+                'description': f"Un taux de satisfaction de {positif_rate:.1f}% indique une marge d'amélioration significative pour renforcer l'expérience client.",
+                'actions': [
+                    "Implémenter un système de collecte de feedback en temps réel",
+                    "Créer un programme de reconnaissance des meilleurs avis",
+                    "Optimiser le processus d'achat et de livraison",
+                    "Développer du contenu éducatif pour les clients"
+                ],
+                'kpis': [
+                    "Augmentation de 15% du taux de satisfaction",
+                    "Hausse de 25% des recommandations clients",
+                    "Amélioration du NPS de 10 points"
+                ]
+            })
+    
+    # Analyse basée sur les faux avis
+    if fake_review_stats:
+        fake_rate = fake_review_stats.get('fake_rate', 0)
+        fake_count = fake_review_stats.get('fake_count', 0)
+        
+        if fake_rate > 5:
+            recommendations.append({
+                'title': "Plan de lutte contre les faux avis",
+                'category': "Intégrité des données",
+                'priority': "Haute",
+                'impact': "Élevé",
+                'effort': "Moyen",
+                'timeframe': time_horizon,
+                'description': f"Un taux de {fake_rate:.1f}% de faux avis ({fake_count} avis) compromet la crédibilité de votre marque et nécessite une action immédiate.",
+                'actions': [
+                    "Mettre en place un système de vérification d'authenticité",
+                    "Former une équipe de modération dédiée",
+                    "Implémenter des algorithmes de détection avancée",
+                    "Créer une politique claire de publication d'avis"
+                ],
+                'kpis': [
+                    "Réduction de 80% des faux avis détectés",
+                    "Temps de modération réduit de 40%",
+                    "Amélioration de la crédibilité des avis de 25%"
+                ]
+            })
+    
+    # Recommandations générales basées sur le type
+    if recommendation_type == "Optimisation campagnes":
+        recommendations.extend([
+            {
+                'title': "Optimisation du ciblage des campagnes publicitaires",
+                'category': "Publicité",
+                'priority': "Moyenne",
+                'impact': "Élevé",
+                'effort': "Faible",
+                'timeframe': time_horizon,
+                'description': "Basé sur l'analyse des données clients, optimisez le ciblage de vos campagnes pour améliorer le ROI.",
+                'actions': [
+                    "Segmenter la base client selon les comportements d'achat",
+                    "Ajuster les messages publicitaires par segment",
+                    "Tester différents canaux de diffusion",
+                    "Optimiser les heures de diffusion des campagnes"
+                ],
+                'kpis': [
+                    "Augmentation du CTR de 20%",
+                    "Réduction du coût par acquisition de 15%",
+                    "Amélioration du ROI des campagnes de 25%"
+                ]
+            },
+            {
+                'title': "Stratégie de retargeting personnalisé",
+                'category': "Marketing digital",
+                'priority': "Basse",
+                'impact': "Moyen",
+                'effort': "Faible",
+                'timeframe': time_horizon,
+                'description': "Développez une stratégie de retargeting basée sur le parcours client pour reconquérir les prospects perdus.",
+                'actions': [
+                    "Créer des audiences de retargeting segmentées",
+                    "Développer des messages personnalisés par étape du parcours",
+                    "Automatiser les séquences de retargeting",
+                    "Tester différentes offres de reconquête"
+                ],
+                'kpis': [
+                    "Taux de conversion retargeting de 3%",
+                    "Coût par conversion réduit de 30%",
+                    "Taux de réengagement de 15%"
+                ]
+            }
+        ])
+    
+    elif recommendation_type == "Stratégie contenu":
+        recommendations.extend([
+            {
+                'title': "Plan éditorial basé sur les insights clients",
+                'category': "Content Marketing",
+                'priority': "Moyenne",
+                'impact': "Moyen",
+                'effort': "Moyen",
+                'timeframe': time_horizon,
+                'description': "Développez un plan de contenu qui répond aux besoins et questions de vos clients identifiés dans les avis.",
+                'actions': [
+                    "Analyser les thèmes récurrents dans les avis clients",
+                    "Créer du contenu éducatif sur les points de friction identifiés",
+                    "Développer des études de cas clients réussis",
+                    "Produire du contenu formatif sur l'utilisation des produits"
+                ],
+                'kpis': [
+                    "Augmentation du trafic organique de 30%",
+                    "Temps moyen sur page de 3 minutes",
+                    "Taux de partage social de 5%"
+                ]
+            }
+        ])
+    
+    # Ajouter des recommandations basées sur les deux analyses
+    if sentiment_stats and fake_review_stats:
+        recommendations.append({
+            'title': "Stratégie intégrée de gestion de la réputation",
+            'category': "Marketing stratégique",
+            'priority': "Haute",
+            'impact': "Élevé",
+            'effort': "Élevé",
+            'timeframe': time_horizon,
+            'description': f"Combinez la gestion des avis authentiques ({sentiment_stats.get('total', 0)} avis analysés) et la lutte contre les faux avis ({fake_review_stats.get('fake_count', 0)} détectés) pour une approche complète.",
+            'actions': [
+                "Créer un tableau de bord de monitoring de la réputation",
+                "Établir des protocoles de réponse aux différents types d'avis",
+                "Développer un programme d'ambassadeurs clients",
+                "Implémenter un système de récompense pour les avis authentiques"
+            ],
+            'kpis': [
+                "Score de réputation globale amélioré de 20%",
+                "Taux d'engagement sur les avis de 15%",
+                "Nombre d'avis authentiques augmenté de 30%"
+            ]
+        })
+    
+    # Si aucune donnée spécifique, donner des recommandations génériques
+    if not recommendations:
+        recommendations.append({
+            'title': "Stratégie marketing de base",
+            'category': "Marketing général",
+            'priority': "Moyenne",
+            'impact': "Moyen",
+            'effort': "Faible",
+            'timeframe': time_horizon,
+            'description': "Recommandations marketing générales pour améliorer vos performances.",
+            'actions': [
+                "Analyser régulièrement les données de performance",
+                "Tester différentes approches marketing",
+                "Collecter systématiquement le feedback client",
+                "Optimiser le parcours d'achat"
+            ],
+            'kpis': [
+                "Amélioration continue des indicateurs clés",
+                "Augmentation progressive de la satisfaction client",
+                "Optimisation du retour sur investissement"
+            ]
+        })
+    
+    return recommendations
+
+def generate_pdf_report(recommendations, user, sentiment_stats, fake_review_stats):
+    """Génère un rapport PDF des recommandations marketing"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.pdfgen import canvas
+    import io
+    
+    # Créer le buffer pour le PDF
+    buffer = io.BytesIO()
+    
+    # Créer le document
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=72,
+        leftMargin=72,
+        topMargin=72,
+        bottomMargin=72
     )
     
-    # Paramètres d'analyse
-    with st.expander("Paramètres d'analyse", expanded=False):
-        col1, col2 = st.columns(2)
-        with col1:
-            time_period = st.selectbox(
-                "Période d'analyse:",
-                ["30 derniers jours", "3 derniers mois", "6 derniers mois", "Toute la période"]
-            )
-        with col2:
-            priority_focus = st.selectbox(
-                "Priorité:",
-                ["Maximiser ROI", "Augmenter conversions", "Réduire coûts", "Améliorer engagement"]
-            )
+    # Styles
+    styles = getSampleStyleSheet()
     
-    if st.button("Générer des recommandations IA", type="primary"):
-        with st.spinner("L'IA analyse vos données..."):
-            # Générer des recommandations dynamiques basées sur les données
-            recommendations = generate_dynamic_recommendations(analysis_type, has_marketing_data, priority_focus, time_period)
-            
-            # Afficher les recommandations
-            st.markdown("### Recommandations Générées")
-            
-            for i, rec in enumerate(recommendations, 1):
-                with st.container():
-                    st.markdown(f"**Recommandation {i}:** {rec['title']}")
-                    st.markdown(f"*{rec['description']}*")
-                    
-                    col1, col2, col3 = st.columns([2, 1, 1])
-                    with col1:
-                        st.markdown(f"**Impact estimé:** {rec['impact']}")
-                    with col2:
-                        st.markdown(f"**Priorité:** {rec['priority']}")
-                    with col3:
-                        st.markdown(f"**Délai:** {rec['timeline']}")
-                    
-                    st.markdown("---")
-            
-            # Générer et offrir le téléchargement PDF
-            pdf_bytes = generate_recommendations_pdf(user, recommendations, analysis_type)
-            
-            st.markdown("### Exporter les recommandations")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.download_button(
-                    label="Télécharger PDF",
-                    data=pdf_bytes,
-                    file_name=f"recommandations_marketing_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-            
-            with col2:
-                # Option pour enregistrer dans la base de données
-                if st.button("Enregistrer dans la base", use_container_width=True):
-                    recommendations_text = "\n".join([f"{r['title']}: {r['description']}" for r in recommendations])
-                    db.log_ai_recommendation(
-                        user['id'],
-                        f"marketing_recommendation_{analysis_type}",
-                        recommendations_text
-                    )
-                    st.success("Recommandations enregistrées dans la base de données")
-
-def generate_dynamic_recommendations(analysis_type, has_data, priority_focus, time_period):
-    """Génère des recommandations dynamiques basées sur le contexte"""
+    # Styles personnalisés
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        spaceAfter=30,
+        textColor=colors.HexColor('#1E3A8A')
+    )
     
-    # Recommandations de base
-    base_recommendations = {
-        "Optimisation budget": [
-            {
-                "title": "Réallocation budgétaire stratégique",
-                "description": "Redirigez 20% du budget des campagnes sous-performantes vers les canaux à haut ROI",
-                "impact": "Augmentation du ROI de 15-25%",
-                "priority": "Haute",
-                "timeline": "2 semaines"
-            },
-            {
-                "title": "Optimisation des plages horaires",
-                "description": "Ciblez les créneaux 18h-22h pour maximiser l'engagement sur les réseaux sociaux",
-                "impact": "Augmentation du CTR de 30%",
-                "priority": "Moyenne",
-                "timeline": "1 semaine"
-            },
-            {
-                "title": "Test A/B automatisé",
-                "description": "Implémentez des tests A/B sur les landing pages pour optimiser les taux de conversion",
-                "impact": "Amélioration conversion de 8-12%",
-                "priority": "Haute",
-                "timeline": "3 semaines"
-            }
-        ],
-        "Ciblage clients": [
-            {
-                "title": "Segmentation avancée",
-                "description": "Créez 5 segments clients basés sur le comportement d'achat et l'engagement",
-                "impact": "Augmentation de la pertinence des campagnes de 40%",
-                "priority": "Haute",
-                "timeline": "2 semaines"
-            },
-            {
-                "title": "Personnalisation des messages",
-                "description": "Adaptez le contenu marketing selon le cycle de vie du client",
-                "impact": "Amélioration de la rétention de 25%",
-                "priority": "Moyenne",
-                "timeline": "4 semaines"
-            },
-            {
-                "title": "Reactivation clients dormants",
-                "description": "Lancez une campagne ciblée pour les clients inactifs depuis 90+ jours",
-                "impact": "Taux de réactivation de 12-18%",
-                "priority": "Basse",
-                "timeline": "3 semaines"
-            }
-        ],
-        "Analyse concurrentielle": [
-            {
-                "title": "Benchmark des canaux",
-                "description": "Analysez la performance relative par canal vs vos principaux concurrents",
-                "impact": "Identification de 3 opportunités majeures",
-                "priority": "Haute",
-                "timeline": "2 semaines"
-            },
-            {
-                "title": "Analyse des prix",
-                "description": "Surveillez la stratégie tarifaire des concurrents pour ajuster vos offres",
-                "impact": "Optimisation des marges de 5-8%",
-                "priority": "Moyenne",
-                "timeline": "3 semaines"
-            },
-            {
-                "title": "Monitoring des avis",
-                "description": "Implémentez un système de veille sur les avis clients des concurrents",
-                "impact": "Amélioration de la satisfaction client",
-                "priority": "Basse",
-                "timeline": "4 semaines"
-            }
-        ],
-        "Stratégie contenu": [
-            {
-                "title": "Calendrier éditorial IA",
-                "description": "Générez un calendrier de contenu optimisé basé sur les tendances saisonnières",
-                "impact": "Augmentation de l'engagement de 35%",
-                "priority": "Haute",
-                "timeline": "1 semaine"
-            },
-            {
-                "title": "Optimisation SEO",
-                "description": "Ciblez 10 mots-clés à fort volume et faible concurrence",
-                "impact": "Trafic organique +45% en 3 mois",
-                "priority": "Moyenne",
-                "timeline": "6 semaines"
-            },
-            {
-                "title": "Contenu vidéo interactif",
-                "description": "Développez du contenu vidéo court pour les réseaux sociaux",
-                "impact": "Portée augmentée de 60%",
-                "priority": "Haute",
-                "timeline": "4 semaines"
-            }
-        ]
-    }
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=12,
+        spaceBefore=12,
+        textColor=colors.HexColor('#334155')
+    )
     
-    # Sélectionner les recommandations selon le type d'analyse
-    if analysis_type in base_recommendations:
-        recommendations = base_recommendations[analysis_type]
-    else:
-        # Analyse complète - mélange de toutes les catégories
-        recommendations = []
-        for category in base_recommendations.values():
-            recommendations.extend(category[:1])  # Prend une recommandation de chaque catégorie
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading3'],
+        fontSize=12,
+        spaceAfter=6,
+        spaceBefore=12,
+        textColor=colors.HexColor('#475569')
+    )
     
-    # Personnaliser selon la priorité
-    if priority_focus == "Maximiser ROI":
-        recommendations = [r for r in recommendations if "ROI" in r["impact"] or "%" in r["impact"]]
-    elif priority_focus == "Augmenter conversions":
-        recommendations = [r for r in recommendations if "conversion" in r["description"].lower() or "conversion" in r["impact"].lower()]
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=6
+    )
     
-    # Ajouter des données contextuelles si disponibles
-    if has_data:
-        for rec in recommendations:
-            rec["description"] += f" (basé sur l'analyse des données {time_period.lower()})"
+    # Contenu du rapport
+    story = []
     
-    return recommendations[:5]  # Limiter à 5 recommandations
-
-def generate_recommendations_pdf(user, recommendations, analysis_type):
-    """Génère un PDF des recommandations"""
-    try:
-        from reportlab.lib.pagesizes import letter
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import inch
-        from reportlab.lib import colors
-        from reportlab.pdfgen import canvas
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT
-        import io
+    # Titre
+    story.append(Paragraph("RAPPORT DE RECOMMANDATIONS MARKETING", title_style))
+    story.append(Spacer(1, 12))
+    
+    # Informations générales
+    story.append(Paragraph(f"Date : {datetime.now().strftime('%d/%m/%Y %H:%M')}", normal_style))
+    story.append(Paragraph(f"Généré pour : {user.get('full_name', user.get('username', 'Utilisateur'))}", normal_style))
+    story.append(Paragraph(f"Département : {user.get('department', 'Marketing')}", normal_style))
+    story.append(Spacer(1, 20))
+    
+    # Résumé exécutif
+    story.append(Paragraph("RÉSUMÉ EXÉCUTIF", subtitle_style))
+    story.append(Paragraph(f"Ce rapport présente {len(recommendations)} recommandations marketing basées sur l'analyse des données clients. Les recommandations sont classées par priorité et incluent des actions concrètes ainsi que des indicateurs de performance.", normal_style))
+    story.append(Spacer(1, 12))
+    
+    # Statistiques d'analyse
+    story.append(Paragraph("STATISTIQUES D'ANALYSE", subtitle_style))
+    
+    stats_data = []
+    if sentiment_stats:
+        stats_data.append(["Analyse des sentiments", f"{sentiment_stats.get('total', 0)} avis analysés"])
+        stats_data.append(["", f"Taux positif : {sentiment_stats.get('positif_rate', 0):.1f}%"])
+        stats_data.append(["", f"Taux négatif : {sentiment_stats.get('negatif_rate', 0):.1f}%"])
+    
+    if fake_review_stats:
+        stats_data.append(["Détection faux avis", f"{fake_review_stats.get('total', 0)} avis analysés"])
+        stats_data.append(["", f"Faux avis détectés : {fake_review_stats.get('fake_count', 0)}"])
+        stats_data.append(["", f"Taux de faux avis : {fake_review_stats.get('fake_rate', 0):.1f}%"])
+    
+    if stats_data:
+        stats_table = Table(stats_data, colWidths=[200, 200])
+        stats_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        story.append(stats_table)
+    
+    story.append(Spacer(1, 20))
+    
+    # Recommandations
+    story.append(Paragraph("RECOMMANDATIONS DÉTAILLÉES", subtitle_style))
+    
+    for i, rec in enumerate(recommendations, 1):
+        story.append(Paragraph(f"Recommandation {i}: {rec['title']}", heading_style))
         
-        # Créer le buffer pour le PDF
-        buffer = io.BytesIO()
-        
-        # Créer le document
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=letter,
-            rightMargin=72,
-            leftMargin=72,
-            topMargin=72,
-            bottomMargin=72
-        )
-        
-        # Styles
-        styles = getSampleStyleSheet()
-        
-        # Styles personnalisés
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=24,
-            spaceAfter=30,
-            alignment=TA_CENTER,
-            textColor=colors.HexColor('#1E3A8A')
-        )
-        
-        subtitle_style = ParagraphStyle(
-            'CustomSubtitle',
-            parent=styles['Heading2'],
-            fontSize=16,
-            spaceAfter=20,
-            alignment=TA_CENTER,
-            textColor=colors.HexColor('#475569')
-        )
-        
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=14,
-            spaceAfter=10,
-            spaceBefore=20,
-            textColor=colors.HexColor('#334155')
-        )
-        
-        normal_style = ParagraphStyle(
-            'CustomNormal',
-            parent=styles['Normal'],
-            fontSize=10,
-            spaceAfter=6
-        )
-        
-        # Contenu du PDF
-        story = []
-        
-        # Titre
-        story.append(Paragraph("AIM Analytics Platform - Rapport de Recommandations", title_style))
-        story.append(Spacer(1, 20))
-        
-        # Informations générales
-        story.append(Paragraph(f"Type d'analyse: {analysis_type}", subtitle_style))
-        story.append(Paragraph(f"Généré pour: {user.get('full_name', user.get('username', 'Utilisateur'))}", normal_style))
-        story.append(Paragraph(f"Date: {datetime.now().strftime('%d/%m/%Y %H:%M')}", normal_style))
-        story.append(Paragraph(f"Nombre de recommandations: {len(recommendations)}", normal_style))
-        
-        story.append(Spacer(1, 30))
-        
-        # Résumé exécutif
-        story.append(Paragraph("Résumé Exécutif", heading_style))
-        story.append(Paragraph(
-            f"Ce rapport présente {len(recommendations)} recommandations stratégiques "
-            f"pour optimiser votre performance marketing. Les suggestions sont basées sur "
-            f"l'analyse de données et les meilleures pratiques du secteur.",
-            normal_style
-        ))
-        
-        story.append(Spacer(1, 20))
-        
-        # Recommandations détaillées
-        story.append(Paragraph("Recommandations Détaillées", heading_style))
-        
-        for i, rec in enumerate(recommendations, 1):
-            story.append(Paragraph(f"Recommandation {i}: {rec['title']}", heading_style))
-            story.append(Paragraph(f"Description: {rec['description']}", normal_style))
-            
-            # Tableau des métriques
-            data = [
-                ['Métrique', 'Valeur'],
-                ['Impact estimé', rec['impact']],
-                ['Priorité', rec['priority']],
-                ['Délai recommandé', rec['timeline']]
-            ]
-            
-            table = Table(data, colWidths=[2*inch, 3*inch])
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F1F5F9')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0'))
-            ]))
-            
-            story.append(table)
-            story.append(Spacer(1, 15))
-        
-        # Conclusion
-        story.append(Paragraph("Plan d'Action", heading_style))
-        story.append(Paragraph(
-            "Pour mettre en œuvre ces recommandations, nous suggérons le plan d'action suivant:",
-            normal_style
-        ))
-        
-        action_steps = [
-            "1. Prioriser les recommandations 'Haute' priorité dans les 2 prochaines semaines",
-            "2. Allouer les ressources nécessaires pour les initiatives à fort impact",
-            "3. Mettre en place un suivi mensuel des indicateurs clés",
-            "4. Réviser et ajuster la stratégie tous les trimestres"
+        # Métadonnées de la recommandation
+        meta_data = [
+            ["Catégorie", rec['category']],
+            ["Priorité", rec['priority']],
+            ["Impact estimé", rec['impact']],
+            ["Effort requis", rec['effort']],
+            ["Délai de mise en œuvre", rec['timeframe']]
         ]
         
-        for step in action_steps:
-            story.append(Paragraph(step, normal_style))
+        meta_table = Table(meta_data, colWidths=[100, 300])
+        meta_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ]))
+        story.append(meta_table)
+        
+        story.append(Spacer(1, 6))
+        story.append(Paragraph("Description :", heading_style))
+        story.append(Paragraph(rec['description'], normal_style))
+        story.append(Spacer(1, 6))
+        
+        story.append(Paragraph("Actions concrètes :", heading_style))
+        for action in rec['actions']:
+            story.append(Paragraph(f"• {action}", normal_style))
+        
+        story.append(Spacer(1, 6))
+        story.append(Paragraph("Indicateurs de succès :", heading_style))
+        for kpi in rec['kpis']:
+            story.append(Paragraph(f"• {kpi}", normal_style))
         
         story.append(Spacer(1, 20))
-        
-        # Pied de page
-        story.append(Paragraph(
-            "Généré par AIM Analytics Platform - Plateforme d'Intelligence Marketing",
-            ParagraphStyle(
-                'Footer',
-                parent=styles['Normal'],
-                fontSize=8,
-                alignment=TA_CENTER,
-                textColor=colors.gray
-            )
-        ))
-        
-        # Générer le PDF
-        doc.build(story)
-        
-        # Récupérer le PDF du buffer
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
-        
-        return pdf_bytes
-        
-    except ImportError:
-        # Fallback si reportlab n'est pas installé
-        st.error("La génération PDF nécessite ReportLab. Installez-le avec: pip install reportlab")
-        
-        # Créer un document texte formaté
-        text_content = f"""
-        AIM ANALYTICS PLATFORM - RAPPORT DE RECOMMANDATIONS
-        ====================================================
-        
-        Type d'analyse: {analysis_type}
-        Généré pour: {user.get('full_name', user.get('username', 'Utilisateur'))}
-        Date: {datetime.now().strftime('%d/%m/%Y %H:%M')}
-        
-        RESUME EXECUTIF
-        ---------------
-        Ce rapport présente {len(recommendations)} recommandations stratégiques
-        pour optimiser votre performance marketing.
-        
-        RECOMMANDATIONS DETAILLEES
-        ---------------------------
-        """
-        
-        for i, rec in enumerate(recommendations, 1):
-            text_content += f"""
-        Recommandation {i}: {rec['title']}
-        Description: {rec['description']}
-        Impact estimé: {rec['impact']}
-        Priorité: {rec['priority']}
-        Délai: {rec['timeline']}
-        ----------------------------------------
-            """
-        
-        text_content += """
-        PLAN D'ACTION
-        -------------
-        1. Prioriser les recommandations 'Haute' priorité
-        2. Allouer les ressources nécessaires
-        3. Mettre en place un suivi mensuel
-        4. Réviser la stratégie trimestriellement
-        
-        Généré par AIM Analytics Platform
-        """
-        
-        # Retourner comme bytes (simuler un PDF)
-        return text_content.encode('utf-8')
+    
+    # Plan d'action synthétique
+    story.append(Paragraph("PLAN D'ACTION SYNTHÉTIQUE", subtitle_style))
+    
+    # Tableau récapitulatif des recommandations
+    recap_data = [["N°", "Recommandation", "Priorité", "Impact", "Effort", "Délai"]]
+    
+    for i, rec in enumerate(recommendations, 1):
+        recap_data.append([
+            str(i),
+            rec['title'][:50] + "..." if len(rec['title']) > 50 else rec['title'],
+            rec['priority'],
+            rec['impact'],
+            rec['effort'],
+            rec['timeframe']
+        ])
+    
+    recap_table = Table(recap_data, colWidths=[30, 200, 60, 60, 60, 80])
+    recap_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E3A8A')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ]))
+    story.append(recap_table)
+    
+    story.append(Spacer(1, 20))
+    
+    # Conclusion
+    story.append(Paragraph("CONCLUSION", subtitle_style))
+    story.append(Paragraph("Les recommandations présentées dans ce rapport sont basées sur l'analyse objective des données clients. Une mise en œuvre progressive, en commençant par les recommandations à haute priorité, permettra d'optimiser significativement vos performances marketing.", normal_style))
+    
+    story.append(Spacer(1, 12))
+    story.append(Paragraph("Pour toute question ou besoin d'accompagnement dans la mise en œuvre de ces recommandations, contactez l'équipe d'analyse AIM.", normal_style))
+    
+    story.append(Spacer(1, 20))
+    story.append(Paragraph(f"Généré par AIM Analytics Platform • {datetime.now().strftime('%d/%m/%Y')}", normal_style))
+    
+    # Générer le PDF
+    doc.build(story)
+    
+    # Récupérer le contenu du buffer
+    pdf_content = buffer.getvalue()
+    buffer.close()
+    
+    return pdf_content
 # =============================
 #          MAIN APP
 # =============================
