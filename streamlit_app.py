@@ -6668,7 +6668,7 @@ def render_marketing_overview_existing(user, db):
                 st.plotly_chart(fig, use_container_width=True)
 
 def render_sentiment_analysis_marketing(user, db):
-    """Analyse des sentiments pour marketing - VERSION EXISTANTE"""
+    """Analyse des sentiments pour marketing avec export des résultats"""
     st.subheader("Analyse des Sentiments Clients")
     
     # Vérifier si des données ont été importées
@@ -6693,104 +6693,496 @@ def render_sentiment_analysis_marketing(user, db):
         text_column = st.selectbox(
             "Colonne à analyser:",
             text_cols,
-            help="Sélectionnez la colonne contenant les avis/textes clients"
+            help="Sélectionnez la colonne contenant les avis/textes clients",
+            key="sentiment_text_col"
         )
     
     with col2:
-        if 'rating' in df.columns or 'note' in df.columns:
-            rating_col = 'rating' if 'rating' in df.columns else 'note'
+        rating_col = None
+        if 'rating' in df.columns:
+            rating_col = 'rating'
             st.info(f"Colonne de notes détectée: {rating_col}")
+        elif 'note' in df.columns:
+            rating_col = 'note'
+            st.info(f"Colonne de notes détectée: {rating_col}")
+        else:
+            st.info("Aucune colonne de notes détectée")
     
-    # Analyse
-    if st.button("Lancer l'analyse des sentiments", type="primary"):
+    # Options d'analyse avancée
+    with st.expander("Paramètres d'analyse avancée", expanded=False):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Seuils de classification
+            st.markdown("**Seuils de classification:**")
+            positif_seuil = st.slider(
+                "Seuil positif:", 
+                min_value=0.0, max_value=0.5, value=0.1, step=0.05,
+                help="Polarité au-dessus de cette valeur = Positif"
+            )
+            negatif_seuil = st.slider(
+                "Seuil négatif:", 
+                min_value=-0.5, max_value=0.0, value=-0.1, step=0.05,
+                help="Polarité en-dessous de cette valeur = Négatif"
+            )
+        
+        with col2:
+            # Langue de traduction
+            st.markdown("**Options de langue:**")
+            force_translation = st.checkbox(
+                "Forcer traduction en anglais",
+                value=True,
+                help="TextBlob fonctionne mieux avec l'anglais"
+            )
+            
+            # Détection sarcasme basique
+            detect_sarcasm = st.checkbox(
+                "Détection sarcasme basique",
+                value=False,
+                help="Marquer comme sarcastique les textes courts avec polarité inverse"
+            )
+    
+    # Bouton d'analyse
+    analyze_button = st.button("Lancer l'analyse des sentiments", type="primary", use_container_width=True)
+    
+    if analyze_button:
         with st.spinner("Analyse en cours..."):
             # Vérifier si TextBlob est disponible
             if not TEXTBLOB_AVAILABLE:
                 st.error("TextBlob n'est pas installé")
+                st.markdown("""
+                Pour utiliser l'analyse des sentiments, installez TextBlob :
+                ```
+                pip install textblob
+                python -m textblob.download_corpora
+                ```
+                """)
                 return
             
             # Analyser les sentiments
             sentiments = []
             polarities = []
+            subjectivities = []
+            languages = []
             
             for text in df[text_column].dropna().astype(str):
                 try:
-                    blob = TextBlob(text)
-                    polarity = blob.sentiment.polarity
+                    # Détecter la langue
+                    try:
+                        lang = detect(text)
+                    except:
+                        lang = 'unknown'
+                    languages.append(lang)
                     
-                    # Classifier
-                    if polarity > 0.1:
+                    # Analyser le texte
+                    blob = TextBlob(text)
+                    
+                    # Traduire si nécessaire et activé
+                    if force_translation and lang != 'en':
+                        try:
+                            translated = blob.translate(to='en')
+                            polarity = translated.sentiment.polarity
+                            subjectivity = translated.sentiment.subjectivity
+                        except:
+                            polarity = blob.sentiment.polarity
+                            subjectivity = blob.sentiment.subjectivity
+                    else:
+                        polarity = blob.sentiment.polarity
+                        subjectivity = blob.sentiment.subjectivity
+                    
+                    # Classifier avec les seuils personnalisés
+                    if polarity > positif_seuil:
                         sentiment = 'positif'
-                    elif polarity < -0.1:
+                    elif polarity < negatif_seuil:
                         sentiment = 'négatif'
                     else:
                         sentiment = 'neutre'
                     
+                    # Détection basique de sarcasme
+                    if detect_sarcasm and len(text) < 50:
+                        if (sentiment == 'positif' and rating_col and rating_col in df.columns):
+                            # Si le texte est court et classé positif mais la note est basse
+                            current_idx = len(sentiments)
+                            if current_idx < len(df):
+                                note = df.iloc[current_idx].get(rating_col, None)
+                                if note and note <= 2:
+                                    sentiment = 'sarcastique'
+                    
                     sentiments.append(sentiment)
                     polarities.append(polarity)
+                    subjectivities.append(subjectivity)
                     
                 except Exception as e:
                     sentiments.append('erreur')
                     polarities.append(0)
+                    subjectivities.append(0)
+                    languages.append('error')
             
             # Ajouter les résultats au DataFrame
             df_results = df.copy()
             df_results['sentiment'] = sentiments
             df_results['polarite'] = polarities
+            df_results['subjectivite'] = subjectivities
+            df_results['langue_detectee'] = languages
             
-            # Stocker les résultats
+            # Ajouter une colonne pour l'intensité du sentiment
+            df_results['intensite_sentiment'] = df_results['polarite'].abs()
+            
+            # Classification par intensité
+            def classify_intensity(polarity):
+                abs_pol = abs(polarity)
+                if abs_pol < 0.3:
+                    return 'faible'
+                elif abs_pol < 0.6:
+                    return 'modéré'
+                else:
+                    return 'fort'
+            
+            df_results['intensite'] = df_results['polarite'].apply(classify_intensity)
+            
+            # Stocker les résultats dans la session
             st.session_state['sentiment_results'] = df_results
+            st.session_state['sentiment_analysis_complete'] = True
+            st.session_state['sentiment_text_column'] = text_column
+            st.session_state['sentiment_rating_column'] = rating_col
             
             # Afficher les résultats
-            st.success(f"Analyse terminée sur {len(df_results)} entrées")
+            st.success(f"✅ Analyse terminée sur {len(df_results)} entrées")
+    
+    # Afficher les résultats si l'analyse est terminée
+    if 'sentiment_results' in st.session_state and st.session_state.get('sentiment_analysis_complete', False):
+        df_results = st.session_state['sentiment_results']
+        text_column = st.session_state.get('sentiment_text_column', 'texte')
+        rating_col = st.session_state.get('sentiment_rating_column', None)
+        
+        st.markdown("---")
+        st.markdown("## Résultats de l'analyse")
+        
+        # KPIs rapides
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            total_reviews = len(df_results)
+            st.metric("Total avis analysés", total_reviews)
+        
+        with col2:
+            avg_polarity = df_results['polarite'].mean()
+            st.metric("Polarité moyenne", f"{avg_polarity:.3f}")
+        
+        with col3:
+            avg_subjectivity = df_results['subjectivite'].mean()
+            st.metric("Subjectivité moyenne", f"{avg_subjectivity:.3f}")
+        
+        with col4:
+            unique_languages = df_results['langue_detectee'].nunique()
+            st.metric("Langues détectées", unique_languages)
+        
+        # Distribution des sentiments
+        sentiment_counts = df_results['sentiment'].value_counts()
+        
+        st.markdown("### Distribution des sentiments")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Graphique camembert
+            fig = px.pie(
+                values=sentiment_counts.values,
+                names=sentiment_counts.index,
+                title="Répartition des sentiments",
+                hole=0.3,
+                color_discrete_map={
+                    'positif': '#36B37E',
+                    'négatif': '#FF5630',
+                    'neutre': '#FFAB00',
+                    'sarcastique': '#6554C0',
+                    'erreur': '#6B7280'
+                }
+            )
+            fig.update_traces(textposition='inside', textinfo='percent+label')
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Statistiques détaillées
+            st.markdown("#### Statistiques détaillées")
             
-            # Distribution des sentiments
-            sentiment_counts = df_results['sentiment'].value_counts()
+            sentiment_stats = []
+            for sentiment, count in sentiment_counts.items():
+                percentage = (count / len(df_results)) * 100
+                avg_pol = df_results[df_results['sentiment'] == sentiment]['polarite'].mean()
+                avg_sub = df_results[df_results['sentiment'] == sentiment]['subjectivite'].mean()
+                
+                sentiment_stats.append({
+                    'Sentiment': sentiment,
+                    'Nombre': count,
+                    'Pourcentage': f"{percentage:.1f}%",
+                    'Polarité moyenne': f"{avg_pol:.3f}",
+                    'Subjectivité moyenne': f"{avg_sub:.3f}"
+                })
+            
+            stats_df = pd.DataFrame(sentiment_stats)
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        
+        # Graphique de distribution des polarités
+        st.markdown("### Distribution des polarités")
+        
+        fig_hist = px.histogram(
+            df_results,
+            x='polarite',
+            color='sentiment',
+            nbins=30,
+            title="Histogramme des polarités par sentiment",
+            labels={'polarite': 'Polarité (-1 à 1)', 'count': 'Nombre'},
+            color_discrete_map={
+                'positif': '#36B37E',
+                'négatif': '#FF5630',
+                'neutre': '#FFAB00',
+                'sarcastique': '#6554C0'
+            },
+            opacity=0.7
+        )
+        st.plotly_chart(fig_hist, use_container_width=True)
+        
+        # Corrélation avec les notes si disponibles
+        if rating_col and rating_col in df_results.columns:
+            st.markdown("### Corrélation avec les notes")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                # Graphique camembert
-                fig = px.pie(
-                    values=sentiment_counts.values,
-                    names=sentiment_counts.index,
-                    title="Distribution des sentiments",
-                    hole=0.3,
-                    color_discrete_map={
-                        'positif': '#36B37E',
-                        'négatif': '#FF5630',
-                        'neutre': '#FFAB00'
-                    }
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            
-            with col2:
-                # Statistiques
-                st.markdown("#### Statistiques")
-                for sentiment, count in sentiment_counts.items():
-                    percentage = (count / len(df_results)) * 100
-                    st.write(f"**{sentiment}:** {count} ({percentage:.1f}%)")
-                
-                # Polarité moyenne
-                avg_polarity = df_results['polarite'].mean()
-                st.write(f"**Polarité moyenne:** {avg_polarity:.3f}")
-            
-            # Corrélation avec les notes si disponibles
-            if 'rating' in df.columns or 'note' in df.columns:
-                rating_col = 'rating' if 'rating' in df.columns else 'note'
-                
-                st.markdown("#### Corrélation avec les notes")
-                
-                # Créer un graphique de dispersion
-                fig = px.scatter(
+                # Graphique de dispersion
+                fig_scatter = px.scatter(
                     df_results,
                     x=rating_col,
                     y='polarite',
                     color='sentiment',
                     title="Notes vs Polarité des sentiments",
-                    labels={rating_col: 'Note', 'polarite': 'Polarité'}
+                    labels={rating_col: 'Note', 'polarite': 'Polarité'},
+                    color_discrete_map={
+                        'positif': '#36B37E',
+                        'négatif': '#FF5630',
+                        'neutre': '#FFAB00',
+                        'sarcastique': '#6554C0'
+                    }
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig_scatter, use_container_width=True)
+            
+            with col2:
+                # Notes moyennes par sentiment
+                avg_ratings = df_results.groupby('sentiment')[rating_col].mean().reset_index()
+                avg_ratings = avg_ratings.sort_values(rating_col, ascending=False)
+                
+                fig_bar = px.bar(
+                    avg_ratings,
+                    x='sentiment',
+                    y=rating_col,
+                    title="Note moyenne par sentiment",
+                    labels={'sentiment': 'Sentiment', rating_col: 'Note moyenne'},
+                    color='sentiment',
+                    color_discrete_map={
+                        'positif': '#36B37E',
+                        'négatif': '#FF5630',
+                        'neutre': '#FFAB00',
+                        'sarcastique': '#6554C0'
+                    }
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+        
+        # Analyse par langue
+        st.markdown("### Analyse par langue détectée")
+        
+        if df_results['langue_detectee'].nunique() > 1:
+            lang_stats = df_results['langue_detectee'].value_counts().head(10)
+            
+            fig_lang = px.bar(
+                x=lang_stats.index,
+                y=lang_stats.values,
+                title="Top 10 des langues détectées",
+                labels={'x': 'Langue', 'y': 'Nombre d\'avis'},
+                color=lang_stats.values,
+                color_continuous_scale='Viridis'
+            )
+            st.plotly_chart(fig_lang, use_container_width=True)
+        
+        # Tableau détaillé des résultats
+        st.markdown("### Détails des résultats")
+        
+        with st.expander("Afficher le tableau complet des résultats", expanded=False):
+            # Sélection des colonnes à afficher
+            display_cols = ['sentiment', 'polarite', 'subjectivite', 'intensite', 'langue_detectee']
+            
+            if text_column not in display_cols:
+                display_cols.insert(0, text_column)
+            
+            if rating_col and rating_col not in display_cols:
+                display_cols.append(rating_col)
+            
+            # Ajouter d'autres colonnes intéressantes
+            other_cols = [col for col in ['date', 'author', 'user', 'name'] if col in df_results.columns]
+            display_cols.extend(other_cols)
+            
+            # Filtres
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                selected_sentiments = st.multiselect(
+                    "Filtrer par sentiment:",
+                    options=df_results['sentiment'].unique(),
+                    default=df_results['sentiment'].unique()[:3]
+                )
+            
+            with col2:
+                min_polarity = st.slider(
+                    "Polarité minimum:",
+                    min_value=-1.0,
+                    max_value=1.0,
+                    value=-1.0,
+                    step=0.1
+                )
+            
+            # Appliquer les filtres
+            filtered_df = df_results[
+                (df_results['sentiment'].isin(selected_sentiments)) &
+                (df_results['polarite'] >= min_polarity)
+            ]
+            
+            st.info(f"**{len(filtered_df)}** avis correspondant aux filtres")
+            
+            # Pagination
+            page_size = st.selectbox("Lignes par page:", [10, 25, 50, 100], index=1)
+            total_pages = max(1, len(filtered_df) // page_size)
+            
+            if total_pages > 1:
+                page_number = st.number_input("Page:", min_value=1, max_value=total_pages, value=1)
+                start_idx = (page_number - 1) * page_size
+                end_idx = start_idx + page_size
+                display_data = filtered_df.iloc[start_idx:end_idx]
+            else:
+                display_data = filtered_df
+            
+            st.dataframe(
+                display_data[display_cols],
+                use_container_width=True,
+                height=400
+            )
+        
+        # ===========================================
+        # SECTION D'EXPORT - NOUVELLE FONCTIONNALITÉ
+        # ===========================================
+        st.markdown("---")
+        st.markdown("## Export des résultats")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            # Export CSV complet
+            csv_data = df_results.to_csv(index=False, encoding='utf-8')
+            st.download_button(
+                label=" Exporter tous les résultats (CSV)",
+                data=csv_data,
+                file_name=f"analyse_sentiments_complet_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                help="Export complet au format CSV avec tous les résultats"
+            )
+        
+        with col2:
+            # Export Excel
+            import io
+            excel_buffer = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                # Données complètes
+                df_results.to_excel(writer, sheet_name='Données complètes', index=False)
+                
+                # Résumé statistique
+                summary_data = []
+                for sentiment, count in sentiment_counts.items():
+                    percentage = (count / len(df_results)) * 100
+                    avg_pol = df_results[df_results['sentiment'] == sentiment]['polarite'].mean()
+                    avg_sub = df_results[df_results['sentiment'] == sentiment]['subjectivite'].mean()
+                    
+                    summary_data.append({
+                        'Sentiment': sentiment,
+                        'Nombre': count,
+                        'Pourcentage': percentage,
+                        'Polarité moyenne': avg_pol,
+                        'Subjectivité moyenne': avg_sub
+                    })
+                
+                summary_df = pd.DataFrame(summary_data)
+                summary_df.to_excel(writer, sheet_name='Résumé statistique', index=False)
+                
+                # Données brutes avec sentiment
+                selected_cols = [text_column, 'sentiment', 'polarite', 'subjectivite', 'intensite']
+                if rating_col:
+                    selected_cols.append(rating_col)
+                
+                df_results[selected_cols].to_excel(writer, sheet_name='Données essentielles', index=False)
+                
+                # Métadonnées
+                metadata = pd.DataFrame({
+                    'Paramètre': [
+                        'Date d\'analyse',
+                        'Fichier source',
+                        'Colonne analysée',
+                        'Total avis',
+                        'Polarité moyenne',
+                        'Subjectivité moyenne',
+                        'Avis positifs',
+                        'Avis négatifs',
+                        'Avis neutres'
+                    ],
+                    'Valeur': [
+                        datetime.now().strftime('%Y-%m-%d %H:%M'),
+                        st.session_state.get('marketing_filename', 'N/A'),
+                        text_column,
+                        len(df_results),
+                        df_results['polarite'].mean(),
+                        df_results['subjectivite'].mean(),
+                        sentiment_counts.get('positif', 0),
+                        sentiment_counts.get('négatif', 0),
+                        sentiment_counts.get('neutre', 0)
+                    ]
+                })
+                metadata.to_excel(writer, sheet_name='Métadonnées', index=False)
+            
+            excel_data = excel_buffer.getvalue()
+            
+            st.download_button(
+                label=" Exporter rapport Excel",
+                data=excel_data,
+                file_name=f"rapport_sentiments_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                help="Rapport Excel complet avec plusieurs feuilles de calcul"
+            )
+        
+        with col3:
+            # Export par sentiment
+            sentiment_choice = st.selectbox(
+                "Exporter par sentiment:",
+                options=['Tous'] + list(df_results['sentiment'].unique()),
+                key="export_sentiment"
+            )
+            
+            if sentiment_choice != 'Tous':
+                export_df = df_results[df_results['sentiment'] == sentiment_choice]
+                count = len(export_df)
+            else:
+                export_df = df_results
+                count = len(export_df)
+            
+            csv_filtered = export_df.to_csv(index=False, encoding='utf-8')
+            st.download_button(
+                label=f"📄 Exporter {sentiment_choice} ({count})",
+                data=csv_filtered,
+                file_name=f"sentiments_{sentiment_choice}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+                help=f"Exporter seulement les avis {sentiment_choice}"
+            )
+
+
 
 def render_fake_reviews_detection_marketing(user, db):
     """Détection de faux avis pour marketing avec analyse des auteurs"""
