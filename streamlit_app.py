@@ -8113,14 +8113,20 @@ def generate_pdf_report(recommendations, user, sentiment_stats, fake_review_stat
             # Titre de la recommandation
             pdf.setFont("Helvetica-Bold", 12)
             pdf.setFillColorRGB(*secondary_color)
-            pdf.drawString(2*cm, y_position, f"Recommandation {i+1} : {rec['title']}")
+            
+            # Titre raccourci si trop long
+            title = f"Recommandation {i+1} : {rec['title']}"
+            if len(title) > 80:
+                title = title[:77] + "..."
+            
+            pdf.drawString(2*cm, y_position, title)
             y_position -= 0.7*cm
             
             # Détails
             pdf.setFont("Helvetica", 10)
             pdf.setFillColorRGB(0, 0, 0)
             
-            # Catégorie et priorité
+            # Catégorie et priorité seulement (pas d'impact/effort)
             pdf.drawString(3*cm, y_position, f"• Catégorie : {rec['category']}")
             y_position -= 0.5*cm
             pdf.drawString(3*cm, y_position, f"• Priorité : {rec['priority']}")
@@ -8135,7 +8141,7 @@ def generate_pdf_report(recommendations, user, sentiment_stats, fake_review_stat
             if len(description) > 150:
                 description = description[:147] + "..."
             
-            # Ajuster la position pour la description
+            # Diviser la description en lignes
             lines = []
             words = description.split()
             current_line = ""
@@ -8263,12 +8269,14 @@ def generate_pdf_report(recommendations, user, sentiment_stats, fake_review_stat
         
     except Exception as e:
         # En cas d'erreur, créer un PDF d'erreur simple
+        import io
         buffer = io.BytesIO()
         pdf = canvas.Canvas(buffer, pagesize=A4)
         pdf.setFont("Helvetica-Bold", 16)
         pdf.drawString(2*cm, 20*cm, "Erreur lors de la génération du PDF")
         pdf.setFont("Helvetica", 12)
-        pdf.drawString(2*cm, 19*cm, "Veuillez réessayer ou contacter le support.")
+        pdf.drawString(2*cm, 19*cm, f"Erreur : {str(e)[:50]}...")
+        pdf.drawString(2*cm, 18*cm, "Veuillez réessayer ou contacter le support.")
         pdf.save()
         error_content = buffer.getvalue()
         buffer.close()
