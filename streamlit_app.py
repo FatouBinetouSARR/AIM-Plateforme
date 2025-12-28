@@ -6901,6 +6901,12 @@ def render_fake_reviews_detection_marketing(user, db):
                 help="Simuler la détection d'IP identiques (si colonne IP disponible)"
             )
     
+    # Initialiser les variables pour stocker les résultats
+    analysis_df = None
+    suspicious_authors_data = None
+    fake_count = 0
+    total_reviews = 0
+    
     # Bouton d'analyse
     if st.button("Analyser les faux avis", type="primary", use_container_width=True):
         with st.spinner("Analyse en cours..."):
@@ -6998,6 +7004,18 @@ def render_fake_reviews_detection_marketing(user, db):
             suspicion_columns = ['suspicious_length', 'suspicious_repetition', 'suspicious_rating', 'suspicious_author']
             analysis_df['suspicion_score'] = analysis_df[suspicion_columns].sum(axis=1)
             analysis_df['is_fake_review'] = analysis_df['suspicion_score'] >= 2
+            
+            # Stocker les résultats dans la session
+            st.session_state['fake_reviews_analysis'] = {
+                'analysis_df': analysis_df,
+                'suspicious_authors_data': suspicious_authors_data,
+                'params': {
+                    'min_length': min_length,
+                    'repetition_threshold': repetition_threshold,
+                    'extreme_rating_threshold': extreme_rating_threshold,
+                    'min_reviews_per_author': min_reviews_per_author
+                }
+            }
             
             # ===========================================
             # AFFICHAGE DES RÉSULTATS
@@ -7187,76 +7205,99 @@ def render_fake_reviews_detection_marketing(user, db):
                             mime="text/csv",
                             use_container_width=True
                         )
-                
-                # ===========================================
-                # RAPPORT DÉTAILLÉ
-                # ===========================================
-                st.markdown("### Rapport d'analyse")
-                
-                if st.button("Générer un rapport détaillé", use_container_width=True):
-                    report_content = f"""
-                    RAPPORT DE DÉTECTION DE FAUX AVIS - AIM ANALYTICS
-                    ===================================================
-                    
-                    Date d'analyse: {datetime.now().strftime('%d/%m/%Y %H:%M')}
-                    Fichier analysé: {st.session_state.get('marketing_filename', 'N/A')}
-                    Analyste: {user.get('full_name', user.get('username', 'Utilisateur'))}
-                    
-                    PARAMÈTRES UTILISÉS:
-                    - Longueur texte minimale: {min_length} caractères
-                    - Seuil de répétition: {repetition_threshold}%
-                    - Détection notes extrêmes: {'Activée' if extreme_rating_threshold else 'Désactivée'}
-                    - Avis minimum par auteur suspect: {min_reviews_per_author}
-                    
-                    RÉSULTATS:
-                    - Total avis analysés: {total_reviews}
-                    - Faux avis détectés: {fake_count}
-                    - Taux de faux avis: {fake_percentage:.1f}%
-                    - Auteurs suspects identifiés: {len(suspicious_authors_data) if suspicious_authors_data else 0}
-                    
-                    DISTRIBUTION DES SCORES DE SUSPICION:
-                    """
-                    
-                    # Ajouter la distribution des scores
-                    score_distribution = analysis_df['suspicion_score'].value_counts().sort_index()
-                    for score, count in score_distribution.items():
-                        percentage = (count / total_reviews) * 100
-                        report_content += f"\n- Score {score}: {count} avis ({percentage:.1f}%)"
-                    
-                    # Ajouter les auteurs suspects
-                    if suspicious_authors_data:
-                        report_content += f"\n\nAUTEURS SUSPECTS ({len(suspicious_authors_data)}):"
-                        for i, (author, stats) in enumerate(list(suspicious_authors_data.items())[:10], 1):
-                            fake_percent = (stats['fake_reviews_count'] / stats['total_reviews']) * 100
-                            report_content += f"""
+            else:
+                st.success("✅ Aucun faux avis détecté selon les critères définis")
+    
+    # ===========================================
+    # BOUTON DE RAPPORT DÉTAILLÉ (EN DEHORS DE LA CONDITION)
+    # ===========================================
+    
+    # Vérifier si une analyse a été effectuée
+    if 'fake_reviews_analysis' in st.session_state:
+        analysis_data = st.session_state['fake_reviews_analysis']
+        analysis_df = analysis_data['analysis_df']
+        suspicious_authors_data = analysis_data['suspicious_authors_data']
+        params = analysis_data['params']
+        
+        fake_count = analysis_df['is_fake_review'].sum() if analysis_df is not None else 0
+        total_reviews = len(analysis_df) if analysis_df is not None else 0
+        
+        st.markdown("---")
+        st.markdown("### Rapport d'analyse")
+        
+        # Bouton pour générer le rapport
+        if st.button(" Générer un rapport détaillé", use_container_width=True):
+            # Préparer le contenu du rapport
+            fake_percentage = (fake_count / total_reviews * 100) if total_reviews > 0 else 0
+            
+            report_content = f"""
+            RAPPORT DE DÉTECTION DE FAUX AVIS - AIM ANALYTICS
+            ===================================================
+            
+            Date d'analyse: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+            Fichier analysé: {st.session_state.get('marketing_filename', 'N/A')}
+            Analyste: {user.get('full_name', user.get('username', 'Utilisateur'))}
+            
+            PARAMÈTRES UTILISÉS:
+            - Longueur texte minimale: {params['min_length']} caractères
+            - Seuil de répétition: {params['repetition_threshold']}%
+            - Détection notes extrêmes: {'Activée' if params['extreme_rating_threshold'] else 'Désactivée'}
+            - Avis minimum par auteur suspect: {params['min_reviews_per_author']}
+            
+            RÉSULTATS:
+            - Total avis analysés: {total_reviews}
+            - Faux avis détectés: {fake_count}
+            - Taux de faux avis: {fake_percentage:.1f}%
+            - Auteurs suspects identifiés: {len(suspicious_authors_data) if suspicious_authors_data else 0}
+            
+            DISTRIBUTION DES SCORES DE SUSPICION:
+            """
+            
+            # Ajouter la distribution des scores
+            if analysis_df is not None:
+                score_distribution = analysis_df['suspicion_score'].value_counts().sort_index()
+                for score, count in score_distribution.items():
+                    percentage = (count / total_reviews) * 100
+                    report_content += f"\n- Score {score}: {count} avis ({percentage:.1f}%)"
+            
+            # Ajouter les auteurs suspects
+            if suspicious_authors_data:
+                report_content += f"\n\nAUTEURS SUSPECTS ({len(suspicious_authors_data)}):"
+                for i, (author, stats) in enumerate(list(suspicious_authors_data.items())[:10], 1):
+                    fake_percent = (stats['fake_reviews_count'] / stats['total_reviews'] * 100) if stats['total_reviews'] > 0 else 0
+                    report_content += f"""
     {i}. {author}:
        - Total avis: {stats['total_reviews']}
        - Avis suspects: {stats['fake_reviews_count']}
        - Taux suspicion: {fake_percent:.1f}%
        - Longueur moyenne: {stats['avg_text_length']:.0f} caractères
-                            """
-                    
-                    report_content += f"""
-                    
-                    RECOMMANDATIONS:
-                    1. Vérifier manuellement les avis avec score ≥3
-                    2. Contacter les {min(5, len(suspicious_authors_data))} auteurs les plus suspects
-                    3. Implémenter un système de validation pour les nouveaux avis
-                    4. Mettre en place une limite d'avis par utilisateur par jour
-                    
-                    ---
-                    Rapport généré automatiquement par AIM Analytics Platform
                     """
-                    
-                    st.download_button(
-                        label="Télécharger le rapport complet",
-                        data=report_content,
-                        file_name=f"rapport_faux_avis_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                        mime="text/plain",
-                        use_container_width=True
-                    )
-            else:
-                st.success(" Aucun faux avis détecté selon les critères définis")
+            
+            report_content += f"""
+            
+            RECOMMANDATIONS:
+            1. Vérifier manuellement les avis avec score ≥3
+            2. Contacter les {min(5, len(suspicious_authors_data) if suspicious_authors_data else 0)} auteurs les plus suspects
+            3. Implémenter un système de validation pour les nouveaux avis
+            4. Mettre en place une limite d'avis par utilisateur par jour
+            
+            ---
+            Rapport généré automatiquement par AIM Analytics Platform
+            """
+            
+            # Créer un bouton de téléchargement
+            st.download_button(
+                label=" Télécharger le rapport complet",
+                data=report_content,
+                file_name=f"rapport_faux_avis_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+            
+            # Afficher un aperçu du rapport
+            with st.expander("Aperçu du rapport", expanded=False):
+                st.text(report_content[:2000] + "..." if len(report_content) > 2000 else report_content)
+                
 def render_ai_recommendations_marketing(user, db):
     """Recommandations IA pour marketing avec génération PDF"""
     st.subheader("Recommandations IA")
